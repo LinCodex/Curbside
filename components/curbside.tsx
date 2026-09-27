@@ -1260,6 +1260,122 @@ export default function Curbside() {
                 ))}
               </div>
             )}
+            <div
+              className="glass form-card account-legal-card"
+              style={{ marginTop: 20 }}
+            >
+              <div className="row spread">
+                <h2>{tr("Legal & disclosures")}</h2>
+                <ShieldCheck size={20} />
+              </div>
+              <p className="small muted">
+                {tr(
+                  "Review our privacy commitments, service terms, accessibility standards, and public mapping data sources.",
+                )}
+              </p>
+              <div className="account-legal-grid">
+                <a className="account-legal-item" href="/legal/privacy">
+                  <div className="account-legal-item-icon">
+                    <ShieldCheck size={16} />
+                  </div>
+                  <div className="account-legal-item-text">
+                    <strong>{tr("Privacy Policy")}</strong>
+                    <span>
+                      {tr(
+                        "How your plate, email, and vehicle data are protected.",
+                      )}
+                    </span>
+                  </div>
+                  <ArrowUpRight
+                    size={14}
+                    className="account-legal-item-arrow"
+                  />
+                </a>
+                <a className="account-legal-item" href="/legal/terms">
+                  <div className="account-legal-item-icon">
+                    <FileText size={16} />
+                  </div>
+                  <div className="account-legal-item-text">
+                    <strong>{tr("Terms of Service")}</strong>
+                    <span>
+                      {tr(
+                        "Rights, responsibilities, and cancellation terms.",
+                      )}
+                    </span>
+                  </div>
+                  <ArrowUpRight
+                    size={14}
+                    className="account-legal-item-arrow"
+                  />
+                </a>
+                <a className="account-legal-item" href="/legal">
+                  <div className="account-legal-item-icon">
+                    <Info size={16} />
+                  </div>
+                  <div className="account-legal-item-text">
+                    <strong>{tr("Legal & Accessibility")}</strong>
+                    <span>
+                      {tr(
+                        "Accessibility standards, policies, and disclosures.",
+                      )}
+                    </span>
+                  </div>
+                  <ArrowUpRight
+                    size={14}
+                    className="account-legal-item-arrow"
+                  />
+                </a>
+                <a className="account-legal-item" href="/legal/sources">
+                  <div className="account-legal-item-icon">
+                    <MapPin size={16} />
+                  </div>
+                  <div className="account-legal-item-text">
+                    <strong>{tr("Map Data & Sources")}</strong>
+                    <span>
+                      {tr(
+                        "NYC OpenData, Department of City Planning, and Mapbox.",
+                      )}
+                    </span>
+                  </div>
+                  <ArrowUpRight
+                    size={14}
+                    className="account-legal-item-arrow"
+                  />
+                </a>
+              </div>
+              <div className="account-map-attribution">
+                <p className="small muted">
+                  {tr("Map data and geographic information:")}
+                </p>
+                <div className="account-attribution-links">
+                  <a href="/legal/sources">{tr("NYC DCP Map Data")}</a>
+                  <span>·</span>
+                  <a
+                    href="https://www.mapbox.com/about/maps"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    © Mapbox
+                  </a>
+                  <span>·</span>
+                  <a
+                    href="https://www.openstreetmap.org/copyright"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    © OpenStreetMap
+                  </a>
+                  <span>·</span>
+                  <a
+                    href="https://apps.mapbox.com/feedback/"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {tr("Improve this map")}
+                  </a>
+                </div>
+              </div>
+            </div>
           </section>
         )}
         {view === "partner" && (
