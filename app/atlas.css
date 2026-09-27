@@ -1042,11 +1042,17 @@ h3 {
     display: none;
   }
   .app-header {
-    padding: 0 25px;
+    padding: 0 24px;
     height: 88px;
+    width: 100%;
+    box-sizing: border-box;
   }
   .main-view {
-    width: calc(100% - 50px);
+    width: 100%;
+    max-width: 100%;
+    padding: 0 24px;
+    margin: 0 auto;
+    box-sizing: border-box;
   }
   .welcome {
     padding-top: 24px;
@@ -1102,7 +1108,9 @@ h3 {
 @media (max-width: 640px) {
   .app-header {
     height: 79px;
-    padding: 0 22px;
+    padding: 0 16px;
+    width: 100%;
+    box-sizing: border-box;
   }
   .wordmark {
     font-size: 24px;
@@ -1137,9 +1145,12 @@ h3 {
     display: none;
   }
   .main-view {
-    width: calc(100% - 40px);
+    width: 100%;
+    max-width: 100%;
+    padding: 0 16px 85px;
+    margin: 0 auto;
     min-height: calc(100svh - 79px);
-    padding-bottom: 85px;
+    box-sizing: border-box;
   }
   .welcome {
     padding: 22px 0 0;

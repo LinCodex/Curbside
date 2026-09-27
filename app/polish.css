@@ -587,51 +587,137 @@ button:active:not(:disabled) {
   }
 }
 @media (max-width: 800px) {
+  .main-view {
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+    box-sizing: border-box;
+  }
+  .welcome {
+    align-items: center;
+    width: 100%;
+  }
+  .welcome-context {
+    width: 100%;
+    max-width: 540px;
+    margin: 0 auto;
+    justify-content: center;
+  }
   .welcome-grid {
     grid-template-columns: minmax(0, 1fr);
     gap: 32px;
+    width: 100%;
+    max-width: 540px;
+    margin: 0 auto;
+    justify-items: center;
+  }
+  .welcome-title {
+    width: 100%;
+    max-width: 540px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .welcome-title .eyebrow {
+    display: inline-block;
+  }
+  .welcome-source {
+    justify-content: center;
   }
   .search-dock {
-    justify-self: start;
-    max-width: 550px;
+    justify-self: center;
+    margin: 0 auto;
+    max-width: 540px;
+    width: 100%;
+  }
+  .content-page {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .search-layout,
+  .account-layout {
+    grid-template-columns: 1fr;
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+    justify-items: center;
+  }
+  .search-layout .form-card,
+  .search-layout .results-card,
+  .account-layout .form-card,
+  .account-legal-card {
+    width: 100%;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+    box-sizing: border-box;
   }
   .legal-layout {
     grid-template-columns: 1fr;
     gap: 30px;
+    width: 100%;
+    max-width: 680px;
+    margin: 0 auto;
   }
   .legal-nav {
     position: static;
     flex-direction: row;
     flex-wrap: wrap;
     gap: 4px;
+    justify-content: center;
   }
   .legal-main {
     padding-top: 40px;
+    width: 100%;
+    max-width: 680px;
+    margin: 0 auto;
+  }
+  .page-footer {
+    justify-content: center;
+    text-align: center;
+    margin-left: auto;
+    margin-right: auto;
   }
 }
 @media (max-width: 640px) {
   .main-view {
     padding-bottom: calc(94px + env(safe-area-inset-bottom));
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+    box-sizing: border-box;
+  }
+  .welcome-context {
+    justify-content: center;
   }
   .welcome-grid {
-    padding: 28px 0;
-    gap: 30px;
+    padding: 24px 0;
+    gap: 28px;
+    width: 100%;
+    max-width: 100%;
+  }
+  .welcome-title {
+    text-align: center;
   }
   .welcome-title h1 {
-    font-size: clamp(40px, 11.8vw, 65px);
+    font-size: clamp(38px, 11vw, 56px);
     line-height: 1.08;
-    margin: 17px 0;
+    margin: 16px 0;
   }
   .welcome-title h1 > span {
     white-space: normal;
   }
   .welcome-title > p {
     font-size: 14px;
-    line-height: 1.75;
+    line-height: 1.65;
   }
   .welcome-title .eyebrow,
   .welcome-context {
     font-size: 10px;
+  }
+  .welcome-source {
+    justify-content: center;
+    text-align: left;
   }
   .coordinate {
     display: none;
@@ -639,10 +725,12 @@ button:active:not(:disabled) {
   .search-dock,
   .form-card,
   .results-card {
-    padding: 24px 20px;
+    padding: 22px 18px;
+    width: 100%;
+    box-sizing: border-box;
   }
   .search-form {
-    gap: 20px;
+    gap: 18px;
   }
   .search-options {
     gap: 14px;
@@ -665,17 +753,24 @@ button:active:not(:disabled) {
     font-size: 12px;
   }
   .page-footer {
-    align-items: flex-start;
+    align-items: center;
+    text-align: center;
     flex-direction: column;
-    gap: 3px;
+    gap: 6px;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 540px;
   }
   .page-footer > span {
     font-size: 10px;
     order: 3;
+    text-align: center;
   }
   .welcome-bottom {
     gap: 20px;
-    align-items: flex-start;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
   }
   .welcome-bottom p {
     max-width: 190px;
