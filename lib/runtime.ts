@@ -1,9 +1,17 @@
-// On Cloudflare Workers, `cloudflare:workers` provides the real env bindings.
-// On Vercel, vite.config.ts aliases this import to build/cloudflare-workers-stub.js
-// which re-exports process.env, so the same import works on both platforms.
-import { env } from "cloudflare:workers";
+// Environment variable accessor compatible with Vercel (Edge & Serverless) and Cloudflare runtimes
+const getEnv = (): Record<string, any> => {
+  if (typeof process !== "undefined" && process.env) {
+    return process.env as unknown as Record<string, any>;
+  }
+  // @ts-ignore
+  if (typeof globalThis !== "undefined" && globalThis.env) {
+    // @ts-ignore
+    return globalThis.env as Record<string, any>;
+  }
+  return {} as Record<string, any>;
+};
 
-export const config = () => env as unknown as Record<string, any>;
+export const config = () => getEnv();
 export const db = () => {
   const d = config().DB as D1Database | undefined;
   if (!d)
