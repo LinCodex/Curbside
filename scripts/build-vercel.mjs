@@ -15,13 +15,34 @@ const prerenderDir = path.resolve("dist/server/prerendered-routes");
 const clientDir = path.resolve("dist/client");
 const publicDir = path.resolve("public");
 
-if (fs.existsSync(prerenderDir)) {
-  for (const file of fs.readdirSync(prerenderDir)) {
-    if (file.endsWith(".html")) {
-      fs.copyFileSync(path.join(prerenderDir, file), path.join(clientDir, file));
-      console.log(`Copied ${file} to dist/client/`);
+function copyPrerendered(srcDir, destDir) {
+  if (!fs.existsSync(srcDir)) return;
+  fs.mkdirSync(destDir, { recursive: true });
+  for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+    const srcPath = path.join(srcDir, entry.name);
+    const destPath = path.join(destDir, entry.name);
+    if (entry.isDirectory()) {
+      copyPrerendered(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+      console.log(`Copied ${path.relative(clientDir, destPath)} to dist/client/`);
+
+      if (
+        entry.name.endsWith(".html") &&
+        entry.name !== "index.html" &&
+        entry.name !== "404.html"
+      ) {
+        const baseName = entry.name.replace(/\.html$/, "");
+        const subDir = path.join(destDir, baseName);
+        fs.mkdirSync(subDir, { recursive: true });
+        fs.copyFileSync(srcPath, path.join(subDir, "index.html"));
+      }
     }
   }
+}
+
+if (fs.existsSync(prerenderDir)) {
+  copyPrerendered(prerenderDir, clientDir);
 }
 
 // Ensure icon assets and manifest are in dist/client/

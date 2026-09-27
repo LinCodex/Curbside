@@ -30,6 +30,7 @@ import {
   Navigation,
   LockKeyhole,
   CheckCircle2,
+  Accessibility,
   LogOut,
 } from "lucide-react";
 import CityMap from "./city-map";
@@ -1340,15 +1341,32 @@ export default function Curbside() {
                     className="account-legal-item-arrow"
                   />
                 </a>
+                <a className="account-legal-item" href="/legal/accessibility">
+                  <div className="account-legal-item-icon">
+                    <Accessibility size={16} />
+                  </div>
+                  <div className="account-legal-item-text">
+                    <strong>{tr("Accessibility")}</strong>
+                    <span>
+                      {tr(
+                        "WCAG 2.2 standards, screen reader, and keyboard support.",
+                      )}
+                    </span>
+                  </div>
+                  <ArrowUpRight
+                    size={14}
+                    className="account-legal-item-arrow"
+                  />
+                </a>
                 <a className="account-legal-item" href="/legal">
                   <div className="account-legal-item-icon">
                     <Info size={16} />
                   </div>
                   <div className="account-legal-item-text">
-                    <strong>{tr("Legal & Accessibility")}</strong>
+                    <strong>{tr("All Legal Policies")}</strong>
                     <span>
                       {tr(
-                        "Accessibility standards, policies, and disclosures.",
+                        "Full directory of terms, privacy, messaging, and billing.",
                       )}
                     </span>
                   </div>

@@ -633,5 +633,8 @@
   "approved": "已批准",
   "accepted": "已接受",
   "resolved": "已处理",
-  "draft_ready": "草稿已就绪"
+  "draft_ready": "草稿已就绪",
+  "All Legal Policies": "全部法律政策",
+  "Full directory of terms, privacy, messaging, and billing.": "包含条款、隐私、短信及账单的完整政策目录。",
+  "WCAG 2.2 standards, screen reader, and keyboard support.": "WCAG 2.2 标准、屏幕阅读器与键盘操作支持。"
 }

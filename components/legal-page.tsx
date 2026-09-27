@@ -1,5 +1,6 @@
 "use client";
 import { usePreferences, PreferencesMenu } from "./preferences";
+import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import {
   LEGAL_VERSION,
@@ -10,8 +11,30 @@ import {
 
 export default function LegalPage({ document }: { document?: string }) {
   const { tr } = usePreferences();
+  const [clientDoc, setClientDoc] = useState<string | undefined>(document);
 
-  const page = document ? legalDocuments[document] : null;
+  useEffect(() => {
+    if (!document && typeof window !== "undefined") {
+      const seg = window.location.pathname
+        .replace(/^\/legal\/?/, "")
+        .split("/")[0]
+        ?.replace(/\.html$/, "");
+      if (seg && Object.hasOwn(legalDocuments, seg)) {
+        setClientDoc(seg);
+      }
+    }
+  }, [document]);
+
+  const activeDoc = document || clientDoc;
+  const page = activeDoc ? legalDocuments[activeDoc] : null;
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const sub = page?.title ? tr(page.title) : tr("Legal & Policies");
+      document.title = `Curbside | ${sub}`;
+    }
+  }, [page?.title, tr]);
+
   return (
     <div className="legal-shell">
       <a className="skip-link" href="#legal-content">
@@ -51,7 +74,7 @@ export default function LegalPage({ document }: { document?: string }) {
                 <a
                   key={key}
                   href={"/legal/" + key}
-                  aria-current={document === key ? "page" : undefined}
+                  aria-current={activeDoc === key ? "page" : undefined}
                 >
                   {tr(p.title)}
                 </a>
@@ -73,7 +96,7 @@ export default function LegalPage({ document }: { document?: string }) {
                   )}
                 </section>
               ))}
-              {document === "sources" && (
+              {activeDoc === "sources" && (
                 <section>
                   <h2>{tr("Official reference material")}</h2>
                   <p>
