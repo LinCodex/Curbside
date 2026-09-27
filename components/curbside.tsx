@@ -172,6 +172,22 @@ export default function Curbside() {
     };
   }, []);
   useEffect(() => {
+    const activePlate = plate.trim() || results?.plate?.plate || "";
+    let sub = "NYC Ticket Monitoring";
+    if (activePlate) {
+      sub = `${activePlate.toUpperCase()} · NYC Tickets`;
+    } else if (view === "map") {
+      sub = "Live Map";
+    } else if (view === "cases") {
+      sub = "Disputes";
+    } else if (view === "timeline") {
+      sub = "Timeline";
+    } else if (view === "account") {
+      sub = "Settings";
+    }
+    document.title = `Curbside | ${sub}`;
+  }, [plate, results?.plate?.plate, view]);
+  useEffect(() => {
     if (!config.clerkKey) return;
     let disposed = false;
     let unsub: (() => void) | undefined;

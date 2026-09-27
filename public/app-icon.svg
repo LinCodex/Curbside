@@ -1,1 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><rect width="512" height="512" fill="#080b0f"/><g fill="#e7eef6" transform="translate(141 132) rotate(12 115 124)"><rect width="54" height="248" rx="12"/><rect x="88" y="68" width="54" height="180" rx="12"/><rect x="176" y="136" width="54" height="112" rx="12"/></g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="app-bg" x1="0" y1="0" x2="0" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0e1724"/>
+      <stop offset="100%" stop-color="#05080e"/>
+    </linearGradient>
+    <linearGradient id="app-bar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#dce9fc"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="120" fill="url(#app-bg)"/>
+  <rect width="512" height="512" rx="120" fill="none" stroke="#223348" stroke-width="8"/>
+  <g fill="url(#app-bar)" transform="translate(256 256) skewX(-14) translate(-256 -256)">
+    <rect x="163" y="128" width="56" height="256" rx="20"/>
+    <rect x="247" y="204" width="56" height="180" rx="20"/>
+    <rect x="331" y="280" width="56" height="104" rx="20"/>
+  </g>
+</svg>

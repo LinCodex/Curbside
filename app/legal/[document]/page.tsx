@@ -8,7 +8,7 @@ export async function generateMetadata({
 }) {
   const { document } = await params;
   return {
-    title: (legalDocuments[document]?.title || "Not found") + " — Curbside",
+    title: legalDocuments[document]?.title || "Not Found",
   };
 }
 export default async function Page({

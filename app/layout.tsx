@@ -7,7 +7,10 @@ import { PreferencesProvider } from "@/components/preferences";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 export const metadata: Metadata = {
-  title: "Curbside — NYC ticket monitoring",
+  title: {
+    default: "Curbside | NYC Ticket Monitoring",
+    template: "Curbside | %s",
+  },
   description: "Your NYC tickets, reminders, and next steps. All in one place.",
   robots: { index: false, follow: false },
   manifest: "/manifest.webmanifest",
@@ -17,7 +20,10 @@ export const metadata: Metadata = {
     statusBarStyle: "black-translucent",
   },
   icons: {
-    icon: "/favicon.svg",
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
     shortcut: "/favicon.svg",
     apple: "/apple-touch-icon.png",
   },
