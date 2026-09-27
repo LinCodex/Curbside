@@ -114,8 +114,9 @@ export default function CityMap({
     let disposed = false;
     setFailed(false);
     import("mapbox-gl")
-      .then(({ default: mapbox }) => {
-        if (disposed || !surface.current) return;
+      .then((mod: any) => {
+        const mapbox = mod.default || mod;
+        if (disposed || !surface.current || !mapbox?.Map) return;
         const map = new mapbox.Map({
           container: surface.current,
           accessToken: token,

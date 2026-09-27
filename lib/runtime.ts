@@ -106,7 +106,18 @@ export const publicConfig = () => {
   const e = config();
   return {
     clerkKey: e.CLERK_PUBLISHABLE_KEY || null,
-    mapboxToken: e.MAPBOX_PUBLIC_TOKEN || null,
+    mapboxToken:
+      e.MAPBOX_PUBLIC_TOKEN ||
+      e.NEXT_PUBLIC_MAPBOX_TOKEN ||
+      e.MAPBOX_TOKEN ||
+      e.MAPBOX_ACCESS_TOKEN ||
+      (typeof process !== "undefined" && (
+        process.env?.MAPBOX_PUBLIC_TOKEN ||
+        process.env?.NEXT_PUBLIC_MAPBOX_TOKEN ||
+        process.env?.MAPBOX_TOKEN ||
+        process.env?.MAPBOX_ACCESS_TOKEN
+      )) ||
+      null,
     turnstileKey: e.TURNSTILE_SITE_KEY || null,
     services: {
       accounts: !!e.CLERK_SECRET_KEY,
