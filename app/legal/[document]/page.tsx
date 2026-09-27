@@ -25,5 +25,5 @@ export default async function Page({
 }) {
   const { document } = await params;
   if (!Object.hasOwn(legalDocuments, document)) notFound();
-  return <LegalPage document={document} />;
+  return <LegalPage docName={document} />;
 }

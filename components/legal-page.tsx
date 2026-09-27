@@ -9,12 +9,19 @@ import {
   LEGAL_SOURCES,
 } from "@/lib/legal";
 
-export default function LegalPage({ document }: { document?: string }) {
+export default function LegalPage({
+  docName,
+  document: docProp,
+}: {
+  docName?: string;
+  document?: string;
+}) {
+  const initialDoc = docName || docProp;
   const { tr } = usePreferences();
-  const [clientDoc, setClientDoc] = useState<string | undefined>(document);
+  const [clientDoc, setClientDoc] = useState<string | undefined>(initialDoc);
 
   useEffect(() => {
-    if (!document && typeof window !== "undefined") {
+    if (!initialDoc && typeof window !== "undefined") {
       const seg = window.location.pathname
         .replace(/^\/legal\/?/, "")
         .split("/")[0]
@@ -23,15 +30,15 @@ export default function LegalPage({ document }: { document?: string }) {
         setClientDoc(seg);
       }
     }
-  }, [document]);
+  }, [initialDoc]);
 
-  const activeDoc = document || clientDoc;
+  const activeDoc = initialDoc || clientDoc;
   const page = activeDoc ? legalDocuments[activeDoc] : null;
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
+    if (typeof window !== "undefined" && typeof window.document !== "undefined") {
       const sub = page?.title ? tr(page.title) : tr("Legal & Policies");
-      document.title = `Curbside | ${sub}`;
+      window.document.title = `Curbside | ${sub}`;
     }
   }, [page?.title, tr]);
 
