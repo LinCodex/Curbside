@@ -1,0 +1,110 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  isIOSDevice,
+  shouldShowInstallGuide,
+  pullDistance,
+  PULL_THRESHOLD,
+} from "../lib/mobile.ts";
+import {
+  mapboxLocation,
+  locationQuery,
+  locationRing,
+  contextRadius,
+} from "../lib/map-locations.ts";
+import { plateTotals } from "../lib/plate-totals.ts";
+test("install guide appears only for a first iOS browser visit", () => {
+  assert.ok(isIOSDevice("iPhone", "iPhone", 5));
+  assert.ok(isIOSDevice("Desktop Safari", "MacIntel", 5));
+  assert.equal(isIOSDevice("Android", "Linux", 5), false);
+  assert.equal(shouldShowInstallGuide(true, false, false), true);
+  assert.equal(shouldShowInstallGuide(true, true, false), false);
+  assert.equal(shouldShowInstallGuide(true, false, true), false);
+});
+test("pull refresh requires a deliberate vertical pull", () => {
+  assert.ok(pullDistance(4, 160) >= PULL_THRESHOLD);
+  assert.equal(pullDistance(100, 80), 0);
+  assert.equal(pullDistance(0, -100), 0);
+  assert.equal(pullDistance(0, 500), 108);
+});
+test("location matching rejects coarse and wrong-borough matches", () => {
+  const original = {
+    label: "Main St and 37th Ave Queens",
+    precision: "intersection",
+  };
+  const feature = {
+    geometry: { type: "Point", coordinates: [-73.831, 40.762] },
+    properties: {
+      feature_type: "street",
+      coordinates: { accuracy: "intersection" },
+      full_address: "Main Street and 37th Avenue, Queens",
+    },
+  };
+  assert.equal(mapboxLocation(original, feature).precision, "intersection");
+  assert.equal(
+    mapboxLocation(original, {
+      ...feature,
+      properties: {
+        ...feature.properties,
+        full_address: "Main Street, Brooklyn",
+      },
+    }),
+    null,
+  );
+  assert.equal(
+    mapboxLocation(original, {
+      ...feature,
+      properties: {
+        ...feature.properties,
+        coordinates: { accuracy: "street" },
+      },
+    }),
+    null,
+  );
+  assert.equal(
+    locationQuery("NB WHITESTONE EXPWY at @ 25TH RD Queens"),
+    "WHITESTONE EXPWY and 25TH RD Queens, New York, USA",
+  );
+});
+test("plate totals deduplicate summons, retain missing amounts, and account in cents", () => {
+  const one = {
+    id: "1",
+    due: 50.1,
+    payments: 20.2,
+    fine: 65,
+    penalty: 10,
+    interest: 0.3,
+    reduction: 5,
+  };
+  const unknown = {
+    id: "2",
+    due: null,
+    payments: null,
+    fine: 30,
+    penalty: null,
+    interest: null,
+    reduction: null,
+  };
+  const totals = plateTotals([one, one, unknown]);
+  assert.deepEqual(totals.owed, { amount: 50.1, known: 1, total: 2 });
+  assert.equal(totals.paid.amount, 20.2);
+  assert.equal(totals.assessed.amount, 70.3);
+  assert.equal(plateTotals([unknown]).owed.amount, null);
+  assert.equal(plateTotals([]).assessed.amount, null);
+});
+test("context rings stay centered and cannot manufacture a missing location", () => {
+  assert.equal(locationRing({ label: "Unknown", precision: "unknown" }), null);
+  const location = {
+    label: "Main Street",
+    lat: 40.76,
+    lng: -73.83,
+    precision: "intersection",
+  };
+  const ring = locationRing(location);
+  assert.equal(contextRadius(location), 150);
+  assert.equal(ring.geometry.coordinates[0].length, 33);
+  assert.deepEqual(
+    ring.geometry.coordinates[0][0],
+    ring.geometry.coordinates[0][32],
+  );
+});

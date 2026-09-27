@@ -1,0 +1,525 @@
+/* Appearance controls share the same accessible radio menu on every route. */
+.preferences-menu {
+  z-index: 450;
+  width: 240px;
+  max-width: calc(100vw - 24px);
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  color: var(--text);
+  background: var(--panel);
+  box-shadow: 0 16px 60px #0005;
+  transform-origin: var(--radix-dropdown-menu-content-transform-origin);
+  animation: menu-in 180ms var(--ease-out);
+}
+.preferences-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.preferences-item {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  outline: none;
+  cursor: pointer;
+  font-size: 14px;
+}
+.preferences-item > span:first-of-type {
+  flex: 1;
+}
+.preferences-item[data-highlighted] {
+  background: #8b9ebc20;
+}
+.preferences-item[data-state="checked"] {
+  background: #8b9ebc12;
+}
+.preferences-divider {
+  height: 1px;
+  margin: 8px;
+  background: var(--line);
+}
+.preferences-trigger {
+  flex-shrink: 0;
+}
+.legal-header {
+  gap: 18px;
+}
+.legal-header .preferences-trigger {
+  order: 3;
+  margin-left: auto;
+}
+
+/* Functional pages keep their heading small and their content close. */
+.view-account .content-page,
+.view-dealer .content-page {
+  padding-top: 14px;
+}
+.view-account .page-heading,
+.view-dealer .page-heading {
+  margin-bottom: 22px;
+}
+.view-account .page-heading h1,
+.view-dealer .page-heading h1 {
+  font-size: 28px;
+  letter-spacing: -1px;
+  line-height: 1.2;
+  margin: 9px 0 8px;
+}
+.view-account .page-heading > p,
+.view-dealer .page-heading > p {
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+}
+.capacity-note {
+  margin: 0 0 24px;
+  line-height: 1.75;
+}
+.view-account,
+.view-dealer {
+  scrollbar-width: none;
+}
+.view-account::-webkit-scrollbar,
+.view-dealer::-webkit-scrollbar {
+  display: none;
+}
+html:has(.view-account),
+body:has(.view-account),
+html:has(.view-dealer),
+body:has(.view-dealer) {
+  scrollbar-width: none;
+}
+html:has(.view-account)::-webkit-scrollbar,
+body:has(.view-account)::-webkit-scrollbar,
+html:has(.view-dealer)::-webkit-scrollbar,
+body:has(.view-dealer)::-webkit-scrollbar {
+  display: none;
+}
+
+/* Native CJK system fonts avoid downloading a multi-megabyte font bundle. */
+html[lang="zh-Hans"] body {
+  font-family:
+    Curbside, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+}
+html[lang="zh-Hans"] :is(h1, h2, h3, .eyebrow, .location-label) {
+  letter-spacing: 0;
+}
+html[lang="zh-Hans"] .welcome-title h1 {
+  font-size: clamp(40px, 5.6vw, 76px);
+  line-height: 1.3;
+}
+html[lang="zh-Hans"] :is(.small, .legal-document p, .legal-document li) {
+  line-height: 1.9;
+}
+html[lang="zh-Hans"] .plate-input input {
+  font-family: Curbside, sans-serif;
+  letter-spacing: 0.04em;
+}
+
+/* Light mode uses original colors, translucent paper surfaces, and dark ink. */
+html[data-theme="light"] {
+  --bg: #f3f5f7;
+  --panel: #fff;
+  --line: #24364d24;
+  --muted: #556376;
+  --text: #172233;
+  --blue: #305f91;
+  color-scheme: light;
+  background: var(--bg);
+  scrollbar-color: #9aa7b5 #f3f5f7;
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+html[data-theme="light"] body {
+  background: var(--bg);
+  color: var(--text);
+}
+html[data-theme="light"] ::selection {
+  background: #a9cee6;
+  color: #11283e;
+}
+html[data-theme="light"] :is(.atlas, .city-backdrop) {
+  background: #e2e8ed;
+}
+html[data-theme="light"] .map-vignette {
+  background:
+    linear-gradient(180deg, #f5f7f9c9, transparent 40%, #f5f7f9c9),
+    linear-gradient(90deg, #f5f7f9a8, transparent 90%);
+}
+html[data-theme="light"] .map-interactive .map-vignette {
+  background: linear-gradient(
+    180deg,
+    #f5f7f9c4,
+    transparent 27%,
+    transparent 85%,
+    #f5f7f999
+  );
+}
+html[data-theme="light"] .glass {
+  background: linear-gradient(145deg, #fffffff0, #f8fafce8);
+  border-color: var(--line);
+  box-shadow:
+    0 18px 65px #263f5c12,
+    inset 0 1px #fff;
+}
+html[data-theme="light"]
+  :is(
+    .desktop-nav,
+    .mobile-nav,
+    .round-control,
+    .sheet,
+    .toast,
+    .install-guide,
+    .pull-refresh,
+    .map-provider-status,
+    .custom-select-menu,
+    .custom-select-scroll
+  ) {
+  color: var(--text);
+  background: #fffffff5;
+  border-color: var(--line);
+  box-shadow: 0 4px 24px #2036520c;
+}
+html[data-theme="light"]
+  :is(.desktop-nav button, .mobile-nav button, .segmented button) {
+  color: var(--muted);
+}
+html[data-theme="light"]
+  :is(
+    .desktop-nav button.active,
+    .mobile-nav button.active,
+    .segmented button.active,
+    .tabs button.active
+  ) {
+  color: #fff;
+  background: #233347;
+}
+html[data-theme="light"] :is(.primary-action, .button.primary) {
+  color: #fff;
+  background: #233347;
+  border-color: #233347;
+}
+html[data-theme="light"] :is(.primary-action:hover, .button.primary:hover) {
+  background: #344c65;
+}
+html[data-theme="light"] :is(.button, .segmented, .scene-summary button) {
+  color: var(--text);
+  background: #ffffffa8;
+  border-color: var(--line);
+}
+html[data-theme="light"]
+  :is(
+    .round-control:hover,
+    .button:hover,
+    .ticket:hover,
+    .desktop-nav button:hover:not(.active)
+  ) {
+  background: #e5ebf1;
+}
+html[data-theme="light"]
+  :is(
+    input,
+    textarea,
+    .sheet input,
+    .sheet textarea,
+    .search-options input,
+    .custom-select-trigger
+  ) {
+  background: #f4f7fa;
+  color: var(--text);
+  border-color: #60758f40;
+}
+html[data-theme="light"] input::placeholder,
+html[data-theme="light"] textarea::placeholder {
+  color: #718096;
+  opacity: 1;
+}
+html[data-theme="light"] .plate-input input {
+  background: transparent;
+}
+html[data-theme="light"] .plate-input input::placeholder {
+  color: #697c91;
+}
+html[data-theme="light"] input[type="checkbox"] {
+  accent-color: #345d87;
+}
+html[data-theme="light"]
+  :is(
+    .custom-select-trigger[data-state="open"],
+    .custom-select-item[data-highlighted],
+    .custom-select-item[data-state="checked"]
+  ) {
+  color: #1c4166;
+  background: #e5edf5;
+}
+html[data-theme="light"]
+  :is(
+    .custom-select-trigger svg,
+    .brand-period,
+    .source-icon,
+    .empty > svg,
+    .ticket-cost svg,
+    .install-steps svg
+  ) {
+  color: #436281;
+}
+html[data-theme="light"] :is(.curb-mark span, .sheet-handle) {
+  background: #35516e;
+}
+html[data-theme="light"]
+  :is(
+    .muted,
+    .eyebrow,
+    .coordinate,
+    .dock-footer,
+    .welcome-context,
+    .welcome-title > p,
+    .welcome-source span:not(.source-icon),
+    .dock-heading,
+    .plate-input label,
+    .optional,
+    .check-row,
+    .search-footnote,
+    .welcome-bottom p,
+    .page-footer,
+    .map-attribution,
+    .page-heading > p,
+    .search-summary,
+    .ticket-main p,
+    .ticket-cost p,
+    .source-details summary,
+    .source-details small,
+    .benefits,
+    .plan-note p,
+    .vehicle-subtitle,
+    .scene-summary span,
+    .map-scene-heading p,
+    .detail-grid dt,
+    .money-table div,
+    .consent-links,
+    .map-helper,
+    .map-lookup-status,
+    .map-selection p,
+    .install-inner p,
+    .install-steps span,
+    .plate-balance-grid span,
+    .plate-balance-grid small,
+    .plate-balance > p,
+    .location-radius-note,
+    .selected-ticket-amount span
+  ) {
+  color: var(--muted);
+}
+html[data-theme="light"]
+  :is(
+    .welcome-title h1 > span,
+    .page-heading h1 span,
+    .map-scene-heading h1 span
+  ) {
+  color: #5d7187;
+}
+html[data-theme="light"]
+  :is(
+    .ticket,
+    .setting,
+    .plate-balance,
+    .plate-balance-grid > div,
+    .plan-note,
+    .sheet-head,
+    .money-table,
+    .detail-grid,
+    .source-details > div,
+    .ticket-location,
+    .map-legal-credits nav + nav
+  ) {
+  border-color: var(--line);
+}
+html[data-theme="light"] .notice {
+  background: #edf3f9;
+  color: #304d6d;
+  border-color: #40648525;
+}
+html[data-theme="light"] :is(.notice.warning, .offline-banner) {
+  background: #fff3d9;
+  color: #775018;
+  border-color: #aa771e40;
+}
+html[data-theme="light"] .error-text {
+  color: #a83333;
+}
+html[data-theme="light"] .ticket-symbol {
+  color: #765226;
+  background: #f4e9d8;
+}
+html[data-theme="light"] .ticket-symbol.resolved {
+  color: #346148;
+  background: #e4efe9;
+}
+html[data-theme="light"] :is(.map-selection, .map-results .ticket-selected) {
+  background: #dce8f566;
+}
+html[data-theme="light"] .map-results-compact .map-selection {
+  background: none;
+}
+html[data-theme="light"] :is(.map-credits, .map-legal-credits) {
+  color: #4e5d6c;
+  background: #f6f8faf0;
+}
+html[data-theme="light"] :is(.ticket-location, .ticket-map-preview) {
+  background: #edf1f5;
+}
+html[data-theme="light"] .badge {
+  color: #38536e;
+  background: #e2eaf2;
+  border-color: var(--line);
+}
+html[data-theme="light"] .legal-shell {
+  background:
+    radial-gradient(ellipse at top left, #e4ebf4, transparent 65%), #f6f8fa;
+}
+html[data-theme="light"]
+  :is(
+    .legal-header > a,
+    .legal-heading p,
+    .legal-nav a,
+    .legal-document p,
+    .legal-document li,
+    .legal-contact address,
+    .legal-card p,
+    .legal-status
+  ) {
+  color: var(--muted);
+}
+html[data-theme="light"] .legal-header .wordmark {
+  color: var(--text);
+}
+html[data-theme="light"] :is(.legal-contact, .legal-card) {
+  background: #ffffffb0;
+  border-color: var(--line);
+}
+html[data-theme="light"]
+  :is(
+    .legal-nav a[aria-current="page"],
+    .legal-nav a:hover,
+    .legal-card:hover
+  ) {
+  color: #193b60;
+  background: #e5edf6;
+}
+html[data-theme="light"] :is(.legal-links a:hover, .consent-links a:hover) {
+  color: #193b60;
+}
+html[data-theme="light"] :focus-visible {
+  outline-color: #315b88;
+}
+@media (max-width: 800px) {
+  .view-account .page-heading h1,
+  .view-dealer .page-heading h1 {
+    font-size: 25px;
+  }
+  .header-right {
+    gap: 8px;
+  }
+  .header-right .city-tag {
+    display: none;
+  }
+  html[lang="zh-Hans"] .welcome-title h1 {
+    font-size: clamp(36px, 10vw, 54px);
+  }
+  html[lang="zh-Hans"] .welcome-grid {
+    gap: 24px;
+  }
+  .legal-header {
+    flex-wrap: wrap;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .preferences-menu {
+    animation: none;
+  }
+}
+/* Higher-contrast labels and links retain hierarchy without fading away. */
+html[data-theme="light"] {
+  --muted: #45566b;
+}
+html[data-theme="light"] .field {
+  color: #344b63;
+  font-weight: 500;
+}
+html[data-theme="light"] .text-link {
+  color: #245c91;
+  font-weight: 600;
+}
+html[data-theme="light"] .text-link:hover {
+  color: #153b60;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+html[data-theme="light"] .glass {
+  background: linear-gradient(145deg, #fffffffa, #f8fafcf5);
+  border-color: #4f68832e;
+  box-shadow:
+    0 12px 45px #263f5c0d,
+    inset 0 1px #fff;
+}
+html[data-theme="light"]
+  :is(
+    .optional,
+    .source-details small,
+    .search-footnote,
+    .welcome-source span:not(.source-icon),
+    .plate-balance-grid small,
+    .plate-balance > p
+  ) {
+  color: #526276;
+}
+html[data-theme="light"] :is(.city-backdrop-image) {
+  opacity: 0.7;
+}
+html[data-theme="light"] .amber {
+  color: #84541d;
+}
+html[data-theme="light"] .green {
+  color: #286144;
+}
+html[data-theme="light"] .notice a {
+  color: #174e7d;
+}
+@font-face {
+  font-family: CurbsideChinese;
+  src: url("/fonts/noto-sans-sc-ui.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range:
+    U+2000-206F, U+2190-21FF, U+3000-303F, U+3400-9FFF, U+FF00-FFEF;
+}
+html[lang="zh-Hans"] body {
+  font-family:
+    Curbside, CurbsideChinese, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+html[lang="zh-Hans"]
+  :is(.eyebrow, .coordinate, .location-label, .dock-footer, .mono) {
+  font-family:
+    CurbsideMono, CurbsideChinese, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+html[lang="zh-Hans"] h1 {
+  font-weight: 720;
+}
+html[lang="zh-Hans"] h2 {
+  font-weight: 650;
+}
+html[lang="zh-Hans"] .welcome-title h1 {
+  line-height: 1.32;
+}
+html[lang="zh-Hans"] :is(button, .custom-select-trigger) {
+  font-weight: 500;
+}

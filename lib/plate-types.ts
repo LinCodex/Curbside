@@ -1,0 +1,22 @@
+// Common NY DMV registration classes; All types also includes uncommon/out-of-state source codes.
+export const PLATE_TYPES = [
+  { value: "ALL", label: "All types" },
+  { value: "PAS", label: "PAS · Passenger" },
+  { value: "COM", label: "COM · Commercial" },
+  { value: "SRF", label: "SRF · Personalized / special" },
+  { value: "MOT", label: "MOT · Motorcycle" },
+  { value: "OMT", label: "OMT · Taxi / TLC" },
+  { value: "OML", label: "OML · Livery" },
+  { value: "OMR", label: "OMR · Regular omnibus" },
+  { value: "OMF", label: "OMF · Public-service omnibus" },
+  { value: "DLR", label: "DLR · Auto dealer" },
+  { value: "TRC", label: "TRC · Tractor" },
+  { value: "TRL", label: "TRL · Trailer" },
+  { value: "SEM", label: "SEM · Semi-trailer" },
+  { value: "TOW", label: "TOW · Tow truck" },
+  { value: "HIS", label: "HIS · Historical" },
+  { value: "ORG", label: "ORG · Organization passenger" },
+  { value: "ORC", label: "ORC · Organization commercial" },
+  { value: "SPC", label: "SPC · Special-purpose commercial" },
+  { value: "SCL", label: "SCL · School car" },
+];
