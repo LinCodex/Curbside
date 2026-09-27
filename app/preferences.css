@@ -48,13 +48,6 @@
 .preferences-trigger {
   flex-shrink: 0;
 }
-.legal-header {
-  gap: 18px;
-}
-.legal-header .preferences-trigger {
-  order: 3;
-  margin-left: auto;
-}
 
 /* Functional pages keep their heading small and their content close. */
 .view-account .content-page,
@@ -436,9 +429,6 @@ html[data-theme="light"] :focus-visible {
   }
   html[lang="zh-Hans"] .welcome-grid {
     gap: 24px;
-  }
-  .legal-header {
-    flex-wrap: wrap;
   }
 }
 @media (prefers-reduced-motion: reduce) {

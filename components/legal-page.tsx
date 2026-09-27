@@ -48,14 +48,25 @@ export default function LegalPage({
         {tr("Skip to content")}
       </a>
       <header className="legal-header">
-        <PreferencesMenu />
-        <a className="wordmark" href="/">
-          curbside.
-        </a>
-        <a href="/">
-          <ArrowLeft size={15} />
-          {tr("Back to Curbside")}
-        </a>
+        <div className="legal-header-brand">
+          <a className="wordmark" href="/" aria-label={tr("Curbside home")}>
+            <span className="curb-mark">
+              <span />
+              <span />
+              <span />
+            </span>
+            curbside<span className="brand-period">.</span>
+          </a>
+        </div>
+        <div className="legal-header-nav">
+          <a href="/" className="legal-back-button" aria-label={tr("Back to Curbside")}>
+            <ArrowLeft size={15} />
+            <span>{tr("Back to Curbside")}</span>
+          </a>
+        </div>
+        <div className="legal-header-actions">
+          <PreferencesMenu />
+        </div>
       </header>
       <main className="legal-main" id="legal-content">
         <div className="legal-heading">
