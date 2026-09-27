@@ -101,6 +101,8 @@ export default function Curbside() {
   const [mapSelection, setMapSelection] = useState("");
   const [mapFilter, setMapFilter] = useState("all");
   const [installGuideRequest, setInstallGuideRequest] = useState(0);
+  const [dockHidden, setDockHidden] = useState(false);
+  const lastScrollY = useRef(0);
   const challenge = useRef("");
   const challengeEl = useRef<HTMLDivElement>(null);
   const notify = useCallback((s: string) => {
@@ -187,6 +189,34 @@ export default function Curbside() {
     }
     document.title = `Curbside | ${sub}`;
   }, [plate, results?.plate?.plate, view]);
+  useEffect(() => {
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        const y = window.scrollY || document.documentElement.scrollTop || 0;
+        const delta = y - lastScrollY.current;
+        const pageHeight = document.documentElement.scrollHeight;
+        const viewportHeight = window.innerHeight;
+        const nearBottom = y + viewportHeight >= pageHeight - 60;
+        const nearTop = y <= 45;
+
+        if (view === "map" || nearTop || nearBottom) {
+          setDockHidden(false);
+        } else if (delta > 8 && y > 60) {
+          setDockHidden(true);
+        } else if (delta < -8) {
+          setDockHidden(false);
+        }
+        lastScrollY.current = y;
+        ticking = false;
+      });
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [view]);
   useEffect(() => {
     if (!config.clerkKey) return;
     let disposed = false;
@@ -490,6 +520,8 @@ export default function Curbside() {
     setView(v);
     setError("");
     setSheet(null);
+    setDockHidden(false);
+    lastScrollY.current = 0;
   };
   return (
     <div
@@ -1418,7 +1450,14 @@ export default function Curbside() {
           </button>
         </footer>
       </main>
-      <nav className="mobile-nav" aria-label={tr("Mobile navigation")}>
+      <div
+        className={`mobile-nav-scrim ${dockHidden ? "dock-hidden" : ""}`}
+        aria-hidden="true"
+      />
+      <nav
+        className={`mobile-nav ${dockHidden ? "dock-hidden" : ""}`}
+        aria-label={tr("Mobile navigation")}
+      >
         {nav.map((n) => (
           <button
             key={n.id}

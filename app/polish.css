@@ -1668,3 +1668,162 @@ html[data-theme="light"] .account-attribution-links span {
 .city-backdrop {
   background: #090c10;
 }
+
+/* Mobile Floating Dock Refinement & Bottom Frosted Blur Scrim */
+.mobile-nav-scrim {
+  display: none;
+}
+
+@media (max-width: 800px) {
+  .mobile-nav-scrim {
+    display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: calc(112px + env(safe-area-inset-bottom));
+    pointer-events: none;
+    z-index: 39;
+    background: linear-gradient(
+      to top,
+      rgba(7, 10, 15, 0.96) 0%,
+      rgba(7, 10, 15, 0.82) 36%,
+      rgba(7, 10, 15, 0.45) 68%,
+      rgba(7, 10, 15, 0.1) 88%,
+      transparent 100%
+    );
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    mask-image: linear-gradient(to top, black 50%, rgba(0, 0, 0, 0.5) 78%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to top, black 50%, rgba(0, 0, 0, 0.5) 78%, transparent 100%);
+    transition:
+      opacity 0.38s ease,
+      filter 0.38s ease,
+      transform 0.38s cubic-bezier(0.16, 1, 0.3, 1);
+    will-change: opacity, filter, transform;
+    opacity: 1;
+    filter: blur(0px);
+    -webkit-filter: blur(0px);
+    transform: translateY(0);
+  }
+
+  html[data-theme="light"] .mobile-nav-scrim {
+    background: linear-gradient(
+      to top,
+      rgba(244, 247, 251, 0.96) 0%,
+      rgba(244, 247, 251, 0.82) 36%,
+      rgba(244, 247, 251, 0.45) 68%,
+      rgba(244, 247, 251, 0.1) 88%,
+      transparent 100%
+    );
+  }
+
+  .mobile-nav-scrim.dock-hidden {
+    opacity: 0;
+    filter: blur(12px);
+    -webkit-filter: blur(12px);
+    transform: translateY(16px);
+    pointer-events: none;
+  }
+
+  .mobile-nav {
+    display: flex;
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    max-width: 440px;
+    margin: 0 auto;
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    border-radius: 36px;
+    padding: 6px 8px;
+    background: rgba(18, 24, 33, 0.84);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur(28px) saturate(190%);
+    -webkit-backdrop-filter: blur(28px) saturate(190%);
+    box-shadow:
+      0 16px 40px -8px rgba(0, 0, 0, 0.55),
+      0 0 0 1px rgba(255, 255, 255, 0.08) inset,
+      0 1px 2px rgba(255, 255, 255, 0.2) inset;
+    z-index: 40;
+    justify-content: space-around;
+    transition:
+      transform 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 0.35s ease,
+      filter 0.35s ease;
+    will-change: transform, opacity, filter;
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    filter: blur(0px);
+    -webkit-filter: blur(0px);
+  }
+
+  html[data-theme="light"] .mobile-nav {
+    background: rgba(255, 255, 255, 0.86);
+    border: 1px solid rgba(0, 0, 0, 0.09);
+    box-shadow:
+      0 14px 38px -6px rgba(16, 24, 40, 0.14),
+      0 0 0 1px rgba(255, 255, 255, 0.8) inset;
+  }
+
+  .mobile-nav.dock-hidden {
+    opacity: 0;
+    filter: blur(14px);
+    -webkit-filter: blur(14px);
+    transform: translateY(32px) scale(0.95);
+    pointer-events: none;
+  }
+
+  .mobile-nav button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    flex: 1;
+    min-height: 48px;
+    border-radius: 28px;
+    font-size: 10px;
+    font-weight: 500;
+    color: #c4cedd;
+    transition:
+      background 0.2s ease,
+      color 0.2s ease,
+      transform 0.15s ease;
+  }
+
+  .mobile-nav button:active {
+    transform: scale(0.94);
+  }
+
+  .mobile-nav button.active {
+    background: #eff2f6;
+    color: #121c29;
+    font-weight: 600;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.22);
+  }
+
+  html[data-theme="light"] .mobile-nav button {
+    color: #55687a;
+  }
+
+  html[data-theme="light"] .mobile-nav button.active {
+    background: #121c29;
+    color: #ffffff;
+    box-shadow: 0 3px 10px rgba(18, 28, 41, 0.2);
+  }
+
+  /* When modal or sheet is open, keep mobile nav hidden cleanly */
+  body:has(.modal-backdrop) .mobile-nav,
+  body:has(.sheet-backdrop) .mobile-nav,
+  body:has(.install-guide[open]) .mobile-nav,
+  body:has(.modal-backdrop) .mobile-nav-scrim,
+  body:has(.sheet-backdrop) .mobile-nav-scrim,
+  body:has(.install-guide[open]) .mobile-nav-scrim {
+    opacity: 0 !important;
+    filter: blur(14px) !important;
+    -webkit-filter: blur(14px) !important;
+    transform: translateY(36px) scale(0.94) !important;
+    pointer-events: none !important;
+  }
+}
+
