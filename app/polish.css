@@ -1713,12 +1713,15 @@ html[data-theme="light"] .map-list-minimized-icon {
   }
   .view-map .map-results {
     width: 100%;
-    max-height: min(34svh, 280px);
+    max-height: min(38svh, 300px);
     padding: 14px 16px;
     border-radius: 22px;
     margin-bottom: 8px;
     position: relative;
     z-index: 10;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     transition: max-height 0.28s cubic-bezier(0.16, 1, 0.3, 1), padding 0.2s ease, transform 0.2s ease;
   }
   .view-map .map-results.map-box-minimized {
@@ -1726,6 +1729,8 @@ html[data-theme="light"] .map-list-minimized-icon {
     padding: 12px 16px;
     border-radius: 22px;
     margin-bottom: 8px;
+    display: block;
+    overflow: hidden;
     background: rgba(18, 24, 33, 0.94);
     backdrop-filter: blur(28px) saturate(190%);
     -webkit-backdrop-filter: blur(28px) saturate(190%);
@@ -1745,9 +1750,39 @@ html[data-theme="light"] .map-list-minimized-icon {
   .view-map .page-footer {
     display: none;
   }
+  .view-map .map-results .section-heading,
+  .view-map .map-results .map-helper,
+  .view-map .map-results .tabs {
+    flex-shrink: 0;
+  }
+  .view-map .map-results .dock-footer {
+    flex-shrink: 0;
+    margin-top: 6px;
+  }
   .view-map .map-results .ticket-list {
-    max-height: min(24svh, 190px);
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .view-map .map-results .ticket-list::-webkit-scrollbar {
+    display: none;
+  }
+  .view-map .map-results .map-selection {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .view-map .map-results .map-selection::-webkit-scrollbar {
+    display: none;
   }
   .map-results-compact .map-selection h3 {
     margin: 6px 0;
