@@ -125,7 +125,9 @@ h3 {
 }
 .app-header {
   height: 104px;
-  padding: 0 5.3vw;
+  padding: 0 clamp(20px, 3.5vw, 48px);
+  width: 100%;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -232,8 +234,11 @@ h3 {
   transform: scale(1.04);
 }
 .main-view {
-  width: min(1380px, 89.4vw);
-  margin: auto;
+  width: 100%;
+  max-width: 100%;
+  padding: 0 clamp(20px, 3.5vw, 48px);
+  margin: 0;
+  box-sizing: border-box;
   position: relative;
   min-height: calc(100svh - 104px);
   display: flex;
@@ -530,7 +535,7 @@ h3 {
 }
 .search-layout {
   display: grid;
-  grid-template-columns: 360px 1fr;
+  grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
   gap: 25px;
   align-items: start;
 }

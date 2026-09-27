@@ -139,15 +139,15 @@ input[type="checkbox"] {
   letter-spacing: -0.065em;
 }
 .welcome-title > p {
-  max-width: 36ch;
+  max-width: 48ch;
 }
 .welcome-grid {
-  grid-template-columns: minmax(0, 1.2fr) minmax(330px, 0.9fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(340px, 480px);
   gap: clamp(32px, 6vw, 100px);
 }
 .search-dock {
   width: 100%;
-  max-width: 480px;
+  max-width: 520px;
   justify-self: end;
 }
 .search-form {
@@ -1114,14 +1114,21 @@ button:active:not(:disabled) {
   .app-header {
     height: 88px;
     flex: 0 0 88px;
+    padding: 0 clamp(20px, 3.5vw, 48px);
+    width: 100%;
+    box-sizing: border-box;
   }
   .main-view {
     min-height: 0;
     height: calc(100dvh - 88px);
+    width: 100%;
+    max-width: 100%;
+    padding: 0 clamp(20px, 3.5vw, 48px);
+    margin: 0;
+    box-sizing: border-box;
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    margin: 0 auto;
     scrollbar-width: thin;
   }
   .main-view.view-map {
@@ -1136,7 +1143,7 @@ button:active:not(:disabled) {
   }
   .view-map .map-results {
     max-height: 100%;
-    width: min(460px, 43vw);
+    width: min(500px, 42vw);
     flex-shrink: 0;
   }
   .view-map .page-footer {
