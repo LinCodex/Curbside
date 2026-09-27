@@ -1,5 +1,7 @@
 # Activate Curbside
 
+Start with [ENVIRONMENT.md](ENVIRONMENT.md) for local `.env.local` setup, the public/private variable table, and production secret storage.
+
 Real-data manual search works without provider purchases. Activate in this order. Keep private keys out of chat, Git and browser code. Hosted values belong in Sites environment/secret settings; redeploy after changes. Local .env.local affects only your machine.
 
 ## 1. Operator and deployment
@@ -78,6 +80,7 @@ No partner is seeded. Verify eligibility, NYC registration/authorization require
 ## 9. Operations
 
 Maintain backups/restores, a written incident-response plan, provider contracts, a monitored privacy/support mailbox, retained policy versions, cancellation/refund processes and an accountable release log. Complete provider end-to-end testing, cross-account checks and private evidence access checks before public launch. These operating duties are not satisfied by website text alone.
+
 ## Mobile app and map verification
 
 The manifest includes 192/512px PNG icons and an Apple touch icon. iPhone/iPad browsers receive a one-time installation guide; its presentation flag is the only app preference stored in localStorage. Reopen it from Account. The guide is suppressed in standalone mode. Pull down deliberately from the top of a mobile page to refresh its current query/account data. Maps, controls and scrollable sheets keep their own gestures. Offline navigation shows a clearly labeled static offline page; no ticket or account pages are cached. Validate installation and the gesture on a physical iPhone before launch.

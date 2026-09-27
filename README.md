@@ -25,6 +25,8 @@ The header settings menu offers Light / Dark / System and English / Chinese / Sy
 
 ## Local development
 
+See [ENVIRONMENT.md](ENVIRONMENT.md) for local and production environment variables. Credentials are not included in the repository.
+
 Use Node 22.13+. Run npm ci, then copy .env.example to ignored .env.local. Add only providers being activated.
 
 ```powershell
