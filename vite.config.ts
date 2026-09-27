@@ -1,8 +1,12 @@
 import vinext from "vinext";
 import { defineConfig } from "vite";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import hostingConfig from "./.openai/hosting.json";
 import { readExecutionProfile } from "./scripts/execution-profile.mjs";
 import { sites } from "./build/sites-vite-plugin";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const SITE_CREATOR_PLACEHOLDER_DATABASE_ID =
   "00000000-0000-4000-8000-000000000000";
@@ -48,10 +52,16 @@ export default defineConfig(async () => {
   process.env.WRANGLER_REGISTRY_PATH ??= ".wrangler/dev-registry";
   process.env.MINIFLARE_REGISTRY_PATH ??= ".wrangler/registry";
 
-  // On Vercel, skip the Cloudflare plugin (Workers runtime is unavailable).
-  // The build produces static client assets only; API routes require Cloudflare.
+  // On Vercel, skip the Cloudflare plugin and stub out cloudflare:workers
+  // so the bundler can resolve the import. API routes won't function, but
+  // the static client build completes successfully.
   if (isVercel) {
     return {
+      resolve: {
+        alias: {
+          "cloudflare:workers": resolve(__dirname, "build/cloudflare-workers-stub.js"),
+        },
+      },
       plugins: [
         vinext(),
         sites({ mockAuth: true }),
