@@ -55,7 +55,25 @@ export const hash = async (s: string | ArrayBuffer) =>
   )
     .map((x) => x.toString(16).padStart(2, "0"))
     .join("");
+const memLimits = new Map<string, { count: number; expiresAt: number }>();
+
 export async function rate(key: string, cap: number, windowMs: number) {
+  if (!config().DB) {
+    const now = Date.now();
+    const existing = memLimits.get(key);
+    if (!existing || now > existing.expiresAt) {
+      memLimits.set(key, { count: 1, expiresAt: now + windowMs });
+      return;
+    }
+    existing.count += 1;
+    if (existing.count > cap) {
+      throw new HttpError(
+        429,
+        "Too many requests. Please wait before trying again.",
+      );
+    }
+    return;
+  }
   try {
     const bucket = Math.floor(Date.now() / windowMs);
     const k = key + ":" + bucket;
@@ -64,14 +82,13 @@ export async function rate(key: string, cap: number, windowMs: number) {
       k,
       (bucket + 2) * windowMs,
     );
-    if (row.count > cap)
+    if (row && row.count > cap)
       throw new HttpError(
         429,
         "Too many requests. Please wait before trying again.",
       );
   } catch (e) {
-    // On Vercel without D1, rate limiting is unavailable — allow the request.
-    if (e instanceof HttpError) throw e;
+    if (e instanceof HttpError && e.status === 429) throw e;
   }
 }
 export async function readJson(req: Request, max = 16000) {
@@ -129,7 +146,11 @@ export async function turnstile(token: string | undefined, ip: string) {
     },
   );
   const data: any = await response.json();
-  const expected = new URL(config().APP_ORIGIN).hostname;
-  if (!data.success || data.hostname !== expected)
+  const appOrigin = config().APP_ORIGIN;
+  let expected: string | null = null;
+  try {
+    if (appOrigin) expected = new URL(appOrigin).hostname;
+  } catch {}
+  if (!data.success || (expected && data.hostname !== expected))
     throw new HttpError(403, "Security check failed. Please try again.");
 }
