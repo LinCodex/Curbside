@@ -1,4 +1,8 @@
+// On Cloudflare Workers, `cloudflare:workers` provides the real env bindings.
+// On Vercel, vite.config.ts aliases this import to build/cloudflare-workers-stub.js
+// which re-exports process.env, so the same import works on both platforms.
 import { env } from "cloudflare:workers";
+
 export const config = () => env as unknown as Record<string, any>;
 export const db = () => {
   const d = config().DB as D1Database | undefined;
@@ -44,18 +48,23 @@ export const hash = async (s: string | ArrayBuffer) =>
     .map((x) => x.toString(16).padStart(2, "0"))
     .join("");
 export async function rate(key: string, cap: number, windowMs: number) {
-  const bucket = Math.floor(Date.now() / windowMs);
-  const k = key + ":" + bucket;
-  const row = await one<any>(
-    "INSERT INTO limits (key,count,expires_at) VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1 RETURNING count",
-    k,
-    (bucket + 2) * windowMs,
-  );
-  if (row.count > cap)
-    throw new HttpError(
-      429,
-      "Too many requests. Please wait before trying again.",
+  try {
+    const bucket = Math.floor(Date.now() / windowMs);
+    const k = key + ":" + bucket;
+    const row = await one<any>(
+      "INSERT INTO limits (key,count,expires_at) VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1 RETURNING count",
+      k,
+      (bucket + 2) * windowMs,
     );
+    if (row.count > cap)
+      throw new HttpError(
+        429,
+        "Too many requests. Please wait before trying again.",
+      );
+  } catch (e) {
+    // On Vercel without D1, rate limiting is unavailable — allow the request.
+    if (e instanceof HttpError) throw e;
+  }
 }
 export async function readJson(req: Request, max = 16000) {
   if (Number(req.headers.get("content-length") ?? 0) > max)

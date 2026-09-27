@@ -5,7 +5,11 @@ export async function POST(req: Request) {
   try {
     const body = await readJson(req);
     const plate = normalizePlate(body);
-    const ip = req.headers.get("cf-connecting-ip") || "local";
+    const ip =
+      req.headers.get("cf-connecting-ip") ||
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      req.headers.get("x-real-ip") ||
+      "unknown";
     await rate("search:" + (await hash(ip)), 30, 3600_000);
     await turnstile(body.challenge, ip);
     const result = await searchNYC(plate, body.history === true);
