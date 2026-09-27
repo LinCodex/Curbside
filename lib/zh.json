@@ -636,5 +636,14 @@
   "draft_ready": "草稿已就绪",
   "All Legal Policies": "全部法律政策",
   "Full directory of terms, privacy, messaging, and billing.": "包含条款、隐私、短信及账单的完整政策目录。",
-  "WCAG 2.2 standards, screen reader, and keyboard support.": "WCAG 2.2 标准、屏幕阅读器与键盘操作支持。"
+  "WCAG 2.2 standards, screen reader, and keyboard support.": "WCAG 2.2 标准、屏幕阅读器与键盘操作支持。",
+  "ticket location": "处违章位置",
+  "ticket locations": "处违章位置",
+  "Expand details": "展开详情",
+  "Expand locations list": "展开位置列表",
+  "Minimize locations list": "最小化位置列表",
+  "Minimize to compact": "最小化为紧凑模式",
+  "Minimize": "最小化",
+  "View": "查看",
+  "Expand ticket locations list": "展开违章位置列表"
 }

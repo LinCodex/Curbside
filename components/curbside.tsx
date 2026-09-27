@@ -24,6 +24,7 @@ import {
   Mail,
   MessageSquare,
   ChevronDown,
+  ChevronUp,
   LoaderCircle,
   RefreshCw,
   ArrowLeft,
@@ -101,6 +102,7 @@ export default function Curbside() {
   const purchaseResolve = useRef<((accepted: boolean) => void) | null>(null);
   const [mapSelection, setMapSelection] = useState("");
   const [mapFilter, setMapFilter] = useState("all");
+  const [mapBoxMinimized, setMapBoxMinimized] = useState(false);
   const [installGuideRequest, setInstallGuideRequest] = useState(0);
   const [dockHidden, setDockHidden] = useState(false);
   const lastScrollY = useRef(0);
@@ -218,6 +220,11 @@ export default function Curbside() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, [view]);
+  useEffect(() => {
+    if (mapSelection) {
+      setMapBoxMinimized(true);
+    }
+  }, [mapSelection]);
   useEffect(() => {
     if (!config.clerkKey) return;
     let disposed = false;
@@ -382,10 +389,10 @@ export default function Curbside() {
       (mapFilter === "open" ? t.due != null && t.due > 0 : !!t.location.label),
   );
   const mapTicket = mapTickets.find((t) => t.id === mapSelection);
-  const selectMapTicket = useCallback(
-    (t: Violation) => setMapSelection(t.id),
-    [],
-  );
+  const selectMapTicket = useCallback((t: Violation) => {
+    setMapSelection(t.id);
+    setMapBoxMinimized(true);
+  }, []);
   const showTickets = tickets.filter(
     (t) =>
       filter === "all" ||
@@ -921,33 +928,75 @@ export default function Curbside() {
             </div>
             <div
               className={
-                "glass map-results" + (mapTicket ? " map-results-compact" : "")
+                "glass map-results" +
+                (mapTicket ? " map-results-compact" : "") +
+                (mapBoxMinimized ? " map-box-minimized" : "")
               }
               tabIndex={0}
               aria-label={
                 mapTicket ? tr("Selected ticket") : tr("Ticket locations")
               }
             >
-              {!mapTicket && (
+              {!mapTicket && mapBoxMinimized && (
+                <div
+                  className="map-list-minimized"
+                  onClick={() => setMapBoxMinimized(false)}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={tr("Expand ticket locations list")}
+                >
+                  <div className="map-list-minimized-info">
+                    <MapPin size={15} className="map-list-minimized-icon" />
+                    <span>
+                      {mapTickets.length}{" "}
+                      {mapTickets.length === 1
+                        ? tr("ticket location")
+                        : tr("ticket locations")}
+                    </span>
+                  </div>
+                  <button
+                    className="map-box-icon-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMapBoxMinimized(false);
+                    }}
+                    aria-label={tr("Expand locations list")}
+                    title={tr("Expand locations list")}
+                  >
+                    <ChevronUp size={15} />
+                  </button>
+                </div>
+              )}
+              {!mapTicket && !mapBoxMinimized && (
                 <>
                   <div className="section-heading">
                     <h2>{tr("Locations")}</h2>
-                    {activeVehicle && (
+                    <div className="row" style={{ gap: 6, alignItems: "center" }}>
+                      {activeVehicle && (
+                        <button
+                          className="text-link"
+                          onClick={() =>
+                            perform(async () => {
+                              await api("locations", "POST", {
+                                vehicleId: activeVehicle.id,
+                              });
+                              await refresh();
+                            }, tr("Locations checked"))
+                          }
+                        >
+                          {tr("Refresh")}
+                          <RefreshCw size={13} />
+                        </button>
+                      )}
                       <button
-                        className="text-link"
-                        onClick={() =>
-                          perform(async () => {
-                            await api("locations", "POST", {
-                              vehicleId: activeVehicle.id,
-                            });
-                            await refresh();
-                          }, tr("Locations checked"))
-                        }
+                        className="map-box-icon-btn"
+                        onClick={() => setMapBoxMinimized(true)}
+                        aria-label={tr("Minimize locations list")}
+                        title={tr("Minimize locations list")}
                       >
-                        {tr("Refresh")}
-                        <RefreshCw size={13} />
+                        <ChevronDown size={15} />
                       </button>
-                    )}
+                    </div>
                   </div>
                   <p className="map-helper">
                     {tr(
@@ -983,64 +1032,6 @@ export default function Curbside() {
                       {tr(locations.error)}
                     </p>
                   )}
-                </>
-              )}
-              {mapTicket && (
-                <div className="map-selection" aria-live="polite">
-                  <div className="row spread">
-                    <span className="eyebrow">
-                      {hasPoint(mapTicket.location)
-                        ? tr(mapTicket.location.precision) + tr(" location")
-                        : tr("Address on record")}
-                    </span>
-                    <button
-                      aria-label={tr("Show all tickets")}
-                      className="text-link"
-                      onClick={() => setMapSelection("")}
-                    >
-                      {tr("All tickets")}
-                      <X size={14} />
-                    </button>
-                  </div>
-                  <h3>
-                    {mapTicket.location.label || tr("Location not provided")}
-                  </h3>
-                  <p>
-                    {mapTicket.description} ·{" "}
-                    {niceDate(mapTicket.issued, locale)}
-                  </p>
-                  <div className="selected-ticket-amount">
-                    <strong>{money(mapTicket.due)}</strong>
-                    <span>{tr("Reported balance")}</span>
-                  </div>
-                  {hasPoint(mapTicket.location) && (
-                    <p className="location-radius-note">
-                      {contextRadius(mapTicket.location)}{" "}
-                      {tr(
-                        "m approximate context ring · illustrative, not an official incident boundary.",
-                      )}
-                    </p>
-                  )}
-                  {!hasPoint(mapTicket.location) && (
-                    <p className="map-match">
-                      {locations.resolving
-                        ? tr("Looking up this address…")
-                        : tr(
-                            "No reliable map match yet. The recorded address is shown above.",
-                          )}
-                    </p>
-                  )}
-                  <button
-                    className="button primary"
-                    onClick={() => openTicket(mapTicket)}
-                  >
-                    {tr("View violation")}
-                    <ArrowUpRight size={14} />
-                  </button>
-                </div>
-              )}
-              {!mapTicket && (
-                <>
                   {mapTickets.length ? (
                     <TicketList
                       tickets={mapTickets}
@@ -1081,6 +1072,125 @@ export default function Curbside() {
                     )}
                   </div>
                 </>
+              )}
+              {mapTicket && mapBoxMinimized && (
+                <div className="map-selection-compact" aria-live="polite">
+                  <div
+                    className="map-selection-compact-info"
+                    onClick={() => setMapBoxMinimized(false)}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={tr("Expand details")}
+                  >
+                    <span className="map-selection-compact-title">
+                      {mapTicket.location.label || tr("Location not provided")}
+                    </span>
+                    <span className="map-selection-compact-meta">
+                      {niceDate(mapTicket.issued, locale)} · <strong>{money(mapTicket.due)}</strong>
+                    </span>
+                  </div>
+                  <div className="map-selection-compact-actions">
+                    <button
+                      className="compact-action-btn"
+                      onClick={() => openTicket(mapTicket)}
+                    >
+                      {tr("View")}
+                      <ArrowUpRight size={12} />
+                    </button>
+                    <button
+                      className="map-box-icon-btn"
+                      onClick={() => setMapBoxMinimized(false)}
+                      aria-label={tr("Expand details")}
+                      title={tr("Expand details")}
+                    >
+                      <ChevronUp size={15} />
+                    </button>
+                    <button
+                      className="map-box-icon-btn"
+                      onClick={() => setMapSelection("")}
+                      aria-label={tr("Show all tickets")}
+                      title={tr("Show all tickets")}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
+              {mapTicket && !mapBoxMinimized && (
+                <div className="map-selection" aria-live="polite">
+                  <div className="row spread">
+                    <span className="eyebrow">
+                      {hasPoint(mapTicket.location)
+                        ? tr(mapTicket.location.precision) + tr(" location")
+                        : tr("Address on record")}
+                    </span>
+                    <div className="row" style={{ gap: 8, alignItems: "center" }}>
+                      <button
+                        aria-label={tr("Minimize to compact")}
+                        title={tr("Minimize to compact")}
+                        className="map-box-icon-btn"
+                        onClick={() => setMapBoxMinimized(true)}
+                      >
+                        <ChevronDown size={15} />
+                      </button>
+                      <button
+                        aria-label={tr("Show all tickets")}
+                        className="text-link"
+                        onClick={() => setMapSelection("")}
+                      >
+                        {tr("All tickets")}
+                        <X size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <h3>
+                    {mapTicket.location.label || tr("Location not provided")}
+                  </h3>
+                  <p>
+                    {mapTicket.description} ·{" "}
+                    {niceDate(mapTicket.issued, locale)}
+                  </p>
+                  <div className="selected-ticket-amount">
+                    <strong>{money(mapTicket.due)}</strong>
+                    <span>{tr("Reported balance")}</span>
+                  </div>
+                  {hasPoint(mapTicket.location) && (
+                    <p className="location-radius-note">
+                      {contextRadius(mapTicket.location)}{" "}
+                      {tr(
+                        "m approximate context ring · illustrative, not an official incident boundary.",
+                      )}
+                    </p>
+                  )}
+                  {!hasPoint(mapTicket.location) && (
+                    <p className="map-match">
+                      {locations.resolving
+                        ? tr("Looking up this address…")
+                        : tr(
+                            "No reliable map match yet. The recorded address is shown above.",
+                          )}
+                    </p>
+                  )}
+                  <div className="row" style={{ gap: 8, marginTop: 12 }}>
+                    <button
+                      className="button primary"
+                      style={{ flex: 1 }}
+                      onClick={() => openTicket(mapTicket)}
+                    >
+                      {tr("View violation")}
+                      <ArrowUpRight size={14} />
+                    </button>
+                    <button
+                      className="button secondary"
+                      onClick={() => setMapBoxMinimized(true)}
+                      aria-label={tr("Minimize to compact")}
+                      style={{ padding: "0 14px" }}
+                    >
+                      <ChevronDown size={14} />
+                      {tr("Minimize")}
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           </section>
