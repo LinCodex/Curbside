@@ -11,6 +11,8 @@ import {
   locationQuery,
   locationRing,
   contextRadius,
+  cleanLocationLabel,
+  autocorrectAddress,
 } from "../lib/map-locations.ts";
 import { plateTotals } from "../lib/plate-totals.ts";
 test("install guide appears only for a first iOS browser visit", () => {
@@ -64,6 +66,22 @@ test("location matching rejects coarse and wrong-borough matches", () => {
   assert.equal(
     locationQuery("NB WHITESTONE EXPWY at @ 25TH RD Queens"),
     "WHITESTONE EXPWY and 25TH RD Queens, New York, USA",
+  );
+  assert.equal(
+    cleanLocationLabel("F/O 123 5TH AVE Manhattan"),
+    "123 5TH AVE Manhattan",
+  );
+  assert.equal(
+    cleanLocationLabel("O/S 456 BROADWAY Manhattan"),
+    "456 BROADWAY Manhattan",
+  );
+  assert.equal(
+    autocorrectAddress("F/O 123 5TH AVE Manhattan").changed,
+    true,
+  );
+  assert.equal(
+    autocorrectAddress("F/O 123 5TH AVE Manhattan").suggested,
+    "123 5TH AVE Manhattan",
   );
 });
 test("plate totals deduplicate summons, retain missing amounts, and account in cents", () => {

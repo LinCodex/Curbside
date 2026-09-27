@@ -49,21 +49,47 @@ export function hasPoint(location: Location) {
     location.lat! <= 40.95
   );
 }
+// Clean enforcement shorthand and normalize address string for geocoding & autocorrect
+export function cleanLocationLabel(label: string): string {
+  if (!label) return "";
+  let s = label.trim();
+  // Strip highway directional prefix (NB, SB, EB, WB)
+  s = s.replace(/^(NB|SB|EB|WB)\s+/i, "");
+  // Strip enforcement shorthand prefixes (F/O, O/S, N/S, S/S, E/S, W/S, I/C, C/O, OPP, ACR, FRONT OF, etc.)
+  s = s.replace(
+    /^(f\/o|o\/s|n\/s|s\/s|e\/s|w\/s|i\/c|c\/o|opp|acr|in\s+front\s+of|front\s+of|opposite|corner\s+of|across\s+from|across)\s+/i,
+    "",
+  );
+  // Replace intersection markers with " and "
+  s = s.replace(/\s+at\s+@\s*/gi, " and ");
+  s = s.replace(/\s*@\s*/g, " and ");
+  s = s.replace(/\s*\/\s*/g, " and ");
+  s = s.replace(/\s*&\s*/g, " and ");
+  s = s.replace(
+    /\s+at\s+[NSEW](?=\s+(Queens|Brooklyn|Manhattan|Bronx|Staten Island)\b)/gi,
+    "",
+  );
+  s = s.replace(/\s+at\s+/gi, " and ");
+  s = s.replace(/\s+/g, " ").trim();
+  return s;
+}
+
+export function autocorrectAddress(label: string): {
+  suggested: string;
+  changed: boolean;
+} {
+  if (!label) return { suggested: "", changed: false };
+  const cleaned = cleanLocationLabel(label);
+  const changed = cleaned.toLowerCase() !== label.trim().toLowerCase();
+  return {
+    suggested: cleaned,
+    changed,
+  };
+}
+
 // Preserve the city's display label; normalize only the provider query.
 export function locationQuery(label: string) {
-  return (
-    label
-      .replace(/^(NB|SB|EB|WB)\s+/i, "")
-      .replace(/\s+at\s+@\s*/gi, " and ")
-      .replace(/\s*@\s*/g, " and ")
-      .replace(
-        /\s+at\s+[NSEW](?=\s+(Queens|Brooklyn|Manhattan|Bronx|Staten Island)\b)/gi,
-        "",
-      )
-      .replace(/\s+at\s+/gi, " and ")
-      .replace(/\s+/g, " ")
-      .trim() + ", New York, USA"
-  );
+  return cleanLocationLabel(label) + ", New York, USA";
 }
 export function mapboxLocation(
   original: Location,

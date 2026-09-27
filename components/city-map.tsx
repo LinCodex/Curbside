@@ -110,16 +110,30 @@ export default function CityMap({
     return () => abort.abort();
   }, [token, failed]);
   useEffect(() => {
-    if (!token || !surface.current) return;
+    const cleanToken = token?.trim();
+    if (!cleanToken || !surface.current) return;
     let disposed = false;
     setFailed(false);
     import("mapbox-gl")
       .then((mod: any) => {
         const mapbox = mod.default || mod;
         if (disposed || !surface.current || !mapbox?.Map) return;
+        mapbox.accessToken = cleanToken;
+        if (
+          typeof mapbox.supported === "function" &&
+          !mapbox.supported({ failIfMajorPerformanceCaveat: false })
+        ) {
+          setFailureReason(
+            tr(
+              "WebGL hardware acceleration is unavailable on this device. Fallback map loaded.",
+            ),
+          );
+          if (!disposed) setFailed(true);
+          return;
+        }
         const map = new mapbox.Map({
           container: surface.current,
-          accessToken: token,
+          accessToken: cleanToken,
           style: `mapbox://styles/mapbox/${resolvedTheme === "light" ? "light" : "dark"}-v11`,
           center: [-73.98, 40.73],
           zoom: 10.6,
@@ -330,6 +344,7 @@ export default function CityMap({
         });
       })
       .catch((error) => {
+        console.error("Mapbox init failed:", error);
         setFailureReason(
           tr(
             "This device could not start the interactive map. Reported addresses remain available.",
@@ -615,7 +630,18 @@ export default function CityMap({
       <MapCredits provider={token && !failed ? "mapbox" : "nyc"} />
       {interactive && failed && (
         <div className="map-provider-status" role="status">
-          {tr(failureReason)}
+          <span>{tr(failureReason)}</span>
+          <button
+            type="button"
+            className="text-link"
+            style={{ marginLeft: 8, fontSize: 11, cursor: "pointer", textDecoration: "underline" }}
+            onClick={() => {
+              setFailed(false);
+              setReady((r) => r + 1);
+            }}
+          >
+            {tr("Retry map")}
+          </button>
         </div>
       )}
     </div>

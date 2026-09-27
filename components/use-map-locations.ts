@@ -1,7 +1,12 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { Location, Violation } from "@/lib/domain";
-import { hasPoint, locationQuery, mapboxLocation } from "@/lib/map-locations";
+import {
+  hasPoint,
+  locationQuery,
+  mapboxLocation,
+  cleanLocationLabel,
+} from "@/lib/map-locations";
 
 export function useMapLocations(
   tickets: Violation[],
@@ -10,6 +15,9 @@ export function useMapLocations(
 ) {
   // Temporary Mapbox results stay in this page's memory, never D1/localStorage.
   const cache = useRef(new Map<string, Location | null>());
+  const [customOverrides, setCustomOverrides] = useState<
+    Record<string, Location>
+  >({});
   const [revision, setRevision] = useState(0);
   const [limit, setLimit] = useState(24);
   const [resolving, setResolving] = useState(false);
@@ -62,11 +70,56 @@ export function useMapLocations(
                   "Address lookup is temporarily unavailable. The city’s addresses are still listed below.",
                 );
               const result: any = await response.json();
-              if (!abort.signal.aborted)
-                cache.current.set(
-                  original.label,
-                  mapboxLocation(original, result.features?.[0]),
-                );
+              let loc = mapboxLocation(original, result.features?.[0]);
+
+              // If Mapbox didn't match with strict criteria, try NYC Planning Labs GeoSearch fallback
+              if (!loc && !abort.signal.aborted) {
+                try {
+                  const geoUrl = new URL(
+                    "https://geosearch.planninglabs.nyc/v2/search",
+                  );
+                  geoUrl.searchParams.set(
+                    "text",
+                    cleanLocationLabel(original.label),
+                  );
+                  geoUrl.searchParams.set("size", "1");
+                  const geoRes = await fetch(geoUrl, {
+                    signal: AbortSignal.any([
+                      abort.signal,
+                      AbortSignal.timeout(4000),
+                    ]),
+                  });
+                  if (geoRes.ok) {
+                    const geoJson: any = await geoRes.json();
+                    const f = geoJson.features?.[0];
+                    if (
+                      f?.geometry?.type === "Point" &&
+                      Array.isArray(f.geometry.coordinates) &&
+                      f.geometry.coordinates.length === 2
+                    ) {
+                      const [lng, lat] = f.geometry.coordinates;
+                      if (hasPoint({ ...original, lng, lat })) {
+                        loc = {
+                          ...original,
+                          lng,
+                          lat,
+                          precision:
+                            f.properties?.layer === "address"
+                              ? "address"
+                              : "approximate",
+                          matchedAddress:
+                            f.properties?.label ||
+                            f.properties?.name ||
+                            original.label,
+                          resolvedBy: "NYC Planning GeoSearch",
+                        };
+                      }
+                    }
+                  }
+                } catch {}
+              }
+
+              if (!abort.signal.aborted) cache.current.set(original.label, loc);
             }),
           );
           if (!abort.signal.aborted) setRevision((r) => r + 1);
@@ -85,13 +138,97 @@ export function useMapLocations(
       setResolving(false);
     };
   }, [signature, token, active, limit]);
+
+  const autocorrectLocation = async (
+    ticket: Violation,
+    customAddress?: string,
+  ): Promise<Location | null> => {
+    const addressToLookup = (
+      customAddress || cleanLocationLabel(ticket.location.label)
+    ).trim();
+    if (!addressToLookup) return null;
+
+    // 1. Try Mapbox Geocode
+    if (token) {
+      try {
+        const url = new URL("https://api.mapbox.com/search/geocode/v6/forward");
+        Object.entries({
+          q: locationQuery(addressToLookup),
+          access_token: token,
+          country: "us",
+          bbox: "-74.3,40.45,-73.65,40.95",
+          types: "address,street",
+          autocomplete: "false",
+          limit: "1",
+          permanent: "false",
+        }).forEach(([k, v]) => url.searchParams.set(k, v));
+        const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+        if (res.ok) {
+          const data: any = await res.json();
+          const loc = mapboxLocation(
+            { ...ticket.location, label: addressToLookup },
+            data.features?.[0],
+          );
+          if (loc) {
+            const finalLoc: Location = {
+              ...loc,
+              resolvedBy: "Autocorrected address",
+            };
+            cache.current.set(ticket.location.label, finalLoc);
+            setCustomOverrides((prev) => ({ ...prev, [ticket.id]: finalLoc }));
+            setRevision((r) => r + 1);
+            return finalLoc;
+          }
+        }
+      } catch {}
+    }
+
+    // 2. Try NYC Planning Labs GeoSearch Fallback
+    try {
+      const geoUrl = new URL("https://geosearch.planninglabs.nyc/v2/search");
+      geoUrl.searchParams.set("text", cleanLocationLabel(addressToLookup));
+      geoUrl.searchParams.set("size", "1");
+      const geoRes = await fetch(geoUrl, { signal: AbortSignal.timeout(6000) });
+      if (geoRes.ok) {
+        const geoJson: any = await geoRes.json();
+        const f = geoJson.features?.[0];
+        if (
+          f?.geometry?.type === "Point" &&
+          Array.isArray(f.geometry.coordinates)
+        ) {
+          const [lng, lat] = f.geometry.coordinates;
+          if (hasPoint({ ...ticket.location, lng, lat })) {
+            const finalLoc: Location = {
+              ...ticket.location,
+              label: addressToLookup,
+              lng,
+              lat,
+              precision:
+                f.properties?.layer === "address" ? "address" : "approximate",
+              matchedAddress: f.properties?.label || addressToLookup,
+              resolvedBy: "Autocorrected (NYC GeoSearch)",
+            };
+            cache.current.set(ticket.location.label, finalLoc);
+            setCustomOverrides((prev) => ({ ...prev, [ticket.id]: finalLoc }));
+            setRevision((r) => r + 1);
+            return finalLoc;
+          }
+        }
+      }
+    } catch {}
+
+    return null;
+  };
+
   void revision;
   const resolved = tickets.map((t) =>
-    hasPoint(t.location)
-      ? t
-      : cache.current.get(t.location.label)
-        ? { ...t, location: cache.current.get(t.location.label)! }
-        : t,
+    customOverrides[t.id]
+      ? { ...t, location: customOverrides[t.id] }
+      : hasPoint(t.location)
+        ? t
+        : cache.current.get(t.location.label)
+          ? { ...t, location: cache.current.get(t.location.label)! }
+          : t,
   );
   const total = new Set(
     tickets
@@ -104,5 +241,6 @@ export function useMapLocations(
     error,
     hasMore: total > limit,
     resolveMore: () => setLimit((l) => l + 24),
+    autocorrectLocation,
   };
 }

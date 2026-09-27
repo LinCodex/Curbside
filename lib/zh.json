@@ -645,5 +645,16 @@
   "Minimize to compact": "最小化为紧凑模式",
   "Minimize": "最小化",
   "View": "查看",
-  "Expand ticket locations list": "展开违章位置列表"
+  "Expand ticket locations list": "展开违章位置列表",
+  "Retry map": "重试地图",
+  "Autocorrect suggestion": "自动纠正建议",
+  "Edit or correct address": "修改或纠正地址",
+  "Enter correct address": "输入正确地址",
+  "Enter street & borough…": "输入街道及行政区…",
+  "Locate": "定位",
+  "Apply": "应用",
+  "Mapped to": "已映射至",
+  "Could not locate suggestion. Try typing a full address below.": "无法定位建议地址。请在下方输入完整地址。",
+  "No reliable map match found. Try adding a borough (e.g. Queens, Brooklyn).": "未找到可靠的地图匹配。请尝试添加行政区（如 Queens、Brooklyn）。",
+  "WebGL hardware acceleration is unavailable on this device. Fallback map loaded.": "此设备未开启 WebGL 硬件加速。已加载备用地图。"
 }

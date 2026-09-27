@@ -33,6 +33,8 @@ import {
   CheckCircle2,
   Accessibility,
   LogOut,
+  Wand2,
+  Edit3,
 } from "lucide-react";
 import CityMap from "./city-map";
 import { CityBackdrop } from "./city-backdrop";
@@ -40,7 +42,12 @@ import { TicketLocation } from "./ticket-location";
 import { PlateBalance } from "./plate-balance";
 import CustomSelect from "./custom-select";
 import { useMapLocations } from "./use-map-locations";
-import { hasPoint, contextRadius } from "@/lib/map-locations";
+import {
+  hasPoint,
+  contextRadius,
+  cleanLocationLabel,
+  autocorrectAddress,
+} from "@/lib/map-locations";
 import { InstallGuide, PullToRefresh } from "./mobile-web-app";
 import { PLATE_TYPES } from "@/lib/plate-types";
 import { LEGAL_VERSION, OFFERS } from "@/lib/legal";
@@ -103,6 +110,10 @@ export default function Curbside() {
   const [mapSelection, setMapSelection] = useState("");
   const [mapFilter, setMapFilter] = useState("all");
   const [mapBoxMinimized, setMapBoxMinimized] = useState(false);
+  const [correctingAddress, setCorrectingAddress] = useState(false);
+  const [customAddressInput, setCustomAddressInput] = useState("");
+  const [autocorrectPending, setAutocorrectPending] = useState(false);
+  const [autocorrectError, setAutocorrectError] = useState("");
   const [installGuideRequest, setInstallGuideRequest] = useState(0);
   const [dockHidden, setDockHidden] = useState(false);
   const lastScrollY = useRef(0);
@@ -223,6 +234,8 @@ export default function Curbside() {
   useEffect(() => {
     if (mapSelection) {
       setMapBoxMinimized(true);
+      setCorrectingAddress(false);
+      setAutocorrectError("");
     }
   }, [mapSelection]);
   useEffect(() => {
@@ -1124,8 +1137,8 @@ export default function Curbside() {
               )}
               {mapTicket && !mapBoxMinimized && (
                 <div className="map-selection" aria-live="polite">
-                  <div className="row spread" style={{ alignItems: "center", marginBottom: 6 }}>
-                    <span className="eyebrow">
+                  <div className="row spread" style={{ alignItems: "center", marginBottom: 8, gap: 12 }}>
+                    <span className="eyebrow" style={{ flex: 1, minWidth: 0 }}>
                       {hasPoint(mapTicket.location)
                         ? tr(mapTicket.location.precision) + tr(" location")
                         : tr("Address on record")}
@@ -1152,6 +1165,12 @@ export default function Curbside() {
                   <h3>
                     {mapTicket.location.label || tr("Location not provided")}
                   </h3>
+                  {mapTicket.location.matchedAddress &&
+                    mapTicket.location.matchedAddress !== mapTicket.location.label && (
+                      <p className="location-matched-sub">
+                        {tr("Mapped to")}: {mapTicket.location.matchedAddress}
+                      </p>
+                    )}
                   <p>
                     {mapTicket.description} ·{" "}
                     {niceDate(mapTicket.issued, locale)}
@@ -1176,6 +1195,126 @@ export default function Curbside() {
                             "No reliable map match yet. The recorded address is shown above.",
                           )}
                     </p>
+                  )}
+                  {autocorrectAddress(mapTicket.location.label).changed && (
+                    <div className="autocorrect-suggestion-box">
+                      <div className="autocorrect-suggestion-header">
+                        <Wand2 size={12} className="autocorrect-icon" />
+                        <span>{tr("Autocorrect suggestion")}</span>
+                      </div>
+                      <div className="autocorrect-suggestion-body">
+                        <span
+                          className="autocorrect-text"
+                          title={autocorrectAddress(mapTicket.location.label).suggested}
+                        >
+                          {autocorrectAddress(mapTicket.location.label).suggested}
+                        </span>
+                        <button
+                          type="button"
+                          className="compact-action-btn"
+                          style={{ height: 28, minHeight: 28, fontSize: 11, padding: "0 10px" }}
+                          disabled={autocorrectPending}
+                          onClick={async () => {
+                            setAutocorrectPending(true);
+                            setAutocorrectError("");
+                            const loc = await locations.autocorrectLocation(
+                              mapTicket,
+                              autocorrectAddress(mapTicket.location.label).suggested,
+                            );
+                            setAutocorrectPending(false);
+                            if (!loc) {
+                              setAutocorrectError(
+                                tr("Could not locate suggestion. Try typing a full address below."),
+                              );
+                            }
+                          }}
+                        >
+                          {autocorrectPending ? (
+                            <LoaderCircle size={12} className="spin" />
+                          ) : (
+                            tr("Apply")
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {!correctingAddress ? (
+                    <div style={{ marginTop: 8 }}>
+                      <button
+                        type="button"
+                        className="text-link"
+                        style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 5 }}
+                        onClick={() => {
+                          setCorrectingAddress(true);
+                          setCustomAddressInput(
+                            cleanLocationLabel(mapTicket.location.label),
+                          );
+                        }}
+                      >
+                        <Edit3 size={11} />
+                        {hasPoint(mapTicket.location)
+                          ? tr("Edit or correct address")
+                          : tr("Enter correct address")}
+                      </button>
+                    </div>
+                  ) : (
+                    <form
+                      className="autocorrect-form"
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (!customAddressInput.trim()) return;
+                        setAutocorrectPending(true);
+                        setAutocorrectError("");
+                        const loc = await locations.autocorrectLocation(
+                          mapTicket,
+                          customAddressInput.trim(),
+                        );
+                        setAutocorrectPending(false);
+                        if (!loc) {
+                          setAutocorrectError(
+                            tr(
+                              "No reliable map match found. Try adding a borough (e.g. Queens, Brooklyn).",
+                            ),
+                          );
+                        } else {
+                          setCorrectingAddress(false);
+                        }
+                      }}
+                    >
+                      <div className="row" style={{ gap: 6, marginTop: 8 }}>
+                        <input
+                          type="text"
+                          className="autocorrect-input"
+                          value={customAddressInput}
+                          onChange={(e) => setCustomAddressInput(e.target.value)}
+                          placeholder={tr("Enter street & borough…")}
+                          autoFocus
+                        />
+                        <button
+                          type="submit"
+                          className="button primary"
+                          style={{ minHeight: 34, height: 34, padding: "0 12px", fontSize: 12 }}
+                          disabled={autocorrectPending || !customAddressInput.trim()}
+                        >
+                          {autocorrectPending ? (
+                            <LoaderCircle size={12} className="spin" />
+                          ) : (
+                            tr("Locate")
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          className="button secondary"
+                          style={{ minHeight: 34, height: 34, padding: "0 10px", fontSize: 12 }}
+                          onClick={() => setCorrectingAddress(false)}
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                      {autocorrectError && (
+                        <p className="autocorrect-error">{autocorrectError}</p>
+                      )}
+                    </form>
                   )}
                   <div className="row" style={{ gap: 8, marginTop: 12 }}>
                     <button
