@@ -8,6 +8,7 @@ import {
 } from "../lib/mobile.ts";
 import {
   mapboxLocation,
+  geoSearchLocation,
   locationQuery,
   locationRing,
   contextRadius,
@@ -83,6 +84,38 @@ test("location matching rejects coarse and wrong-borough matches", () => {
     autocorrectAddress("F/O 123 5TH AVE Manhattan").suggested,
     "123 5TH AVE Manhattan",
   );
+  assert.equal(
+    cleanLocationLabel("S/E/C 86TH ST & 4TH AVE Brooklyn"),
+    "86TH ST and 4TH AVE Brooklyn",
+  );
+  assert.equal(
+    cleanLocationLabel("W/S/O 100 BROADWAY Manhattan"),
+    "100 BROADWAY Manhattan",
+  );
+
+  // GeoSearch must strictly reject coarse borough, neighbourhood, and low-confidence centroids
+  const coarseBoroughFeature = {
+    geometry: { type: "Point", coordinates: [-73.8, 40.7] },
+    properties: { layer: "borough", label: "Queens, New York", confidence: 0.6 },
+  };
+  assert.equal(geoSearchLocation({ label: "99999 Fake St Queens" }, coarseBoroughFeature), null);
+
+  const coarseNeighbourhoodFeature = {
+    geometry: { type: "Point", coordinates: [-73.85, 40.72] },
+    properties: { layer: "neighbourhood", label: "Flushing, Queens", confidence: 0.65 },
+  };
+  assert.equal(geoSearchLocation({ label: "Nonexistent Address Queens" }, coarseNeighbourhoodFeature), null);
+
+  // GeoSearch must accept valid address and intersection features
+  const validAddressFeature = {
+    geometry: { type: "Point", coordinates: [-73.83, 40.76] },
+    properties: { layer: "address", label: "143-08 Roosevelt Ave, Queens", confidence: 0.95 },
+  };
+  const validLoc = geoSearchLocation({ label: "F/O 143-08 Roosevelt Ave Queens" }, validAddressFeature);
+  assert.ok(validLoc);
+  assert.equal(validLoc.precision, "address");
+  assert.equal(validLoc.label, "143-08 Roosevelt Ave Queens");
+  assert.equal(validLoc.resolvedBy, "NYC Planning GeoSearch");
 });
 test("plate totals deduplicate summons, retain missing amounts, and account in cents", () => {
   const one = {

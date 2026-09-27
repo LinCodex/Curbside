@@ -57,7 +57,7 @@ export function cleanLocationLabel(label: string): string {
   s = s.replace(/^(NB|SB|EB|WB)\s+/i, "");
   // Strip enforcement shorthand prefixes (F/O, O/S, N/S, S/S, E/S, W/S, I/C, C/O, OPP, ACR, FRONT OF, etc.)
   s = s.replace(
-    /^(f\/o|o\/s|n\/s|s\/s|e\/s|w\/s|i\/c|c\/o|opp|acr|in\s+front\s+of|front\s+of|opposite|corner\s+of|across\s+from|across)\s+/i,
+    /^(f\/o|o\/s|n\/s\/o|s\/s\/o|e\/s\/o|w\/s\/o|n\/s|s\/s|e\/s|w\/s|s\/e\/c|n\/e\/c|s\/w\/c|n\/w\/c|i\/c|c\/o|opp|acr|in\s+front\s+of|front\s+of|opposite|corner\s+of|across\s+from|across|near|nr)\s+/i,
     "",
   );
   // Replace intersection markers with " and "
@@ -91,6 +91,7 @@ export function autocorrectAddress(label: string): {
 export function locationQuery(label: string) {
   return cleanLocationLabel(label) + ", New York, USA";
 }
+
 export function mapboxLocation(
   original: Location,
   feature: any,
@@ -130,5 +131,60 @@ export function mapboxLocation(
     precision,
     matchedAddress: p.full_address || p.name,
     resolvedBy: "Mapbox address lookup",
+  };
+}
+
+// Validates NYC Planning Labs GeoSearch features with strict layer and accuracy checks
+// to prevent placing false pins at borough, neighborhood, or coarse centroids.
+export function geoSearchLocation(
+  original: Location,
+  feature: any,
+): Location | null {
+  if (!feature) return null;
+  const p = feature.properties;
+  const coordinates = feature.geometry?.coordinates;
+  if (
+    feature.geometry?.type !== "Point" ||
+    !Array.isArray(coordinates) ||
+    coordinates.length < 2
+  )
+    return null;
+  const [lng, lat] = coordinates;
+  const point = { lng, lat };
+  if (!hasPoint({ ...original, ...point })) return null;
+
+  // Never accept coarse borough, neighbourhood, or generic county matches
+  const validLayers = ["address", "venue"];
+  const isAddressOrVenue = validLayers.includes(p?.layer);
+  const isIntersection =
+    p?.layer === "street" &&
+    (p?.accuracy === "intersection" ||
+      (typeof p?.label === "string" &&
+        (/\s+(&|and)\s+/i.test(p.label) || /\s+at\s+/i.test(p.label))));
+  if (!isAddressOrVenue && !isIntersection) return null;
+
+  // Require good confidence if provided
+  if (typeof p?.confidence === "number" && p.confidence < 0.7) return null;
+
+  // Verify borough match if original label specifies a borough
+  const borough = original.label.match(
+    /\b(Queens|Brooklyn|Manhattan|Bronx|Staten Island)\b/i,
+  )?.[1];
+  const labelText = (p?.label || p?.name || "").toLowerCase();
+  if (borough && !labelText.includes(borough.toLowerCase())) return null;
+
+  const precision: Location["precision"] = isAddressOrVenue
+    ? "address"
+    : "intersection";
+  const cleaned = cleanLocationLabel(original.label);
+
+  return {
+    ...original,
+    label: cleaned || original.label,
+    lng,
+    lat,
+    precision,
+    matchedAddress: p?.label || p?.name || cleaned,
+    resolvedBy: "NYC Planning GeoSearch",
   };
 }

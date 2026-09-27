@@ -33,7 +33,6 @@ import {
   CheckCircle2,
   Accessibility,
   LogOut,
-  Wand2,
   Edit3,
 } from "lucide-react";
 import CityMap from "./city-map";
@@ -1196,48 +1195,7 @@ export default function Curbside() {
                           )}
                     </p>
                   )}
-                  {autocorrectAddress(mapTicket.location.label).changed && (
-                    <div className="autocorrect-suggestion-box">
-                      <div className="autocorrect-suggestion-header">
-                        <Wand2 size={12} className="autocorrect-icon" />
-                        <span>{tr("Autocorrect suggestion")}</span>
-                      </div>
-                      <div className="autocorrect-suggestion-body">
-                        <span
-                          className="autocorrect-text"
-                          title={autocorrectAddress(mapTicket.location.label).suggested}
-                        >
-                          {autocorrectAddress(mapTicket.location.label).suggested}
-                        </span>
-                        <button
-                          type="button"
-                          className="compact-action-btn"
-                          style={{ height: 28, minHeight: 28, fontSize: 11, padding: "0 10px" }}
-                          disabled={autocorrectPending}
-                          onClick={async () => {
-                            setAutocorrectPending(true);
-                            setAutocorrectError("");
-                            const loc = await locations.autocorrectLocation(
-                              mapTicket,
-                              autocorrectAddress(mapTicket.location.label).suggested,
-                            );
-                            setAutocorrectPending(false);
-                            if (!loc) {
-                              setAutocorrectError(
-                                tr("Could not locate suggestion. Try typing a full address below."),
-                              );
-                            }
-                          }}
-                        >
-                          {autocorrectPending ? (
-                            <LoaderCircle size={12} className="spin" />
-                          ) : (
-                            tr("Apply")
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  )}
+
                   {!correctingAddress ? (
                     <div style={{ marginTop: 8 }}>
                       <button
