@@ -108,3 +108,30 @@ test("context rings stay centered and cannot manufacture a missing location", ()
     ring.geometry.coordinates[0][32],
   );
 });
+import { ticketOverview } from "../lib/map-overview.ts";
+
+test("overview centers the busiest neighborhood while retaining distant locations", () => {
+  const points = [
+    { lng: -73.83, lat: 40.76 },
+    { lng: -73.831, lat: 40.761 },
+    { lng: -73.832, lat: 40.759 },
+    { lng: -74.15, lat: 40.58 },
+  ];
+  const result = ticketOverview(points);
+  assert.ok(Math.abs(result.center[0] + 73.831) < 0.001);
+  assert.ok(Math.abs(result.center[1] - 40.76) < 0.001);
+  for (const p of points) {
+    assert.ok(p.lng >= result.bounds[0][0] && p.lng <= result.bounds[1][0]);
+    assert.ok(p.lat >= result.bounds[0][1] && p.lat <= result.bounds[1][1]);
+  }
+  assert.deepEqual(ticketOverview([...points].reverse()), result);
+});
+
+test("overview handles empty records and repeated tickets at one location", () => {
+  assert.equal(ticketOverview([]), null);
+  const point = { lng: -73.83, lat: 40.76 };
+  const result = ticketOverview(Array.from({ length: 500 }, () => point));
+  assert.ok(Math.abs(result.center[0] - point.lng) < 1e-9);
+  assert.ok(Math.abs(result.center[1] - point.lat) < 1e-9);
+  assert.ok(result.bounds[0][0] < result.bounds[1][0]);
+});

@@ -5,6 +5,7 @@ import { MapCredits } from "./map-credits";
 
 import type { Violation } from "@/lib/domain";
 import { hasPoint, locationRing } from "@/lib/map-locations";
+import { ticketOverview } from "@/lib/map-overview";
 const EMPTY: Violation[] = [];
 export default function CityMap({
   tickets = EMPTY,
@@ -75,20 +76,25 @@ export default function CityMap({
       });
       return;
     }
-    const lng = points.map((t) => t.location.lng!),
-      lat = points.map((t) => t.location.lat!);
-    map.fitBounds(
-      [
-        [Math.min(...lng), Math.min(...lat)],
-        [Math.max(...lng), Math.max(...lat)],
-      ],
-      {
-        padding: framing(),
-        retainPadding: false,
-        maxZoom: 13.5,
-        duration: reduced() ? 0 : 280,
-      },
-    );
+    const overview = ticketOverview(
+      points.map((t) => ({ lng: t.location.lng!, lat: t.location.lat! })),
+    )!;
+    map.setPadding(0);
+    const camera = map.cameraForBounds(overview.bounds, {
+      padding: 48,
+      maxZoom: 13.5,
+      bearing: 0,
+    });
+    if (!camera) return;
+    map.easeTo({
+      center: overview.center,
+      zoom: camera.zoom,
+      bearing: 0,
+      pitch: 0,
+      padding: 0,
+      retainPadding: false,
+      duration: reduced() ? 0 : 280,
+    });
   };
   useEffect(() => {
     if (token && !failed) return;
