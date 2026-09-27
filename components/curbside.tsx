@@ -954,24 +954,26 @@ export default function Curbside() {
                         : tr("ticket locations")}
                     </span>
                   </div>
-                  <button
-                    className="map-box-icon-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMapBoxMinimized(false);
-                    }}
-                    aria-label={tr("Expand locations list")}
-                    title={tr("Expand locations list")}
-                  >
-                    <ChevronUp size={15} />
-                  </button>
+                  <div className="map-box-controls">
+                    <button
+                      className="map-box-icon-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMapBoxMinimized(false);
+                      }}
+                      aria-label={tr("Expand locations list")}
+                      title={tr("Expand locations list")}
+                    >
+                      <ChevronUp size={16} />
+                    </button>
+                  </div>
                 </div>
               )}
               {!mapTicket && !mapBoxMinimized && (
                 <>
                   <div className="section-heading">
                     <h2>{tr("Locations")}</h2>
-                    <div className="row" style={{ gap: 6, alignItems: "center" }}>
+                    <div className="row" style={{ gap: 8, alignItems: "center" }}>
                       {activeVehicle && (
                         <button
                           className="text-link"
@@ -988,14 +990,16 @@ export default function Curbside() {
                           <RefreshCw size={13} />
                         </button>
                       )}
-                      <button
-                        className="map-box-icon-btn"
-                        onClick={() => setMapBoxMinimized(true)}
-                        aria-label={tr("Minimize locations list")}
-                        title={tr("Minimize locations list")}
-                      >
-                        <ChevronDown size={15} />
-                      </button>
+                      <div className="map-box-controls">
+                        <button
+                          className="map-box-icon-btn"
+                          onClick={() => setMapBoxMinimized(true)}
+                          aria-label={tr("Minimize locations list")}
+                          title={tr("Minimize locations list")}
+                        >
+                          <ChevronDown size={16} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                   <p className="map-helper">
@@ -1095,51 +1099,53 @@ export default function Curbside() {
                       onClick={() => openTicket(mapTicket)}
                     >
                       {tr("View")}
-                      <ArrowUpRight size={12} />
+                      <ArrowUpRight size={13} />
                     </button>
-                    <button
-                      className="map-box-icon-btn"
-                      onClick={() => setMapBoxMinimized(false)}
-                      aria-label={tr("Expand details")}
-                      title={tr("Expand details")}
-                    >
-                      <ChevronUp size={15} />
-                    </button>
-                    <button
-                      className="map-box-icon-btn"
-                      onClick={() => setMapSelection("")}
-                      aria-label={tr("Show all tickets")}
-                      title={tr("Show all tickets")}
-                    >
-                      <X size={14} />
-                    </button>
+                    <div className="map-box-controls">
+                      <button
+                        className="map-box-icon-btn"
+                        onClick={() => setMapBoxMinimized(false)}
+                        aria-label={tr("Expand details")}
+                        title={tr("Expand details")}
+                      >
+                        <ChevronUp size={16} />
+                      </button>
+                      <button
+                        className="map-box-icon-btn"
+                        onClick={() => setMapSelection("")}
+                        aria-label={tr("Show all tickets")}
+                        title={tr("Show all tickets")}
+                      >
+                        <X size={15} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
               {mapTicket && !mapBoxMinimized && (
                 <div className="map-selection" aria-live="polite">
-                  <div className="row spread">
+                  <div className="row spread" style={{ alignItems: "center", marginBottom: 6 }}>
                     <span className="eyebrow">
                       {hasPoint(mapTicket.location)
                         ? tr(mapTicket.location.precision) + tr(" location")
                         : tr("Address on record")}
                     </span>
-                    <div className="row" style={{ gap: 8, alignItems: "center" }}>
+                    <div className="map-box-controls">
                       <button
                         aria-label={tr("Minimize to compact")}
                         title={tr("Minimize to compact")}
                         className="map-box-icon-btn"
                         onClick={() => setMapBoxMinimized(true)}
                       >
-                        <ChevronDown size={15} />
+                        <ChevronDown size={16} />
                       </button>
                       <button
                         aria-label={tr("Show all tickets")}
-                        className="text-link"
+                        title={tr("Show all tickets")}
+                        className="map-box-icon-btn"
                         onClick={() => setMapSelection("")}
                       >
-                        {tr("All tickets")}
-                        <X size={14} />
+                        <X size={15} />
                       </button>
                     </div>
                   </div>
