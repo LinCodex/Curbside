@@ -133,8 +133,40 @@ export default function CityMap({
           logoPosition: "bottom-left",
         });
         instance.current = map;
-        pin.current = new mapbox.Marker({ color: "#dce9fc", scale: 0.85 });
-        pin.current.getElement().classList.add("violation-pin");
+        const dropperEl = document.createElement("div");
+        dropperEl.className = "refined-map-dropper";
+        dropperEl.setAttribute("aria-label", "Selected violation pin");
+        dropperEl.innerHTML = `
+          <div class="dropper-glow"></div>
+          <div class="dropper-pin">
+            <svg width="34" height="46" viewBox="0 0 34 46" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <filter id="dropper-shadow" x="-30%" y="-20%" width="160%" height="150%">
+                  <feDropShadow dx="0" dy="3.5" stdDeviation="3" flood-color="#000000" flood-opacity="0.45"/>
+                </filter>
+                <linearGradient id="dropper-grad" x1="17" y1="0" x2="17" y2="44" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#ffffff"/>
+                  <stop offset="0.5" stop-color="#e2eeff"/>
+                  <stop offset="1" stop-color="#a8cbf8"/>
+                </linearGradient>
+              </defs>
+              <path d="M17 44C17 44 32 28.5 32 17C32 8.71573 25.2843 2 17 2C8.71573 2 2 8.71573 2 17C2 28.5 17 44 17 44Z" fill="url(#dropper-grad)" stroke="#111c2e" stroke-width="2" filter="url(#dropper-shadow)"/>
+              <circle cx="17" cy="17" r="6" fill="#152238"/>
+              <circle cx="17" cy="17" r="2.8" fill="#58a6ff"/>
+            </svg>
+          </div>
+        `;
+        dropperEl.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const currentTicket = latest.current.tickets.find(
+            (t) => t.id === latest.current.selectedId,
+          );
+          if (currentTicket) latest.current.onSelect?.(currentTicket);
+        });
+        pin.current = new mapbox.Marker({
+          element: dropperEl,
+          anchor: "bottom",
+        });
         map.on("error", (event: any) => {
           if (
             !map.isStyleLoaded() &&
@@ -199,11 +231,18 @@ export default function CityMap({
             },
             paint: { "text-color": "#10151c" },
           });
+          const initialSelectedId = latest.current.selectedId;
           map.addLayer({
             id: "ticket-points",
             type: "symbol",
             source: "tickets",
-            filter: ["!", ["has", "point_count"]],
+            filter: initialSelectedId
+              ? [
+                  "all",
+                  ["!", ["has", "point_count"]],
+                  ["!=", ["get", "id"], initialSelectedId],
+                ]
+              : ["!", ["has", "point_count"]],
             layout: {
               "icon-image": "violation-pin",
               "icon-anchor": "bottom",
@@ -395,9 +434,31 @@ export default function CityMap({
     map
       .getSource("location-area")
       ?.setData({ type: "FeatureCollection", features: ring ? [ring] : [] });
-    if (t && interactive)
+
+    // Filter out the selected ticket from WebGL symbol layer so only one dropper is shown
+    if (map.getLayer("ticket-points")) {
+      if (t && selectedId) {
+        map.setFilter("ticket-points", [
+          "all",
+          ["!", ["has", "point_count"]],
+          ["!=", ["get", "id"], selectedId],
+        ]);
+      } else {
+        map.setFilter("ticket-points", ["!", ["has", "point_count"]]);
+      }
+    }
+
+    if (t && interactive) {
       pin.current?.setLngLat([t.location.lng, t.location.lat]).addTo(map);
-    else pin.current?.remove();
+      const el = pin.current?.getElement();
+      if (el) {
+        el.style.animation = "none";
+        void el.offsetWidth;
+        el.style.animation = "";
+      }
+    } else {
+      pin.current?.remove();
+    }
     map.getSource("selection").setData({
       type: "FeatureCollection",
       features: t
@@ -517,6 +578,7 @@ export default function CityMap({
                 .filter((t) => hasPoint(t.location))
                 .map((t) => {
                   const [x, y] = project(t.location.lng!, t.location.lat!);
+                  const isSelected = t.id === selectedId;
                   return (
                     <g
                       key={t.id}
@@ -531,8 +593,18 @@ export default function CityMap({
                         }
                       }}
                     >
-                      <circle cx={x} cy={y} r="22" fill="#a4bfff33" />
-                      <circle cx={x} cy={y} r="9" fill="#ecf2ff" />
+                      {isSelected ? (
+                        <>
+                          <circle cx={x} cy={y} r="26" fill="#91b8ec55" />
+                          <circle cx={x} cy={y} r="12" fill="#ffffff" stroke="#121d2e" strokeWidth="2.5" />
+                          <circle cx={x} cy={y} r="5" fill="#3b82f6" />
+                        </>
+                      ) : (
+                        <>
+                          <circle cx={x} cy={y} r="18" fill="#a4bfff25" />
+                          <circle cx={x} cy={y} r="8" fill="#ecf2ff" stroke="#1b283d" strokeWidth="1.5" />
+                        </>
+                      )}
                     </g>
                   );
                 })}
