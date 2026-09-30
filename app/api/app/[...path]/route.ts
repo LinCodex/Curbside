@@ -24,6 +24,7 @@ import {
 } from "@/lib/providers";
 import { caseFor, draftCase, evidenceUpload, evidenceLinks } from "@/lib/cases";
 import { LEGAL_VERSION, OFFERS } from "@/lib/legal";
+import { FREE_ACCESS } from "@/lib/release";
 async function handler(req: Request) {
   try {
     sameOrigin(req);
@@ -306,8 +307,8 @@ async function handler(req: Request) {
       result = { stopped: true };
     } else if (path[0] === "checkout" && method === "POST") {
       requireService(
-        config().COMMERCE_ENABLED === "true",
-        "Paid services are not open yet. Billing and renewal setup must be completed first.",
+        !FREE_ACCESS && config().COMMERCE_ENABLED === "true",
+        "Curbside is free during this release. Purchases are disabled.",
       );
       if (
         !Object.hasOwn(OFFERS, body.kind || "") ||
@@ -394,7 +395,7 @@ async function handler(req: Request) {
       result = { saved: true };
     } else if (path[0] === "dealer" && id === "invite" && method === "POST") {
       const d = await dealerFor(user);
-      if (!d.active)
+      if (!FREE_ACCESS && !d.active)
         throw new HttpError(
           409,
           "Activate dealership billing before creating sponsorship invitations.",
@@ -414,7 +415,7 @@ async function handler(req: Request) {
         body.token,
         Date.now(),
       );
-      if (!invite || !invite.active)
+      if (!invite || (!FREE_ACCESS && !invite.active))
         throw new HttpError(409, "Invitation is unavailable.");
       const existing = await one(
         "SELECT id FROM sponsorships WHERE owner_id=?",

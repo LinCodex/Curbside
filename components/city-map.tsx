@@ -1,12 +1,37 @@
 "use client";
 import { usePreferences } from "./preferences";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MapCredits } from "./map-credits";
 
 import type { Violation } from "@/lib/domain";
 import { hasPoint, locationRing } from "@/lib/map-locations";
 import { ticketOverview } from "@/lib/map-overview";
 const EMPTY: Violation[] = [];
+const reduced = () =>
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const framing = () => {
+  const panel = document.querySelector(".map-results")?.getBoundingClientRect();
+  return window.innerWidth <= 800
+    ? {
+        top:
+          (document.querySelector(".map-scene-heading")?.getBoundingClientRect()
+            .bottom || 140) + 20,
+        bottom: panel
+          ? window.innerHeight - panel.top + 24
+          : window.innerHeight * 0.45,
+        left: 32,
+        right: 32,
+      }
+    : {
+        top: 130,
+        bottom: 80,
+        left: 60,
+        right: panel
+          ? window.innerWidth - panel.left + 24
+          : Math.min(window.innerWidth * 0.42, 530),
+      };
+};
+
 export default function CityMap({
   tickets = EMPTY,
   token,
@@ -27,6 +52,7 @@ export default function CityMap({
   const pin = useRef<any>(null);
   const latest = useRef({ tickets, onSelect, interactive, selectedId });
   latest.current = { tickets, onSelect, interactive, selectedId };
+  const [attempt, setAttempt] = useState(0);
   const [ready, setReady] = useState(0),
     [failed, setFailed] = useState(false);
   const [failureReason, setFailureReason] = useState(
@@ -35,34 +61,7 @@ export default function CityMap({
   const [paths, setPaths] = useState<any[]>([]),
     [roads, setRoads] = useState<string[]>([]),
     [zoom, setZoom] = useState(1);
-  const reduced = () =>
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const framing = () => {
-    const panel = document
-      .querySelector(".map-results")
-      ?.getBoundingClientRect();
-    return window.innerWidth <= 800
-      ? {
-          top: 175,
-          bottom: Math.min(
-            window.innerHeight - 285,
-            panel
-              ? window.innerHeight - panel.top + 24
-              : window.innerHeight * 0.45,
-          ),
-          left: 45,
-          right: 55,
-        }
-      : {
-          top: 130,
-          bottom: 80,
-          left: 60,
-          right: panel
-            ? window.innerWidth - panel.left + 24
-            : Math.min(window.innerWidth * 0.42, 530),
-        };
-  };
-  const fit = () => {
+  const fit = useCallback(() => {
     const map = instance.current;
     if (!map) return;
     map.stop();
@@ -80,8 +79,9 @@ export default function CityMap({
       points.map((t) => ({ lng: t.location.lng!, lat: t.location.lat! })),
     )!;
     map.setPadding(0);
+    const padding = window.innerWidth <= 800 ? framing() : 48;
     const camera = map.cameraForBounds(overview.bounds, {
-      padding: 48,
+      padding,
       maxZoom: 13.5,
       bearing: 0,
     });
@@ -91,11 +91,11 @@ export default function CityMap({
       zoom: camera.zoom,
       bearing: 0,
       pitch: 0,
-      padding: 0,
+      padding: window.innerWidth <= 800 ? padding : 0,
       retainPadding: false,
       duration: reduced() ? 0 : 280,
     });
-  };
+  }, []);
   useEffect(() => {
     if (token && !failed) return;
     const abort = new AbortController();
@@ -149,24 +149,12 @@ export default function CityMap({
         instance.current = map;
         const dropperEl = document.createElement("div");
         dropperEl.className = "refined-map-dropper";
-        dropperEl.setAttribute("aria-label", "Selected violation pin");
+        dropperEl.setAttribute("aria-label", tr("Selected violation pin"));
         dropperEl.innerHTML = `
-          <div class="dropper-glow"></div>
           <div class="dropper-pin">
-            <svg width="34" height="46" viewBox="0 0 34 46" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <defs>
-                <filter id="dropper-shadow" x="-30%" y="-20%" width="160%" height="150%">
-                  <feDropShadow dx="0" dy="3.5" stdDeviation="3" flood-color="#000000" flood-opacity="0.45"/>
-                </filter>
-                <linearGradient id="dropper-grad" x1="17" y1="0" x2="17" y2="44" gradientUnits="userSpaceOnUse">
-                  <stop stop-color="#ffffff"/>
-                  <stop offset="0.5" stop-color="#e2eeff"/>
-                  <stop offset="1" stop-color="#a8cbf8"/>
-                </linearGradient>
-              </defs>
-              <path d="M17 44C17 44 32 28.5 32 17C32 8.71573 25.2843 2 17 2C8.71573 2 2 8.71573 2 17C2 28.5 17 44 17 44Z" fill="url(#dropper-grad)" stroke="#111c2e" stroke-width="2" filter="url(#dropper-shadow)"/>
-              <circle cx="17" cy="17" r="6" fill="#152238"/>
-              <circle cx="17" cy="17" r="2.8" fill="#58a6ff"/>
+            <svg width="28" height="38" viewBox="0 0 28 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M14 36S26 22 26 14a12 12 0 1 0-24 0c0 8 12 22 12 22Z" fill="#f8fafc" stroke="#344154" stroke-width="1.5"/>
+              <circle cx="14" cy="14" r="4" fill="#3888f7"/>
             </svg>
           </div>
         `;
@@ -277,7 +265,7 @@ export default function CityMap({
               id: "location-area-fill",
               type: "fill",
               source: "location-area",
-              paint: { "fill-color": "#91b8ec", "fill-opacity": 0.14 },
+              paint: { "fill-color": "#77aaf5", "fill-opacity": 0.07 },
             },
             "ticket-points",
           );
@@ -287,10 +275,9 @@ export default function CityMap({
               type: "line",
               source: "location-area",
               paint: {
-                "line-color": "#b1cbed",
-                "line-opacity": 0.65,
-                "line-width": 1.5,
-                "line-dasharray": [3, 2],
+                "line-color": "#77aaf5",
+                "line-opacity": 0.5,
+                "line-width": 1,
               },
             },
             "ticket-points",
@@ -300,10 +287,10 @@ export default function CityMap({
             type: "circle",
             source: "selection",
             paint: {
-              "circle-radius": 19,
-              "circle-color": "rgba(255, 255, 255, 0.03)",
-              "circle-stroke-color": "#f3f6ff",
-              "circle-stroke-width": 2,
+              "circle-radius": 4,
+              "circle-color": "#77aaf5",
+              "circle-stroke-color": "#ffffff",
+              "circle-stroke-width": 1.5,
             },
           });
           map.on("click", "ticket-points", (e: any) => {
@@ -359,13 +346,14 @@ export default function CityMap({
       instance.current?.remove();
       instance.current = null;
     };
-  }, [token, resolvedTheme]);
+  }, [token, resolvedTheme, attempt]);
   // Changing a selection or a form field never constructs another map.
   useEffect(() => {
     const map = instance.current;
     // Source updates temporarily make isStyleLoaded false; layer existence is
     // the correct readiness check when switching between Home and Map.
     if (!map || !ready || !map.getLayer("selection-ring")) return;
+    map.resize();
     for (const key of [
       "scrollZoom",
       "boxZoom",
@@ -387,6 +375,9 @@ export default function CityMap({
             )
           : tr("Decorative New York City map"),
       );
+    pin.current
+      ?.getElement()
+      .setAttribute("aria-label", tr("Selected violation pin"));
     for (const layer of map.getStyle().layers || [])
       if (
         layer.type === "symbol" &&
@@ -465,11 +456,13 @@ export default function CityMap({
 
     if (t && interactive) {
       pin.current?.setLngLat([t.location.lng, t.location.lat]).addTo(map);
-      const el = pin.current?.getElement();
-      if (el) {
-        el.style.animation = "none";
-        void el.offsetWidth;
-        el.style.animation = "";
+      const pinInner = pin.current
+        ?.getElement()
+        ?.querySelector(".dropper-pin") as HTMLElement | null;
+      if (pinInner) {
+        pinInner.style.animation = "none";
+        void pinInner.offsetWidth;
+        pinInner.style.animation = "";
       }
     } else {
       pin.current?.remove();
@@ -513,7 +506,27 @@ export default function CityMap({
       reduced() ? 0 : 240,
     );
     return () => window.clearTimeout(timer);
-  }, [pointKey, selectedId, ready, interactive]);
+  }, [pointKey, selectedId, ready, interactive, fit]);
+  useEffect(() => {
+    const map = instance.current;
+    if (!ready || !interactive || !map || !surface.current) return;
+    let timer: ReturnType<typeof setTimeout>;
+    const observer = new ResizeObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (instance.current !== map) return;
+        map.resize();
+        if (!latest.current.selectedId) fit();
+      }, 120);
+    });
+    observer.observe(surface.current);
+    const panel = document.querySelector(".map-results");
+    if (panel) observer.observe(panel);
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, [ready, interactive, fit]);
   useEffect(() => {
     const map = instance.current;
     if (!interactive || !selectedCameraKey || !map?.getSource("selection"))
@@ -546,6 +559,18 @@ export default function CityMap({
     (lng + 74.19) * 2600,
     (40.93 - lat) * 3400,
   ];
+  const fallbackPoints = tickets
+    .filter((t) => hasPoint(t.location))
+    .map((t) => project(t.location.lng!, t.location.lat!));
+  const fallbackBounds = fallbackPoints.length
+    ? (() => {
+        const xs = fallbackPoints.map((p) => p[0]),
+          ys = fallbackPoints.map((p) => p[1]);
+        const minX = Math.min(...xs) - 100,
+          minY = Math.min(...ys) - 100;
+        return `${minX} ${minY} ${Math.max(...xs) - minX + 100} ${Math.max(...ys) - minY + 100}`;
+      })()
+    : "0 0 1100 1150";
   return (
     <div
       className={
@@ -560,8 +585,8 @@ export default function CityMap({
       {(!token || failed) && (
         <svg
           className="geography"
-          viewBox="0 0 1100 1150"
-          preserveAspectRatio="xMidYMid slice"
+          viewBox={fallbackBounds}
+          preserveAspectRatio="xMidYMid meet"
           aria-label={tr("NYC borough outlines")}
         >
           <g
@@ -611,13 +636,27 @@ export default function CityMap({
                       {isSelected ? (
                         <>
                           <circle cx={x} cy={y} r="26" fill="#91b8ec55" />
-                          <circle cx={x} cy={y} r="12" fill="#ffffff" stroke="#121d2e" strokeWidth="2.5" />
+                          <circle
+                            cx={x}
+                            cy={y}
+                            r="12"
+                            fill="#ffffff"
+                            stroke="#121d2e"
+                            strokeWidth="2.5"
+                          />
                           <circle cx={x} cy={y} r="5" fill="#3b82f6" />
                         </>
                       ) : (
                         <>
                           <circle cx={x} cy={y} r="18" fill="#a4bfff25" />
-                          <circle cx={x} cy={y} r="8" fill="#ecf2ff" stroke="#1b283d" strokeWidth="1.5" />
+                          <circle
+                            cx={x}
+                            cy={y}
+                            r="8"
+                            fill="#ecf2ff"
+                            stroke="#1b283d"
+                            strokeWidth="1.5"
+                          />
                         </>
                       )}
                     </g>
@@ -634,10 +673,15 @@ export default function CityMap({
           <button
             type="button"
             className="text-link"
-            style={{ marginLeft: 8, fontSize: 11, cursor: "pointer", textDecoration: "underline" }}
+            style={{
+              marginLeft: 8,
+              fontSize: 11,
+              cursor: "pointer",
+              textDecoration: "underline",
+            }}
             onClick={() => {
               setFailed(false);
-              setReady((r) => r + 1);
+              setAttempt((r) => r + 1);
             }}
           >
             {tr("Retry map")}

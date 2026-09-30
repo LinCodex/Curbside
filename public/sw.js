@@ -1,5 +1,5 @@
 // Cache public assets only; never cache queries, ticket pages, evidence, or accounts.
-const CACHE = "curbside-public-v5";
+const CACHE = "curbside-public-v6";
 const ASSETS = [
   "/offline.html",
   "/favicon.svg",

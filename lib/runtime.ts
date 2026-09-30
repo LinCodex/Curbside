@@ -1,3 +1,4 @@
+import { FREE_ACCESS } from "./release";
 // Environment variable accessor compatible with Vercel (Edge & Serverless) and Cloudflare runtimes
 const getEnv = (): Record<string, any> => {
   if (typeof process !== "undefined" && process.env) {
@@ -104,23 +105,27 @@ export async function readJson(req: Request, max = 16000) {
 }
 export const publicConfig = () => {
   const e = config();
+  const supabase =
+    e.SUPABASE_URL && e.SUPABASE_PUBLISHABLE_KEY
+      ? { url: e.SUPABASE_URL, publishableKey: e.SUPABASE_PUBLISHABLE_KEY }
+      : null;
   return {
+    supabase,
     clerkKey: e.CLERK_PUBLISHABLE_KEY || null,
     mapboxToken:
       e.MAPBOX_PUBLIC_TOKEN ||
       e.NEXT_PUBLIC_MAPBOX_TOKEN ||
       e.MAPBOX_TOKEN ||
       e.MAPBOX_ACCESS_TOKEN ||
-      (typeof process !== "undefined" && (
-        process.env?.MAPBOX_PUBLIC_TOKEN ||
-        process.env?.NEXT_PUBLIC_MAPBOX_TOKEN ||
-        process.env?.MAPBOX_TOKEN ||
-        process.env?.MAPBOX_ACCESS_TOKEN
-      )) ||
+      (typeof process !== "undefined" &&
+        (process.env?.MAPBOX_PUBLIC_TOKEN ||
+          process.env?.NEXT_PUBLIC_MAPBOX_TOKEN ||
+          process.env?.MAPBOX_TOKEN ||
+          process.env?.MAPBOX_ACCESS_TOKEN)) ||
       null,
     turnstileKey: e.TURNSTILE_SITE_KEY || null,
     services: {
-      accounts: !!e.CLERK_SECRET_KEY,
+      accounts: !!supabase || !!e.CLERK_SECRET_KEY,
       email: !!(e.RESEND_API_KEY && e.EMAIL_FROM),
       sms: !!(
         e.TWILIO_ACCOUNT_SID &&
@@ -128,7 +133,8 @@ export const publicConfig = () => {
         e.TWILIO_VERIFY_SERVICE_SID &&
         e.TWILIO_MESSAGING_SERVICE_SID
       ),
-      billing: !!e.STRIPE_SECRET_KEY && e.COMMERCE_ENABLED === "true",
+      billing:
+        !FREE_ACCESS && !!e.STRIPE_SECRET_KEY && e.COMMERCE_ENABLED === "true",
       ai: !!(e.AI_API_KEY && e.AI_MODEL),
       geocoding: !!e.NYC_GEOCLIENT_KEY,
       monitoring: e.SCHEDULER_ENABLED === "true",

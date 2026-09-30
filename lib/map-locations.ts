@@ -29,11 +29,11 @@ export function locationRing(location: Location) {
   return {
     type: "Feature" as const,
     properties: {
-      fill: "#91b8ec",
-      "fill-opacity": 0.14,
-      stroke: "#b1cbed",
+      fill: "#77aaf5",
+      "fill-opacity": 0.07,
+      stroke: "#77aaf5",
       "stroke-width": 1,
-      "stroke-opacity": 0.7,
+      "stroke-opacity": 0.5,
     },
     geometry: { type: "Polygon" as const, coordinates: [coordinates] },
   };
@@ -90,6 +90,44 @@ export function autocorrectAddress(label: string): {
 // Preserve the city's display label; normalize only the provider query.
 export function locationQuery(label: string) {
   return cleanLocationLabel(label) + ", New York, USA";
+}
+
+/** Camera records split a single location across street and intersecting fields. */
+export function reportedLocation(
+  house: string,
+  street: string,
+  cross: string,
+  borough: string | null,
+  camera: boolean,
+) {
+  if (camera && !house && cross && street.includes("@")) {
+    const separator = street.endsWith("@") ? " " : "";
+    return {
+      label: [street + separator + cross, borough].filter(Boolean).join(" "),
+      precision: "intersection" as const,
+    };
+  }
+  if (camera && !house && cross.startsWith("@")) {
+    return {
+      label: [street, cross, borough].filter(Boolean).join(" "),
+      precision: "intersection" as const,
+    };
+  }
+  return {
+    label: street
+      ? [house, street, cross ? "at " + cross : "", borough]
+          .filter(Boolean)
+          .join(" ")
+      : "",
+    precision:
+      house && street
+        ? ("address" as const)
+        : cross && street
+          ? ("intersection" as const)
+          : street
+            ? ("approximate" as const)
+            : ("unknown" as const),
+  };
 }
 
 export function mapboxLocation(
@@ -170,8 +208,47 @@ export function geoSearchLocation(
   const borough = original.label.match(
     /\b(Queens|Brooklyn|Manhattan|Bronx|Staten Island)\b/i,
   )?.[1];
-  const labelText = (p?.label || p?.name || "").toLowerCase();
+  const labelText = [p?.label, p?.name, p?.borough, p?.county]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
   if (borough && !labelText.includes(borough.toLowerCase())) return null;
+
+  // PAD addresses often have confidence .8 and a neighborhood-only display
+  // label. Validate the actual number/street instead of rejecting valid Queens
+  // addresses or accepting a nearby numbered property as the same location.
+  if (p?.housenumber || p?.street) {
+    const input = cleanLocationLabel(original.label).replace(
+      /\s+(Queens|Brooklyn|Manhattan|Bronx|Staten Island)\b.*$/i,
+      "",
+    );
+    const address = input.match(/^(\d+(?:-\d+)?[A-Z]?)\s+(.+)$/i);
+    const streetKey = (s: string) =>
+      s
+        .toLowerCase()
+        .replace(
+          /\b(blvd|ave|st|rd|dr|pl|ln|pkwy|hwy)\b/g,
+          (part) =>
+            ({
+              blvd: "boulevard",
+              ave: "avenue",
+              st: "street",
+              rd: "road",
+              dr: "drive",
+              pl: "place",
+              ln: "lane",
+              pkwy: "parkway",
+              hwy: "highway",
+            })[part]!,
+        )
+        .replace(/[^a-z0-9]/g, "");
+    if (
+      !address ||
+      address[1].toLowerCase() !== String(p.housenumber).toLowerCase() ||
+      streetKey(address[2]) !== streetKey(String(p.street))
+    )
+      return null;
+  }
 
   const precision: Location["precision"] = isAddressOrVenue
     ? "address"

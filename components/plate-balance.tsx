@@ -11,7 +11,7 @@ export function PlateBalance({
   tickets: Violation[];
   complete?: boolean;
 }) {
-  const { tr } = usePreferences();
+  const { tr, detailMode } = usePreferences();
 
   const totals = plateTotals(tickets);
   return (
@@ -29,20 +29,34 @@ export function PlateBalance({
           return (
             <div key={tr(label as string)}>
               <span>{label as string}</span>
-              <strong>{money(total.amount)}</strong>
-              <small>
-                {total.known}/{total.total} {tr("records with amounts")}
-                {!complete || total.known < total.total ? tr(" · Partial") : ""}
-              </small>
+              <strong>{tr(money(total.amount))}</strong>
+              {detailMode === "geek" ? (
+                <small>
+                  {total.known}/{total.total} {tr("records with amounts")}
+                  {!complete || total.known < total.total
+                    ? tr(" · Partial")
+                    : ""}
+                </small>
+              ) : (
+                (!complete || total.known < total.total) && (
+                  <small>{tr("Partial total")}</small>
+                )
+              )}
             </div>
           );
         })}
       </div>
       <p>
-        {tr(
-          "Returned records only. History = fines + penalties + interest − reductions, before payments. Missing amounts are excluded; this is not a lifetime total or proof of current ownership.",
-        )}
+        {tr("Totals cover the records found. Missing amounts are excluded.")}
       </p>
+      <details className="balance-method">
+        <summary>{tr("About these totals")}</summary>
+        <p>
+          {tr(
+            "History includes fines, penalties, and interest, less reductions, before payments. Plate history may include previous owners; it is not a lifetime total.",
+          )}
+        </p>
+      </details>
     </section>
   );
 }

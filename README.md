@@ -6,7 +6,11 @@ Mobile-first NYC parking/camera violation search and monitoring for **Flushing N
 
 Real NYC plate search is available without purchased provider accounts. The UI contains no seeded vehicles, example tickets, fake balances, or invented pins. Empty states remain empty until a real search. Source freshness, partial results, unknown fields, and unlocated tickets are explicit.
 
-Accounts, notification jobs, billing, dealership enrollment, and case workflows have application/server implementations, but need provider setup and end-to-end acceptance before operation. Hosting deployment is pending; this repository is not confirmation of a live commercial launch. Paid checkout additionally requires COMMERCE_ENABLED=true. Leave it false until SETUP.md and LEGAL-LAUNCH.md are complete.
+This release is free: consumer/dealer pricing is hidden and new checkout is blocked on both client and server by `FREE_ACCESS` in `lib/release.ts`, even if payment credentials are configured. Existing cancellation access is preserved. Accounts, notification jobs, dealership enrollment, and case workflows still need provider setup and end-to-end acceptance before operation.
+
+The current Vercel deployment uses `vercel.json`, `node scripts/build-vercel.mjs`, and `dist/client` with standalone `api/config.ts` and `api/search.ts` functions. It is a Vinext/Vite build, not a Next.js `.next` deployment. Other handlers in `app/api` and the D1/R2 bindings are retained but are not standalone Vercel function adapters; private account/notification workflows require a durable backend and corresponding deployment before activation.
+
+Account contains appearance, language, and Normal/Geek controls. Normal is the default overview; Geek exposes city-reported vehicle histories, source coverage, and per-ticket provenance. These settings persist locally and do not change source queries. Historical lookup defaults on through FY2014.
 
 ## Included
 
@@ -21,7 +25,7 @@ Accounts, notification jobs, billing, dealership enrollment, and case workflows 
 
 ## Appearance and language
 
-The header settings menu offers Light / Dark / System and English / Chinese / System. Both default to device settings; explicit choices persist locally and synchronize across tabs. Chinese uses Simplified Chinese UI and legal copy. Official city descriptions, addresses, and user-entered facts remain unchanged. External provider pages retain their own language settings. Language and theme do not change stored records, API enums, or currency (USD).
+Account opens a settings popup with Light / Dark / System, English / Chinese / System, and Normal / Geek detail modes. Save applies choices together and persists them on this device; Cancel discards edits. Appearance and language default to device settings, with Normal as the detail default. The legal pages also offer appearance/language controls. Chinese uses Simplified Chinese UI and legal copy, with localized known violation descriptions. Official addresses, identifiers, brand names, and customer-entered evidence remain unchanged. External provider pages retain their own language settings. Preferences do not change stored records, API enums, or currency (USD).
 
 ## Local development
 

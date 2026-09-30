@@ -14,6 +14,7 @@ import {
   contextRadius,
   cleanLocationLabel,
   autocorrectAddress,
+  reportedLocation,
 } from "../lib/map-locations.ts";
 import { plateTotals } from "../lib/plate-totals.ts";
 test("install guide appears only for a first iOS browser visit", () => {
@@ -76,10 +77,7 @@ test("location matching rejects coarse and wrong-borough matches", () => {
     cleanLocationLabel("O/S 456 BROADWAY Manhattan"),
     "456 BROADWAY Manhattan",
   );
-  assert.equal(
-    autocorrectAddress("F/O 123 5TH AVE Manhattan").changed,
-    true,
-  );
+  assert.equal(autocorrectAddress("F/O 123 5TH AVE Manhattan").changed, true);
   assert.equal(
     autocorrectAddress("F/O 123 5TH AVE Manhattan").suggested,
     "123 5TH AVE Manhattan",
@@ -96,26 +94,105 @@ test("location matching rejects coarse and wrong-borough matches", () => {
   // GeoSearch must strictly reject coarse borough, neighbourhood, and low-confidence centroids
   const coarseBoroughFeature = {
     geometry: { type: "Point", coordinates: [-73.8, 40.7] },
-    properties: { layer: "borough", label: "Queens, New York", confidence: 0.6 },
+    properties: {
+      layer: "borough",
+      label: "Queens, New York",
+      confidence: 0.6,
+    },
   };
-  assert.equal(geoSearchLocation({ label: "99999 Fake St Queens" }, coarseBoroughFeature), null);
+  assert.equal(
+    geoSearchLocation({ label: "99999 Fake St Queens" }, coarseBoroughFeature),
+    null,
+  );
 
   const coarseNeighbourhoodFeature = {
     geometry: { type: "Point", coordinates: [-73.85, 40.72] },
-    properties: { layer: "neighbourhood", label: "Flushing, Queens", confidence: 0.65 },
+    properties: {
+      layer: "neighbourhood",
+      label: "Flushing, Queens",
+      confidence: 0.65,
+    },
   };
-  assert.equal(geoSearchLocation({ label: "Nonexistent Address Queens" }, coarseNeighbourhoodFeature), null);
+  assert.equal(
+    geoSearchLocation(
+      { label: "Nonexistent Address Queens" },
+      coarseNeighbourhoodFeature,
+    ),
+    null,
+  );
 
   // GeoSearch must accept valid address and intersection features
   const validAddressFeature = {
     geometry: { type: "Point", coordinates: [-73.83, 40.76] },
-    properties: { layer: "address", label: "143-08 Roosevelt Ave, Queens", confidence: 0.95 },
+    properties: {
+      layer: "address",
+      label: "143-08 Roosevelt Ave, Queens",
+      confidence: 0.95,
+    },
   };
-  const validLoc = geoSearchLocation({ label: "F/O 143-08 Roosevelt Ave Queens" }, validAddressFeature);
+  const validLoc = geoSearchLocation(
+    { label: "F/O 143-08 Roosevelt Ave Queens" },
+    validAddressFeature,
+  );
   assert.ok(validLoc);
   assert.equal(validLoc.precision, "address");
   assert.equal(validLoc.label, "143-08 Roosevelt Ave Queens");
   assert.equal(validLoc.resolvedBy, "NYC Planning GeoSearch");
+});
+test("camera street fragments reconstruct the city's reported intersection", () => {
+  assert.deepEqual(
+    reportedLocation("", "NB FLATBUSH AVE @ DE", "AN ST", "Brooklyn", true),
+    { label: "NB FLATBUSH AVE @ DEAN ST Brooklyn", precision: "intersection" },
+  );
+  assert.equal(
+    reportedLocation(
+      "",
+      "SB PENNSYLVANIA AVE",
+      "@ SCHROEDERS AVE",
+      "Brooklyn",
+      true,
+    ).label,
+    "SB PENNSYLVANIA AVE @ SCHROEDERS AVE Brooklyn",
+  );
+  assert.equal(
+    reportedLocation("123", "MAIN ST", "37TH AVE", "Queens", false).label,
+    "123 MAIN ST at 37TH AVE Queens",
+  );
+});
+test("Queens PAD matches use borough context and reject different address numbers", () => {
+  const original = { label: "44-18 Kissena Blvd Queens", precision: "address" };
+  const feature = {
+    geometry: { type: "Point", coordinates: [-73.82273, 40.753512] },
+    properties: {
+      layer: "venue",
+      source: "nycpad",
+      confidence: 0.8,
+      accuracy: "point",
+      housenumber: "44-18",
+      street: "KISSENA BOULEVARD",
+      borough: "Queens",
+      label: "44-18 KISSENA BOULEVARD, Flushing, NY, USA",
+    },
+  };
+  assert.equal(geoSearchLocation(original, feature)?.precision, "address");
+  assert.equal(
+    geoSearchLocation(
+      { ...original, label: "44-20 Kissena Blvd Queens" },
+      feature,
+    ),
+    null,
+  );
+  assert.equal(
+    geoSearchLocation(
+      { ...original, label: "44-18 Kissena Blvd Brooklyn" },
+      feature,
+    ),
+    null,
+  );
+  assert.equal(
+    geoSearchLocation({ ...original, label: "44-18 Main St Queens" }, feature),
+    null,
+  );
 });
 test("plate totals deduplicate summons, retain missing amounts, and account in cents", () => {
   const one = {

@@ -3,6 +3,7 @@ import "./globals.css";
 import "./atlas.css";
 import "./polish.css";
 import "./preferences.css";
+import "./design.css";
 import { PreferencesProvider } from "@/components/preferences";
 import "mapbox-gl/dist/mapbox-gl.css";
 

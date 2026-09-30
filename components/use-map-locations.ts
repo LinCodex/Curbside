@@ -30,7 +30,7 @@ export function useMapLocations(
       .map((t) => t.location),
   );
   useEffect(() => {
-    if (!active || !token) return;
+    if (!active) return;
     const abort = new AbortController();
     const unique = [
       ...new Map(
@@ -50,34 +50,40 @@ export function useMapLocations(
             pending.slice(i, i + 2).map(async (original) => {
               const cleanedLabel = cleanLocationLabel(original.label);
               const addressToGeocode = cleanedLabel || original.label;
-              const url = new URL(
-                "https://api.mapbox.com/search/geocode/v6/forward",
-              );
-              Object.entries({
-                q: locationQuery(addressToGeocode),
-                access_token: token,
-                country: "us",
-                bbox: "-74.3,40.45,-73.65,40.95",
-                types: "address,street",
-                autocomplete: "false",
-                limit: "1",
-                permanent: "false",
-              }).forEach(([k, v]) => url.searchParams.set(k, v));
-              const response = await fetch(url, {
-                signal: AbortSignal.any([
-                  abort.signal,
-                  AbortSignal.timeout(8000),
-                ]),
-              });
-              if (!response.ok)
-                throw new Error(
-                  "Address lookup is temporarily unavailable. The city’s addresses are still listed below.",
-                );
-              const result: any = await response.json();
-              let loc = mapboxLocation(
-                { ...original, label: addressToGeocode },
-                result.features?.[0],
-              );
+              let loc: Location | null = null;
+              if (token)
+                try {
+                  const url = new URL(
+                    "https://api.mapbox.com/search/geocode/v6/forward",
+                  );
+                  Object.entries({
+                    q: locationQuery(addressToGeocode),
+                    access_token: token,
+                    country: "us",
+                    bbox: "-74.3,40.45,-73.65,40.95",
+                    types: "address,street",
+                    autocomplete: "false",
+                    limit: "1",
+                    permanent: "false",
+                  }).forEach(([k, v]) => url.searchParams.set(k, v));
+                  const response = await fetch(url, {
+                    signal: AbortSignal.any([
+                      abort.signal,
+                      AbortSignal.timeout(8000),
+                    ]),
+                  });
+                  if (!response.ok)
+                    throw new Error(
+                      "Address lookup is temporarily unavailable. The city’s addresses are still listed below.",
+                    );
+                  const result: any = await response.json();
+                  loc = mapboxLocation(
+                    { ...original, label: addressToGeocode },
+                    result.features?.[0],
+                  );
+                } catch {
+                  // A failed commercial lookup must not disable the city fallback.
+                }
 
               // If Mapbox didn't match with strict criteria, try NYC Planning Labs GeoSearch fallback
               // (strictly validates layer and accuracy so false pins are never placed)

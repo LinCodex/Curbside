@@ -1,1 +1,112 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#050607"><title>Curbside · Offline</title><style>body{background:#050607;color:#eef1f4;font:16px/1.6 system-ui;margin:0;min-height:100svh;display:grid;place-items:center}main{max-width:360px;padding:30px}img{border-radius:20px}h1{font-size:36px;letter-spacing:-1.4px;line-height:1.15}p{color:#9ca6b0}a{color:#fff;display:inline-block;padding:14px 24px;border:1px solid #ffffff40;border-radius:30px;text-decoration:none}</style></head><body><main><img src="/apple-touch-icon.png" width="64" height="64" alt="Curbside"><h1>A connection<br>to your city.</h1><p>You’re viewing Curbside’s saved offline page. Live ticket records and account information need an internet connection.</p><a href="/">Try again</a></main></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0b0d10" />
+    <title>Curbside · Offline</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b0d10;
+        --text: #f5f6f8;
+        --muted: #a6adb8;
+        --line: #ffffff24;
+      }
+      html[data-theme="light"] {
+        color-scheme: light;
+        --bg: #f3f4f6;
+        --text: #20242c;
+        --muted: #596372;
+        --line: #20242c24;
+      }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font:
+          16px/1.7 system-ui,
+          "PingFang SC",
+          "Microsoft YaHei",
+          sans-serif;
+        margin: 0;
+        min-height: 100svh;
+        display: grid;
+        place-items: center;
+      }
+      main {
+        max-width: 360px;
+        padding: 30px;
+      }
+      img {
+        border-radius: 18px;
+      }
+      h1 {
+        font-size: 32px;
+        letter-spacing: -1px;
+        line-height: 1.3;
+      }
+      html[lang="zh-Hans"] h1 {
+        letter-spacing: 0;
+      }
+      p {
+        color: var(--muted);
+      }
+      a {
+        color: var(--text);
+        display: inline-block;
+        padding: 12px 24px;
+        min-height: 24px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        text-decoration: none;
+      }
+      a:focus-visible {
+        outline: 2px solid #3175e6;
+        outline-offset: 4px;
+      }
+    </style>
+    <script>
+      let preferences = {};
+      try {
+        preferences = JSON.parse(
+          localStorage.getItem("curbside.preferences.v1") || "{}",
+        );
+      } catch {}
+      const language =
+        preferences?.language === "zh" ||
+        (preferences?.language !== "en" &&
+          /^zh(?:-|$)/i.test(navigator.languages?.[0] || navigator.language));
+      const light =
+        preferences?.theme === "light" ||
+        (preferences?.theme !== "dark" &&
+          matchMedia("(prefers-color-scheme: light)").matches);
+      document.documentElement.lang = language ? "zh-Hans" : "en";
+      document.documentElement.dataset.theme = light ? "light" : "dark";
+      document.querySelector('meta[name="theme-color"]').content = light
+        ? "#f3f4f6"
+        : "#0b0d10";
+      document.title = language ? "Curbside · 暂时离线" : "Curbside · Offline";
+      document.addEventListener("DOMContentLoaded", () => {
+        if (!language) return;
+        document.querySelector("h1").textContent = "联网后，继续查看你的车辆。";
+        document.querySelector("p").textContent =
+          "你正在查看 Curbside 已缓存的离线页面。查询最新罚单及账户信息需要连接互联网。";
+        document.querySelector("a").textContent = "重新连接";
+      });
+    </script>
+  </head>
+  <body>
+    <main>
+      <img src="/apple-touch-icon.png" width="64" height="64" alt="Curbside" />
+      <h1>Connect to your city.</h1>
+      <p>
+        You’re viewing Curbside’s saved offline page. Live ticket records and
+        account information need an internet connection.
+      </p>
+      <a href="/">Try again</a>
+    </main>
+  </body>
+</html>

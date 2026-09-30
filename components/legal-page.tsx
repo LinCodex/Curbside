@@ -1,7 +1,8 @@
 "use client";
 import { usePreferences, PreferencesMenu } from "./preferences";
 import { useEffect, useState } from "react";
-import { ArrowLeft, ArrowUpRight } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, FileText, ShieldCheck } from "lucide-react";
+import CustomSelect from "./custom-select";
 import {
   LEGAL_VERSION,
   OPERATOR,
@@ -34,9 +35,13 @@ export default function LegalPage({
 
   const activeDoc = initialDoc || clientDoc;
   const page = activeDoc ? legalDocuments[activeDoc] : null;
+  const sectionTitle = tr;
 
   useEffect(() => {
-    if (typeof window !== "undefined" && typeof window.document !== "undefined") {
+    if (
+      typeof window !== "undefined" &&
+      typeof window.document !== "undefined"
+    ) {
       const sub = page?.title ? tr(page.title) : tr("Legal & Policies");
       window.document.title = `Curbside | ${sub}`;
     }
@@ -59,7 +64,11 @@ export default function LegalPage({
           </a>
         </div>
         <div className="legal-header-nav">
-          <a href="/" className="legal-back-button" aria-label={tr("Back to Curbside")}>
+          <a
+            href="/"
+            className="legal-back-button"
+            aria-label={tr("Back to Curbside")}
+          >
             <ArrowLeft size={15} />
             <span>{tr("Back to Curbside")}</span>
           </a>
@@ -82,26 +91,63 @@ export default function LegalPage({
           </p>
         </div>
         <div className="legal-status">
+          <ShieldCheck size={14} aria-hidden="true" />
           {tr("Prelaunch version")} {LEGAL_VERSION} {tr("· September 27, 2026")}
         </div>
         {page ? (
           <div className="legal-layout">
             <nav className="legal-nav" aria-label={tr("Policies")}>
-              <a href="/legal">{tr("Overview")}</a>
-              {Object.entries(legalDocuments).map(([key, p]) => (
-                <a
-                  key={key}
-                  href={"/legal/" + key}
-                  aria-current={activeDoc === key ? "page" : undefined}
-                >
-                  {tr(p.title)}
+              <div className="legal-policy-select">
+                <CustomSelect
+                  label="Choose a policy"
+                  value={activeDoc || "overview"}
+                  onChange={(key) => {
+                    window.location.assign(
+                      key === "overview" ? "/legal" : "/legal/" + key,
+                    );
+                  }}
+                  options={[
+                    { value: "overview", label: "Overview" },
+                    ...Object.entries(legalDocuments).map(([key, p]) => ({
+                      value: key,
+                      label: p.title,
+                    })),
+                  ]}
+                />
+              </div>
+              <div className="legal-policy-links">
+                <a href="/legal">
+                  <ArrowLeft size={14} />
+                  {tr("Overview")}
                 </a>
-              ))}
+                {Object.entries(legalDocuments).map(([key, p]) => (
+                  <a
+                    key={key}
+                    href={"/legal/" + key}
+                    aria-current={activeDoc === key ? "page" : undefined}
+                  >
+                    <FileText size={14} aria-hidden="true" />
+                    {tr(p.title)}
+                  </a>
+                ))}
+              </div>
+              <details className="legal-contents">
+                <summary>{tr("On this page")}</summary>
+                <ol>
+                  {page.sections.map((s, i) => (
+                    <li key={s.title}>
+                      <a href={"#section-" + (i + 1)}>
+                        {sectionTitle(s.title)}
+                      </a>
+                    </li>
+                  ))}
+                </ol>
+              </details>
             </nav>
             <article className="legal-document">
               {page.sections.map((s, i) => (
                 <section key={s.title} id={"section-" + (i + 1)}>
-                  <h2>{s.title.split(" — ").map(tr).join(" — ")}</h2>
+                  <h2>{sectionTitle(s.title)}</h2>
                   {s.paragraphs.map((p) => (
                     <p key={p}>{tr(p)}</p>
                   ))}
@@ -122,15 +168,20 @@ export default function LegalPage({
                       "These links explain selected requirements. They do not certify Curbside or replace an assessment of the operator’s actual practices.",
                     )}
                   </p>
-                  <ul>
+                  <div className="legal-reference-grid">
                     {LEGAL_SOURCES.map(([label, url]) => (
-                      <li key={url}>
-                        <a href={url} target="_blank" rel="noreferrer">
-                          {tr(label)}
-                        </a>
-                      </li>
+                      <a
+                        className="legal-reference-card"
+                        key={url}
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <span>{tr(label)}</span>
+                        <ArrowUpRight size={15} aria-hidden="true" />
+                      </a>
                     ))}
-                  </ul>
+                  </div>
                 </section>
               )}
               <Contact />

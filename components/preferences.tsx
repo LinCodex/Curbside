@@ -24,6 +24,7 @@ import {
   resolveTheme,
   type ThemePreference,
   type LanguagePreference,
+  type DetailMode,
 } from "@/lib/preferences";
 
 const chinese: Record<string, string> = dictionary;
@@ -36,10 +37,21 @@ export function translate(text: string, language: "en" | "zh") {
 const Context = createContext({
   theme: "system" as ThemePreference,
   language: "system" as LanguagePreference,
+  detailMode: "normal" as DetailMode,
   resolvedTheme: "dark" as "light" | "dark",
   locale: "en" as "en" | "zh",
-  setTheme: (_: ThemePreference) => {},
-  setLanguage: (_: LanguagePreference) => {},
+  setTheme: (_: ThemePreference) => {
+    void _;
+  },
+  setLanguage: (_: LanguagePreference) => {
+    void _;
+  },
+  setDetailMode: (_: DetailMode) => {
+    void _;
+  },
+  savePreferences: (_: ReturnType<typeof readPreferences>) => {
+    void _;
+  },
   tr: (text: string) => text,
 });
 export const usePreferences = () => useContext(Context);
@@ -109,10 +121,159 @@ export function PreferencesProvider({
         setPreferences((p) => ({ ...p, theme })),
       setLanguage: (language: LanguagePreference) =>
         setPreferences((p) => ({ ...p, language })),
+      setDetailMode: (detailMode: DetailMode) =>
+        setPreferences((p) => ({ ...p, detailMode })),
+      savePreferences: (next: ReturnType<typeof readPreferences>) =>
+        setPreferences(readPreferences(JSON.stringify(next))),
     }),
     [preferences, resolvedTheme, locale, tr],
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;
+}
+
+export function PreferencesPanel({
+  onSave,
+  onCancel,
+}: {
+  onSave: () => void;
+  onCancel: () => void;
+}) {
+  const { theme, language, detailMode, savePreferences, tr } = usePreferences();
+  const [draft, setDraft] = useState({ theme, language, detailMode });
+  return (
+    <section
+      className="preference-panel preference-popup"
+      aria-label={tr("Display settings")}
+    >
+      <p className="small muted">
+        {tr("Choose your view. Changes apply when you save.")}
+      </p>
+      <PreferenceChoice
+        label={tr("Appearance")}
+        value={draft.theme}
+        onChange={(v) =>
+          setDraft((p) => ({ ...p, theme: v as ThemePreference }))
+        }
+        options={[
+          ["system", tr("System")],
+          ["light", tr("Light")],
+          ["dark", tr("Dark")],
+        ]}
+      />
+      <PreferenceChoice
+        label={tr("Language")}
+        value={draft.language}
+        onChange={(v) =>
+          setDraft((p) => ({ ...p, language: v as LanguagePreference }))
+        }
+        options={[
+          ["system", tr("System")],
+          ["en", "English"],
+          ["zh", "中文"],
+        ]}
+      />
+      <PreferenceChoice
+        label={tr("Detail level")}
+        value={draft.detailMode}
+        onChange={(v) =>
+          setDraft((p) => ({ ...p, detailMode: v as DetailMode }))
+        }
+        options={[
+          ["normal", tr("Normal")],
+          ["geek", tr("Geek")],
+        ]}
+      />
+      <p className="preference-explanation" aria-live="polite">
+        {tr(
+          draft.detailMode === "normal"
+            ? "The essentials: balances, ticket status, dates, and locations."
+            : "A deeper view: city-reported vehicle attributes, source coverage, and every available ticket field.",
+        )}
+      </p>
+      <p className="preference-device-note">
+        {tr("Saved on this device. No account required.")}
+      </p>
+      <div className="preference-actions">
+        <button className="button secondary" onClick={onCancel}>
+          {tr("Cancel")}
+        </button>
+        <button
+          className="button primary"
+          onClick={() => {
+            savePreferences(draft);
+            onSave();
+          }}
+        >
+          <Check size={16} />
+          {tr("Save settings")}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function PreferenceChoice({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: string[][];
+}) {
+  const onKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>,
+    index: number,
+  ) => {
+    const key = event.key;
+    if (
+      ![
+        "ArrowLeft",
+        "ArrowRight",
+        "ArrowUp",
+        "ArrowDown",
+        "Home",
+        "End",
+      ].includes(key)
+    )
+      return;
+    event.preventDefault();
+    const next =
+      key === "Home"
+        ? 0
+        : key === "End"
+          ? options.length - 1
+          : (index +
+              (["ArrowRight", "ArrowDown"].includes(key) ? 1 : -1) +
+              options.length) %
+            options.length;
+    onChange(options[next][0]);
+    (
+      event.currentTarget.parentElement?.children[next] as HTMLButtonElement
+    )?.focus();
+  };
+  return (
+    <div className="preference-choice">
+      <span>{label}</span>
+      <div className="preference-segments" role="radiogroup" aria-label={label}>
+        {options.map(([id, text], index) => (
+          <button
+            type="button"
+            role="radio"
+            aria-checked={value === id}
+            tabIndex={value === id ? 0 : -1}
+            key={id}
+            onClick={() => onChange(id)}
+            onKeyDown={(e) => onKeyDown(e, index)}
+          >
+            {text}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function PreferencesMenu() {

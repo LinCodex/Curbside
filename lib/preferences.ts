@@ -1,5 +1,6 @@
 export type ThemePreference = "system" | "light" | "dark";
 export type LanguagePreference = "system" | "en" | "zh";
+export type DetailMode = "normal" | "geek";
 export const PREFERENCE_KEY = "curbside.preferences.v1";
 export function readPreferences(raw: string | null) {
   try {
@@ -11,9 +12,16 @@ export function readPreferences(raw: string | null) {
       language: (["system", "en", "zh"].includes(value?.language)
         ? value.language
         : "system") as LanguagePreference,
+      detailMode: (value?.detailMode === "geek"
+        ? "geek"
+        : "normal") as DetailMode,
     };
   } catch {
-    return { theme: "system" as const, language: "system" as const };
+    return {
+      theme: "system" as const,
+      language: "system" as const,
+      detailMode: "normal" as const,
+    };
   }
 }
 export function resolveLanguage(

@@ -10,6 +10,11 @@ import {
   plateKey,
 } from "./domain";
 import { one, run, config } from "./runtime";
+import {
+  geoSearchLocation,
+  cleanLocationLabel,
+  reportedLocation,
+} from "./map-locations";
 const historical = [
   ["pvqr-7yc4", "FY2027"],
   ["9mwx-gamw", "FY2026"],
@@ -81,11 +86,13 @@ export function normalizeRow(
   const street = String(r.street_name || "").trim();
   const house = String(r.house_number || "").trim();
   const cross = String(r.intersecting_street || "").trim();
-  const label = street
-    ? [house, street, cross ? "at " + cross : "", borough]
-        .filter(Boolean)
-        .join(" ")
-    : "";
+  const reported = reportedLocation(
+    house,
+    street,
+    cross,
+    borough,
+    [5, 7, 36].includes(Number(code)),
+  );
   const description =
     r.violation ||
     r.violation_description ||
@@ -103,15 +110,7 @@ export function normalizeRow(
     noticeDate: null,
     agency: r.issuing_agency || null,
     location: {
-      label,
-      precision:
-        house && street
-          ? "address"
-          : cross && street
-            ? "intersection"
-            : street
-              ? "approximate"
-              : "unknown",
+      ...reported,
     },
     fine: amount(r.fine_amount),
     penalty: amount(r.penalty_amount),
@@ -308,21 +307,15 @@ export async function geocode(t: Violation) {
   ) {
     try {
       const url = new URL("https://geosearch.planninglabs.nyc/v2/search");
-      url.searchParams.set("text", t.location.label);
+      url.searchParams.set("text", cleanLocationLabel(t.location.label));
       url.searchParams.set("size", "1");
       const r = await fetch(url, { signal: AbortSignal.timeout(5000) });
       if (r.ok) {
         const j: any = await r.json();
         const f = j.features?.[0];
-        if (
-          f?.properties?.confidence >= 0.95 &&
-          f.properties.layer === "address" &&
-          f.geometry?.coordinates?.length === 2
-        ) {
-          geo = {
-            lng: f.geometry.coordinates[0],
-            lat: f.geometry.coordinates[1],
-          };
+        const match = geoSearchLocation(t.location, f);
+        if (match) {
+          geo = match;
           await put(key, geo, 90 * 86400_000);
         }
       }

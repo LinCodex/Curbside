@@ -88,7 +88,7 @@ export const legalDocuments: Record<string, LegalDocument> = {
       {
         title: "5. Purchases and cancellation",
         paragraphs: [
-          "Paid features are available only when checkout is enabled. The purchase screen and Stripe checkout state the price, tax, billing interval, and included features before payment. A separate affirmative action is required to agree to recurring charges. Pilot prices are described in Billing & Cancellation.",
+          "Curbside is free during this release. New subscriptions, purchases, and dealer activation fees are disabled. Service availability and usage limits still apply. Any future paid offer will require separate price disclosure and affirmative consent before a charge.",
           "Cancel future renewal in Account → Manage billing, or contact the support email below if access fails. We do not require a retention call or a reason. Cancellation takes effect for the next renewal unless you request immediate closure. Deleting local browser data does not cancel a subscription. Mandatory refund and cancellation rights remain available regardless of these terms.",
         ],
       },
@@ -212,18 +212,14 @@ export const legalDocuments: Record<string, LegalDocument> = {
   },
   billing: {
     title: "Billing & cancellation",
-    description: "The price, the renewal, and a straightforward way to stop.",
+    description: "Free access now, with help for any existing billing.",
     sections: [
       {
-        title: "Prelaunch availability",
+        title: "Free access",
         paragraphs: [
-          "Paid checkout is currently disabled until payment services, cancellation, renewal notices, and operator review are complete. Prices below are proposed pilot offers, not an active charge. The checkout screen must show your actual total and terms before you decide to buy.",
+          "Curbside is free during this release. There are no new subscriptions, dealer activation fees, or purchases. Configured account and notification services remain subject to verification, availability, and usage limits. NYC ticket fines are separate and remain payable to NYC.",
         ],
       },
-      ...Object.values(OFFERS).map((o) => ({
-        title: o.name + " — " + o.price,
-        paragraphs: [o.includes, o.renewal],
-      })),
       {
         title: "Cancel without a call",
         paragraphs: [

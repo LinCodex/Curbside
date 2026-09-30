@@ -1,10 +1,17 @@
 "use client";
-import { usePreferences, PreferencesMenu } from "./preferences";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { usePreferences, PreferencesPanel } from "./preferences";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   CarFront,
   Search,
-  Map,
+  Map as MapIcon,
   SlidersHorizontal,
   Plus,
   ChevronRight,
@@ -34,8 +41,9 @@ import {
   Accessibility,
   LogOut,
   Edit3,
+  UserRound,
+  Clock3,
 } from "lucide-react";
-import CityMap from "./city-map";
 import { CityBackdrop } from "./city-backdrop";
 import { TicketLocation } from "./ticket-location";
 import { PlateBalance } from "./plate-balance";
@@ -50,6 +58,10 @@ import {
 import { InstallGuide, PullToRefresh } from "./mobile-web-app";
 import { PLATE_TYPES } from "@/lib/plate-types";
 import { LEGAL_VERSION, OFFERS } from "@/lib/legal";
+import { FREE_ACCESS } from "@/lib/release";
+import { useSupabaseAccount } from "./use-supabase-account";
+import AuthPanel from "./auth-panel";
+import { savedAccountRequest } from "@/lib/supabase-account";
 import {
   money,
   STATES,
@@ -57,11 +69,12 @@ import {
   type SearchResult,
   normalizePlate,
 } from "@/lib/domain";
+const CityMap = lazy(() => import("./city-map"));
 const nav = [
   { id: "garage", label: "Garage", icon: CarFront },
   { id: "search", label: "Search", icon: Search },
-  { id: "map", label: "Map", icon: Map },
-  { id: "account", label: "Account", icon: SlidersHorizontal },
+  { id: "map", label: "Map", icon: MapIcon },
+  { id: "account", label: "Account", icon: UserRound },
 ];
 const niceDate = (s?: string | null, locale = "en") =>
   s
@@ -81,7 +94,7 @@ const download = (name: string, text: string) => {
   URL.revokeObjectURL(u);
 };
 export default function Curbside() {
-  const { tr, locale, resolvedTheme } = usePreferences();
+  const { tr, locale, resolvedTheme, detailMode } = usePreferences();
 
   const [view, setView] = useState("garage"),
     [config, setConfig] = useState<any>({ services: {} }),
@@ -96,7 +109,7 @@ export default function Curbside() {
     [plate, setPlate] = useState(""),
     [state, setState] = useState("NY"),
     [plateType, setPlateType] = useState(""),
-    [history, setHistory] = useState(false),
+    [history, setHistory] = useState(true),
     [filter, setFilter] = useState("all"),
     [caseData, setCaseData] = useState<any>(null),
     [offline, setOffline] = useState(false),
@@ -114,17 +127,37 @@ export default function Curbside() {
   const [autocorrectPending, setAutocorrectPending] = useState(false);
   const [autocorrectError, setAutocorrectError] = useState("");
   const [installGuideRequest, setInstallGuideRequest] = useState(0);
+  const auth = useSupabaseAccount(
+    config.supabase?.url,
+    config.supabase?.publishableKey,
+  );
+  const supabaseMode = !!config.supabase;
+  const [authOpen, setAuthOpen] = useState(false);
+  const currentAuthId = useRef<string | undefined>(undefined);
+  currentAuthId.current = auth.user?.id;
   const [dockHidden, setDockHidden] = useState(false);
   const lastScrollY = useRef(0);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const challenge = useRef("");
   const challengeEl = useRef<HTMLDivElement>(null);
   const notify = useCallback((s: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
     setToast(s);
-    setTimeout(() => setToast(""), 5000);
+    toastTimer.current = setTimeout(() => setToast(""), 5000);
   }, []);
+  useEffect(
+    () => () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    },
+    [],
+  );
   const api = useCallback(
     async (path: string, method = "GET", body?: any) => {
       if (path === "checkout" && method === "POST") {
+        if (FREE_ACCESS)
+          throw new Error(
+            tr("Curbside is free during this release. Purchases are disabled."),
+          );
         setPurchaseConsent(false);
         setPurchase(body.kind);
         const accepted = await new Promise<boolean>((resolve) => {
@@ -133,6 +166,13 @@ export default function Curbside() {
         if (!accepted)
           throw new Error(tr("Purchase canceled. You have not been charged."));
         body = { ...body, purchaseAccepted: true, legalVersion: LEGAL_VERSION };
+      }
+      if (supabaseMode) {
+        if (!auth.client)
+          throw new Error(
+            tr("Account sign-in is loading. Please try again shortly."),
+          );
+        return savedAccountRequest(auth.client, path, method, body);
       }
       const token = await clerk?.session?.getToken();
       const r = await fetch("/api/app/" + path, {
@@ -154,16 +194,18 @@ export default function Curbside() {
       if (!r.ok) throw new Error(j.error || tr("Request unavailable"));
       return j;
     },
-    [clerk],
+    [clerk, tr, supabaseMode, auth.client],
   );
   const refresh = useCallback(async () => {
-    if (!clerk?.user) return;
+    if (!auth.user && !clerk?.user) return;
+    const userId = auth.user?.id;
     try {
-      setAccount(await api("me"));
+      const next = await api("me");
+      if (!supabaseMode || currentAuthId.current === userId) setAccount(next);
     } catch (e) {
       notify((e as Error).message);
     }
-  }, [api, clerk, notify]);
+  }, [api, clerk, notify, auth.user, supabaseMode]);
   useEffect(() => {
     fetch("/api/config")
       .then((r) => r.json())
@@ -187,10 +229,10 @@ export default function Curbside() {
     };
   }, []);
   useEffect(() => {
-    const activePlate = plate.trim() || results?.plate?.plate || "";
+    const activePlate = plate.trim() || results?.query?.plate || "";
     let sub = "NYC Ticket Monitoring";
     if (activePlate) {
-      sub = `${activePlate.toUpperCase()} · NYC Tickets`;
+      sub = `${activePlate.toUpperCase()} · ${tr("NYC Tickets")}`;
     } else if (view === "map") {
       sub = "Live Map";
     } else if (view === "cases") {
@@ -200,8 +242,8 @@ export default function Curbside() {
     } else if (view === "account") {
       sub = "Settings";
     }
-    document.title = `Curbside | ${sub}`;
-  }, [plate, results?.plate?.plate, view]);
+    document.title = `Curbside | ${tr(sub)}`;
+  }, [plate, results?.query?.plate, view, tr]);
   useEffect(() => {
     let ticking = false;
     const onScroll = () => {
@@ -215,7 +257,12 @@ export default function Curbside() {
         const nearBottom = y + viewportHeight >= pageHeight - 60;
         const nearTop = y <= 45;
 
-        if (view === "map" || nearTop || nearBottom) {
+        if (
+          window.innerWidth <= 800 ||
+          view === "map" ||
+          nearTop ||
+          nearBottom
+        ) {
           setDockHidden(false);
         } else if (delta > 8 && y > 60) {
           setDockHidden(true);
@@ -231,6 +278,10 @@ export default function Curbside() {
     return () => window.removeEventListener("scroll", onScroll);
   }, [view]);
   useEffect(() => {
+    // View changes should never inherit a scrolled-down position from Search.
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [view]);
+  useEffect(() => {
     if (mapSelection) {
       setMapBoxMinimized(true);
       setCorrectingAddress(false);
@@ -238,7 +289,7 @@ export default function Curbside() {
     }
   }, [mapSelection]);
   useEffect(() => {
-    if (!config.clerkKey) return;
+    if (!config.clerkKey || supabaseMode) return;
     let disposed = false;
     let unsub: (() => void) | undefined;
     import("@clerk/clerk-js")
@@ -268,7 +319,27 @@ export default function Curbside() {
       disposed = true;
       unsub?.();
     };
-  }, [config.clerkKey, notify]);
+  }, [config.clerkKey, notify, supabaseMode]);
+  useEffect(() => {
+    if (!supabaseMode) return;
+    let alive = true;
+    setAccount(null);
+    setVehicleId("");
+    if (auth.user && auth.client)
+      savedAccountRequest(auth.client, "me")
+        .then((next) => {
+          if (alive) setAccount(next);
+        })
+        .catch(() => {
+          if (alive)
+            notify(
+              tr("Your garage could not load. Please try signing in again."),
+            );
+        });
+    return () => {
+      alive = false;
+    };
+  }, [supabaseMode, auth.user?.id, auth.client, notify, tr]);
   useEffect(() => {
     if (!config.turnstileKey || !challengeEl.current) return;
     let widget: any;
@@ -301,10 +372,24 @@ export default function Curbside() {
     };
   }, [config.turnstileKey, view, sheet]);
   const signIn = () => {
-    if (clerk) clerk.openSignIn();
+    if (supabaseMode) setAuthOpen(true);
+    else if (clerk) clerk.openSignIn();
     else {
       setSheet("setup");
     }
+  };
+  const signOut = async () => {
+    if (supabaseMode && auth.client) {
+      const result = await auth.client.auth.signOut();
+      if (result.error) {
+        notify(tr("Could not sign out. Please try again."));
+        return;
+      }
+    } else await clerk?.signOut();
+    setAccount(null);
+    setResults(null);
+    setSelected(null);
+    setSheet(null);
   };
   const perform = async (fn: () => Promise<any>, success?: string) => {
     setBusy(true);
@@ -319,41 +404,47 @@ export default function Curbside() {
       setBusy(false);
     }
   };
-  const search = useCallback(async (input: any) => {
-    const p = normalizePlate(input);
-    setBusy(true);
-    setError("");
-    try {
-      const r = await fetch("/api/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...p,
-          history: input.history,
-          locations: true,
-          challenge: challenge.current,
-        }),
-      });
-      const j: any = await r.json();
-      if (!r.ok && !j.sources)
-        throw new Error(j.error || tr("NYC sources are unavailable."));
-      setResults(j);
-      setView("search");
-      setSheet(null);
-      return {
-        count: j.tickets.length,
-        complete: j.complete,
-        unavailable: j.unavailable,
-      };
-    } catch (e) {
-      setError((e as Error).message);
-      throw e;
-    } finally {
-      setBusy(false);
-      challenge.current = "";
-      (window as any).turnstile?.reset();
-    }
-  }, []);
+  const search = useCallback(
+    async (input: any) => {
+      const p = normalizePlate(input);
+      setBusy(true);
+      setError("");
+      try {
+        const r = await fetch("/api/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...p,
+            history: input.history ?? true,
+            locations: true,
+            challenge: challenge.current,
+          }),
+        });
+        const j: any = await r.json();
+        if (!r.ok && !j.sources)
+          throw new Error(j.error || tr("NYC sources are unavailable."));
+        setResults(j);
+        setPlate(p.plate);
+        setState(p.state);
+        setPlateType(p.plateType);
+        setView("search");
+        setSheet(null);
+        return {
+          count: j.tickets.length,
+          complete: j.complete,
+          unavailable: j.unavailable,
+        };
+      } catch (e) {
+        setError((e as Error).message);
+        throw e;
+      } finally {
+        setBusy(false);
+        challenge.current = "";
+        (window as any).turnstile?.reset();
+      }
+    },
+    [tr],
+  );
   useEffect(() => {
     const context = (document as any).modelContext;
     if (!context?.registerTool) return;
@@ -386,9 +477,17 @@ export default function Curbside() {
   const vehicles = account?.vehicles || [];
   const activeVehicle =
     vehicles.find((v: any) => v.id === vehicleId) || vehicles[0];
-  const garageTickets = (account?.tickets || []).filter(
-    (t: any) => !activeVehicle || t.vehicleId === activeVehicle.id,
-  );
+  const currentVehicleResults =
+    supabaseMode &&
+    activeVehicle &&
+    results?.query.plate === activeVehicle.plate &&
+    results?.query.state === activeVehicle.state &&
+    results?.query.plateType === activeVehicle.plate_type;
+  const garageTickets = currentVehicleResults
+    ? results?.tickets || []
+    : (account?.tickets || []).filter(
+        (t: any) => !activeVehicle || t.vehicleId === activeVehicle.id,
+      );
   const tickets: Violation[] = results?.tickets || garageTickets;
   const locations = useMapLocations(
     tickets,
@@ -463,15 +562,25 @@ export default function Curbside() {
           />
         </label>
       </div>
-      <label className="check-row">
-        <input
-          type="checkbox"
-          checked={history}
-          onChange={(e) => setHistory(e.target.checked)}
-        />
-        {tr("Include historical datasets back to FY2014")}
-      </label>
-      <div ref={challengeEl} />
+      <div className="history-option">
+        <div className="history-option-copy">
+          <span>{tr("Historical records")}</span>
+          <small>{tr("From FY2014 onward")}</small>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={history}
+          aria-label={tr("Include historical datasets back to FY2014")}
+          className="history-switch"
+          onClick={() => setHistory((value) => !value)}
+        >
+          <span className="history-switch-track">
+            <span />
+          </span>
+        </button>
+      </div>
+      <div className="challenge-container" ref={challengeEl} />
       <button className="primary-action" disabled={busy || offline}>
         {busy ? (
           <LoaderCircle className="spin" size={19} />
@@ -526,15 +635,22 @@ export default function Curbside() {
       return;
     }
     const data = Object.fromEntries(new FormData(e.currentTarget));
-    await perform(async () => {
-      await api("vehicles", "POST", {
-        ...(results?.query || { plate, state, plateType }),
-        ...data,
-      });
-      await refresh();
-      setSheet(null);
-      setView("garage");
-    }, tr("Vehicle saved. Monitoring starts after its complete initial scan."));
+    await perform(
+      async () => {
+        await api("vehicles", "POST", {
+          ...(results?.query || { plate, state, plateType }),
+          ...data,
+        });
+        await refresh();
+        setSheet(null);
+        setView("garage");
+      },
+      tr(
+        supabaseMode
+          ? "Vehicle saved to your garage."
+          : "Vehicle saved. Monitoring starts after its complete initial scan.",
+      ),
+    );
   };
   const go = (v: string) => {
     setView(v);
@@ -548,6 +664,7 @@ export default function Curbside() {
       className={
         "app " + (view === "garage" && !activeVehicle ? "onboarding" : "")
       }
+      data-view={view}
     >
       <a className="skip-link" href="#main-content">
         {tr("Skip to content")}
@@ -574,20 +691,22 @@ export default function Curbside() {
               setView(current);
             }
           }
-          if (clerk?.user) {
+          if (auth.user || clerk?.user) {
             setAccount(await api("me"));
           }
         }}
       />
       <div className="atlas">
         {view === "map" ? (
-          <CityMap
-            tickets={mapTickets}
-            token={config.mapboxToken}
-            onSelect={selectMapTicket}
-            interactive
-            selectedId={mapTicket?.id}
-          />
+          <Suspense fallback={<CityBackdrop />}>
+            <CityMap
+              tickets={mapTickets}
+              token={config.mapboxToken}
+              onSelect={selectMapTicket}
+              interactive
+              selectedId={mapTicket?.id}
+            />
+          </Suspense>
         ) : (
           <CityBackdrop />
         )}
@@ -606,11 +725,20 @@ export default function Curbside() {
           </span>
           curbside<span className="brand-period">.</span>
         </button>
-        <nav className="desktop-nav" aria-label={tr("Primary navigation")}>
+        <nav
+          className="desktop-nav"
+          data-active={Math.max(
+            0,
+            nav.findIndex((n) => n.id === view),
+          )}
+          aria-label={tr("Primary navigation")}
+        >
+          <span className="nav-indicator" aria-hidden="true" />
           {nav.map((n) => (
             <button
               className={view === n.id ? "active" : ""}
               key={n.id}
+              aria-current={view === n.id ? "page" : undefined}
               onClick={() => go(n.id)}
             >
               <n.icon size={15} />
@@ -619,13 +747,12 @@ export default function Curbside() {
           ))}
         </nav>
         <div className="header-right">
-          <PreferencesMenu />
           <button
             className="round-control"
             onClick={() => go("account")}
             aria-label={tr("Account and notifications")}
           >
-            {account ? <Bell size={19} /> : <LogIn size={19} />}
+            <UserRound size={19} />
           </button>
         </div>
       </header>
@@ -647,18 +774,19 @@ export default function Curbside() {
             </div>
             <div className="welcome-grid">
               <div className="welcome-title">
-                <span className="eyebrow">{tr("Less to keep track of.")}</span>
+                <span className="eyebrow">
+                  {tr("Your NYC driving companion")}
+                </span>
                 <h1>
-                  {tr("Your city.")}
-                  <br />
                   {tr("Your car.")}
                   <br />
                   <span>{tr("Under control.")}</span>
                 </h1>
                 <p>
                   {tr("NYC tickets, a little clearer.")}
-                  <br />
-                  {tr("Check your plate. Know your next move.")}
+                  <span className="welcome-subtitle-extra">
+                    {tr("Check your plate. Know your next move.")}
+                  </span>
                 </p>
                 <div className="welcome-source">
                   <span className="source-icon">
@@ -673,6 +801,23 @@ export default function Curbside() {
                     </span>
                   </div>
                 </div>
+                <div
+                  className="welcome-features"
+                  aria-label={tr("Included features")}
+                >
+                  <span>
+                    <Ticket size={15} />
+                    {tr("Real city records")}
+                  </span>
+                  <span>
+                    <MapPin size={15} />
+                    {tr("Violation locations")}
+                  </span>
+                  <span>
+                    <Bell size={15} />
+                    {tr(supabaseMode ? "Saved cars" : "Ticket reminders")}
+                  </span>
+                </div>
               </div>
               <div className="glass search-dock">
                 <div className="dock-heading">
@@ -685,11 +830,6 @@ export default function Curbside() {
               </div>
             </div>
             <div className="welcome-bottom">
-              <button onClick={() => go("dealer")}>
-                <Building2 size={15} />
-                {tr("For dealerships")}
-                <ArrowUpRight size={14} />
-              </button>
               <p>
                 {tr("City records can take days or weeks to appear.")}
                 <br />
@@ -729,26 +869,36 @@ export default function Curbside() {
               </div>
               <h1>{activeVehicle.plate}</h1>
               <div className="vehicle-subtitle">
-                {activeVehicle.nickname}
-                <span>·</span>
-                {activeVehicle.checked_at
-                  ? tr("Checked ") +
-                    niceDate(
-                      new Date(activeVehicle.checked_at).toISOString(),
-                      locale,
-                    )
-                  : tr("Initial scan pending")}
+                {activeVehicle.nickname && (
+                  <span className="vehicle-nickname">
+                    {activeVehicle.nickname}
+                  </span>
+                )}
+                <span className="vehicle-check-time">
+                  <Clock3 size={12} />
+                  {activeVehicle.checked_at
+                    ? tr("Checked ") +
+                      niceDate(
+                        new Date(activeVehicle.checked_at).toISOString(),
+                        locale,
+                      )
+                    : tr(
+                        supabaseMode ? "Saved vehicle" : "Initial scan pending",
+                      )}
+                </span>
               </div>
               <div className="scene-summary">
                 <div>
                   <strong>
-                    {money(
-                      garageTickets.some((t: any) => t.due != null)
-                        ? garageTickets.reduce(
-                            (s: number, t: any) => s + (t.due || 0),
-                            0,
-                          )
-                        : null,
+                    {tr(
+                      money(
+                        garageTickets.some((t: any) => t.due != null)
+                          ? garageTickets.reduce(
+                              (s: number, t: any) => s + (t.due || 0),
+                              0,
+                            )
+                          : null,
+                      ),
                     )}
                   </strong>
                   <span>{tr("Known outstanding")}</span>
@@ -765,12 +915,30 @@ export default function Curbside() {
                 </button>
               </div>
               <PlateBalance tickets={garageTickets} />
+              {supabaseMode && (
+                <button
+                  className="primary-action"
+                  disabled={busy}
+                  onClick={() =>
+                    search({
+                      plate: activeVehicle.plate,
+                      state: activeVehicle.state,
+                      plateType: activeVehicle.plate_type,
+                      history,
+                    }).catch(() => {})
+                  }
+                >
+                  <Search size={17} />
+                  {tr("Check this vehicle")}
+                </button>
+              )}
+              {detailMode === "geek" && <VehicleData tickets={garageTickets} />}
               <div className="glass activity-dock">
                 <div className="section-heading">
                   <h2>{tr("Ticket activity")}</h2>
                   <span className="mono muted">
-                    {garageTickets.length}
-                    {tr("RECORDS")}
+                    {garageTickets.length.toLocaleString(locale)}{" "}
+                    {tr("tickets")}
                   </span>
                 </div>
                 {garageTickets.length ? (
@@ -781,15 +949,19 @@ export default function Curbside() {
                 ) : (
                   <p className="small muted">
                     {tr(
-                      "No records saved yet. A complete source scan establishes your baseline before new-ticket alerts begin.",
+                      supabaseMode
+                        ? "Check this vehicle to see its latest city records. Search results are not stored in your account."
+                        : "No records saved yet. A complete source scan establishes your baseline before new-ticket alerts begin.",
                     )}
                   </p>
                 )}
                 <div className="dock-footer">
                   <Info size={13} />
-                  {config.services.monitoring
-                    ? tr("Checks use available city records.")
-                    : tr("Automatic monitoring awaits service setup.")}
+                  {supabaseMode
+                    ? tr("Manual checks only. No automatic alerts.")
+                    : config.services.monitoring
+                      ? tr("Checks use available city records.")
+                      : tr("Automatic monitoring awaits service setup.")}
                 </div>
               </div>
             </div>
@@ -838,18 +1010,42 @@ export default function Curbside() {
                       </button>
                     </div>
                     <div className="search-summary">
-                      {results.tickets.length}
-                      {tr("records · Checked")}{" "}
-                      {new Date(results.checkedAt).toLocaleTimeString([], {
-                        hour: "numeric",
-                        minute: "2-digit",
-                      })}
-                      <br />
-                      {results.query.plateType
-                        ? tr("Plate type matched exactly.")
-                        : tr(
-                            "Plate type not specified. Results may include different vehicle histories.",
+                      <div className="result-meta">
+                        <span>
+                          <Ticket size={13} />
+                          <strong>
+                            {results.tickets.length.toLocaleString(locale)}
+                          </strong>{" "}
+                          {tr("tickets found")}
+                        </span>
+                        <span>
+                          <Clock3 size={13} />
+                          {tr("Checked")}{" "}
+                          {new Date(results.checkedAt).toLocaleTimeString(
+                            locale === "zh" ? "zh-CN" : "en-US",
+                            {
+                              hour: "numeric",
+                              minute: "2-digit",
+                            },
                           )}
+                        </span>
+                        <span>
+                          {tr("City data updated")}{" "}
+                          {niceDate(
+                            results.sources.find(
+                              (source) => source.id === "nc67-uf89",
+                            )?.updatedAt,
+                            locale,
+                          )}
+                        </span>
+                      </div>
+                      <p className="plate-history-note">
+                        {results.query.plateType
+                          ? tr("Plate type matched exactly.")
+                          : tr(
+                              "Plate type not specified. Results may include different vehicle histories.",
+                            )}
+                      </p>
                     </div>
                     {!results.complete && (
                       <div className="notice warning">
@@ -864,6 +1060,9 @@ export default function Curbside() {
                       tickets={results.tickets}
                       complete={results.complete}
                     />
+                    {detailMode === "geek" && (
+                      <VehicleData tickets={results.tickets} />
+                    )}
                     <div className="tabs">
                       {["all", "open", "resolved"].map((f) => (
                         <button
@@ -898,29 +1097,32 @@ export default function Curbside() {
                         </p>
                       </div>
                     )}
-                    <details className="source-details">
-                      <summary>
-                        {tr("Source coverage")}
-                        <ChevronDown size={14} />
-                      </summary>
-                      {results.sources.map((s) => (
-                        <div key={s.id}>
-                          <span>{tr(s.name)}</span>
-                          <span className={s.ok ? "muted" : "amber"}>
-                            {s.ok
-                              ? s.count + tr(" records")
-                              : tr("Unavailable")}
-                          </span>
-                          <small>
-                            {tr("Source updated:")}
-                            {niceDate(s.updatedAt, locale)} ·{" "}
-                            {s.truncated
-                              ? tr("Limit reached")
-                              : tr("Checked ") + niceDate(s.checkedAt, locale)}
-                          </small>
-                        </div>
-                      ))}
-                    </details>
+                    {detailMode === "geek" && (
+                      <details className="source-details">
+                        <summary>
+                          {tr("Source coverage")}
+                          <ChevronDown size={14} />
+                        </summary>
+                        {results.sources.map((s) => (
+                          <div key={s.id}>
+                            <span>{tr(s.name)}</span>
+                            <span className={s.ok ? "muted" : "amber"}>
+                              {s.ok
+                                ? s.count + tr(" records")
+                                : tr("Unavailable")}
+                            </span>
+                            <small>
+                              {tr("Source updated:")}
+                              {niceDate(s.updatedAt, locale)} ·{" "}
+                              {s.truncated
+                                ? tr("Limit reached")
+                                : tr("Checked ") +
+                                  niceDate(s.checkedAt, locale)}
+                            </small>
+                          </div>
+                        ))}
+                      </details>
+                    )}
                   </div>
                 )}
               </div>
@@ -931,12 +1133,21 @@ export default function Curbside() {
           <section className="map-scene view-enter">
             <div className="map-scene-heading">
               <h1>{tr("Violation locations")}</h1>
-              <p>
-                {mapTickets.filter((t) => hasPoint(t.location)).length}{" "}
-                {tr("on the map ·")}{" "}
-                {mapTickets.filter((t) => !!t.location.label).length}
-                {tr("with an address")}
-              </p>
+              <div className="map-coverage">
+                <span>
+                  <MapPin size={12} />
+                  <strong>
+                    {mapTickets.filter((t) => hasPoint(t.location)).length}
+                  </strong>{" "}
+                  {tr("mapped")}
+                </span>
+                <span>
+                  <strong>
+                    {mapTickets.filter((t) => !!t.location.label).length}
+                  </strong>{" "}
+                  {tr("with an address")}
+                </span>
+              </div>
             </div>
             <div
               className={
@@ -953,6 +1164,12 @@ export default function Curbside() {
                 <div
                   className="map-list-minimized"
                   onClick={() => setMapBoxMinimized(false)}
+                  onKeyDown={(e) => {
+                    if (["Enter", " "].includes(e.key)) {
+                      e.preventDefault();
+                      setMapBoxMinimized(false);
+                    }
+                  }}
                   role="button"
                   tabIndex={0}
                   aria-label={tr("Expand ticket locations list")}
@@ -985,7 +1202,10 @@ export default function Curbside() {
                 <>
                   <div className="section-heading">
                     <h2>{tr("Locations")}</h2>
-                    <div className="row" style={{ gap: 8, alignItems: "center" }}>
+                    <div
+                      className="row"
+                      style={{ gap: 8, alignItems: "center" }}
+                    >
                       {activeVehicle && (
                         <button
                           className="text-link"
@@ -1083,9 +1303,7 @@ export default function Curbside() {
                     </button>
                   )}
                   <div className="dock-footer">
-                    {tr(
-                      "City addresses stay visible even without a map match. Approximate matches are labeled; no precise pin is invented.",
-                    )}
+                    {tr("Only matched addresses appear on the map.")}
                   </div>
                 </>
               )}
@@ -1094,6 +1312,12 @@ export default function Curbside() {
                   <div
                     className="map-selection-compact-info"
                     onClick={() => setMapBoxMinimized(false)}
+                    onKeyDown={(e) => {
+                      if (["Enter", " "].includes(e.key)) {
+                        e.preventDefault();
+                        setMapBoxMinimized(false);
+                      }
+                    }}
                     role="button"
                     tabIndex={0}
                     aria-label={tr("Expand details")}
@@ -1102,7 +1326,8 @@ export default function Curbside() {
                       {mapTicket.location.label || tr("Location not provided")}
                     </span>
                     <span className="map-selection-compact-meta">
-                      {niceDate(mapTicket.issued, locale)} · <strong>{money(mapTicket.due)}</strong>
+                      {niceDate(mapTicket.issued, locale)} ·{" "}
+                      <strong>{tr(money(mapTicket.due))}</strong>
                     </span>
                   </div>
                   <div className="map-selection-compact-actions">
@@ -1136,7 +1361,10 @@ export default function Curbside() {
               )}
               {mapTicket && !mapBoxMinimized && (
                 <div className="map-selection" aria-live="polite">
-                  <div className="row spread" style={{ alignItems: "center", marginBottom: 8, gap: 12 }}>
+                  <div
+                    className="row spread"
+                    style={{ alignItems: "center", marginBottom: 8, gap: 12 }}
+                  >
                     <span className="eyebrow" style={{ flex: 1, minWidth: 0 }}>
                       {hasPoint(mapTicket.location)
                         ? tr(mapTicket.location.precision) + tr(" location")
@@ -1165,17 +1393,18 @@ export default function Curbside() {
                     {mapTicket.location.label || tr("Location not provided")}
                   </h3>
                   {mapTicket.location.matchedAddress &&
-                    mapTicket.location.matchedAddress !== mapTicket.location.label && (
+                    mapTicket.location.matchedAddress !==
+                      mapTicket.location.label && (
                       <p className="location-matched-sub">
                         {tr("Mapped to")}: {mapTicket.location.matchedAddress}
                       </p>
                     )}
                   <p>
-                    {mapTicket.description} ·{" "}
+                    {tr(mapTicket.description)} ·{" "}
                     {niceDate(mapTicket.issued, locale)}
                   </p>
                   <div className="selected-ticket-amount">
-                    <strong>{money(mapTicket.due)}</strong>
+                    <strong>{tr(money(mapTicket.due))}</strong>
                     <span>{tr("Reported balance")}</span>
                   </div>
                   {hasPoint(mapTicket.location) && (
@@ -1201,7 +1430,12 @@ export default function Curbside() {
                       <button
                         type="button"
                         className="text-link"
-                        style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 5 }}
+                        style={{
+                          fontSize: 11,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 5,
+                        }}
                         onClick={() => {
                           setCorrectingAddress(true);
                           setCustomAddressInput(
@@ -1244,15 +1478,24 @@ export default function Curbside() {
                           type="text"
                           className="autocorrect-input"
                           value={customAddressInput}
-                          onChange={(e) => setCustomAddressInput(e.target.value)}
+                          onChange={(e) =>
+                            setCustomAddressInput(e.target.value)
+                          }
                           placeholder={tr("Enter street & borough…")}
                           autoFocus
                         />
                         <button
                           type="submit"
                           className="button primary"
-                          style={{ minHeight: 34, height: 34, padding: "0 12px", fontSize: 12 }}
-                          disabled={autocorrectPending || !customAddressInput.trim()}
+                          style={{
+                            minHeight: 34,
+                            height: 34,
+                            padding: "0 12px",
+                            fontSize: 12,
+                          }}
+                          disabled={
+                            autocorrectPending || !customAddressInput.trim()
+                          }
                         >
                           {autocorrectPending ? (
                             <LoaderCircle size={12} className="spin" />
@@ -1263,7 +1506,12 @@ export default function Curbside() {
                         <button
                           type="button"
                           className="button secondary"
-                          style={{ minHeight: 34, height: 34, padding: "0 10px", fontSize: 12 }}
+                          style={{
+                            minHeight: 34,
+                            height: 34,
+                            padding: "0 10px",
+                            fontSize: 12,
+                          }}
                           onClick={() => setCorrectingAddress(false)}
                         >
                           <X size={13} />
@@ -1299,11 +1547,11 @@ export default function Curbside() {
           </section>
         )}
         {view === "account" && (
-          <section className="content-page view-enter">
+          <section className="content-page account-page view-enter">
             <div className="page-heading">
               <span className="eyebrow">{tr("Your preferences")}</span>
-              <h1>{tr("Account preferences")}</h1>
-              <p>{tr("Choose how Curbside keeps you in the loop.")}</p>
+              <h1>{tr("Account")}</h1>
+              <p>{tr("Your preferences, your way.")}</p>
             </div>
             {invite && (
               <div className="notice" style={{ marginBottom: 20 }}>
@@ -1329,20 +1577,29 @@ export default function Curbside() {
               </div>
             )}
             <div className="account-layout">
-              <div className="glass form-card stack">
-                <div className="row spread">
-                  <h2>
-                    {account
-                      ? tr("Your account")
-                      : tr("Keep your vehicle in view.")}
-                  </h2>
-                  <ShieldCheck size={21} />
+              <div className="glass form-card stack account-signin-panel">
+                <div className="account-identity-heading">
+                  <span className="account-profile-mark">
+                    <UserRound size={20} />
+                  </span>
+                  <div>
+                    <h2>{tr("Your account")}</h2>
+                    <span>
+                      {tr(
+                        account
+                          ? "Private and secure"
+                          : "A place for your vehicles",
+                      )}
+                    </span>
+                  </div>
                 </div>
                 {!account ? (
                   <>
                     <p className="small muted">
                       {tr(
-                        "Save a vehicle to monitor new records. Verify your email before enabling alerts.",
+                        supabaseMode
+                          ? "Create an account to save cars and access your garage on any device."
+                          : "Save a vehicle to monitor new records. Verify your email before enabling alerts.",
                       )}
                     </p>
                     <button className="primary-action" onClick={signIn}>
@@ -1364,8 +1621,9 @@ export default function Curbside() {
                       {account.user.email}
                       <br />
                       <span className="badge">
-                        {tr(account.user.plan)}
-                        {tr("plan")}
+                        {FREE_ACCESS
+                          ? tr("Free access")
+                          : tr(account.user.plan) + " " + tr("plan")}
                       </span>
                     </p>
                     {account.user.role === "partner" && (
@@ -1373,16 +1631,18 @@ export default function Curbside() {
                         {tr("Open assigned cases")}
                       </button>
                     )}
-                    <Settings
-                      account={account}
-                      api={api}
-                      refresh={refresh}
-                      perform={perform}
-                      services={config.services}
-                    />
+                    {!supabaseMode && (
+                      <Settings
+                        account={account}
+                        api={api}
+                        refresh={refresh}
+                        perform={perform}
+                        services={config.services}
+                      />
+                    )}
                     <button
                       className="button ghost"
-                      onClick={() => clerk?.signOut()}
+                      onClick={() => void signOut()}
                     >
                       <LogOut size={15} />
                       {tr("Sign out")}
@@ -1393,7 +1653,9 @@ export default function Curbside() {
                       </summary>
                       <p className="small muted">
                         {tr(
-                          "Remove monitoring and saved records. Active partner cases must be resolved first.",
+                          supabaseMode
+                            ? "Remove all saved cars. To delete your login account and associated consent records, contact support."
+                            : "Remove monitoring and saved records. Active partner cases must be resolved first.",
                         )}
                       </p>
                       <button
@@ -1405,84 +1667,54 @@ export default function Curbside() {
                     </details>
                   </>
                 )}
-                <a className="text-link" href="/legal/privacy">
-                  {tr("Privacy & data sources")}
-                  <ArrowUpRight size={13} />
-                </a>
+              </div>
+              <div className="glass form-card account-tools-card">
+                <h2>{tr("Your Curbside")}</h2>
                 <button
-                  className="text-link"
+                  className="account-tool"
+                  onClick={() => setSheet("preferences")}
+                >
+                  <span className="account-tool-icon">
+                    <SlidersHorizontal size={19} />
+                  </span>
+                  <span>
+                    <strong>{tr("Display settings")}</strong>
+                    <small>
+                      {tr("Appearance, language, and detail level")}
+                    </small>
+                  </span>
+                  <ChevronRight size={16} />
+                </button>
+                <button
+                  className="account-tool"
                   onClick={() => setInstallGuideRequest((n) => n + 1)}
                 >
-                  {tr("Add Curbside to your Home Screen")}
-                  <ArrowUpRight size={13} />
+                  <span className="account-tool-icon">
+                    <Download size={19} />
+                  </span>
+                  <span>
+                    <strong>{tr("Add to Home Screen")}</strong>
+                    <small>{tr("Open Curbside with a single tap")}</small>
+                  </span>
+                  <ChevronRight size={16} />
                 </button>
-              </div>
-              <div className="glass form-card">
-                <div className="eyebrow">Curbside Plus</div>
-                <div className="price">
-                  $4.99<span>{tr("/ month")}</span>
+                <div className="dealer-entry">
+                  <span className="eyebrow">{tr("For dealership staff")}</span>
+                  <button className="account-tool" onClick={() => go("dealer")}>
+                    <span className="account-tool-icon">
+                      <Building2 size={19} />
+                    </span>
+                    <span>
+                      <strong>{tr("Dealership portal")}</strong>
+                      <small>{tr("Branding and customer enrollment")}</small>
+                    </span>
+                    <ChevronRight size={16} />
+                  </button>
                 </div>
-                <p className="small muted">{tr("Or $39 for the year.")}</p>
-                <ul className="benefits">
-                  <li>
-                    <Check size={15} />
-                    {tr("Three monitored vehicles")}
-                  </li>
-                  <li>
-                    <Check size={15} />
-                    {tr("Email alerts and reminders")}
-                  </li>
-                  <li>
-                    <Check size={15} />
-                    {tr("10 SMS segments each month")}
-                  </li>
-                  <li>
-                    <Check size={15} />
-                    {tr("No ads. No sale of vehicle data.")}
-                  </li>
-                </ul>
-                <button
-                  className="primary-action"
-                  onClick={() =>
-                    account
-                      ? perform(async () => {
-                          location.href = (
-                            await api("checkout", "POST", { kind: "plus" })
-                          ).url;
-                        })
-                      : signIn()
-                  }
-                >
-                  {tr("Choose monthly")}
-                  <ArrowRight size={16} />
-                </button>
-                <button
-                  className="text-link"
-                  onClick={() =>
-                    account
-                      ? perform(async () => {
-                          location.href = (
-                            await api("checkout", "POST", { kind: "plus-year" })
-                          ).url;
-                        })
-                      : signIn()
-                  }
-                >
-                  {tr("Choose annual · $39")}
-                </button>
-                {!config.services.billing && (
-                  <p className="small muted">
-                    {tr("Subscriptions will open when billing is activated.")}
-                  </p>
-                )}
-                <div className="plan-note">
-                  <span className="eyebrow">{tr("Always free")}</span>
-                  <p>
-                    {tr(
-                      "Plate searches, one monitored vehicle, email alerts, and maps.",
-                    )}
-                  </p>
-                </div>
+                <p className="account-free-note">
+                  <Check size={13} />
+                  {tr("Free access. No subscription or checkout.")}
+                </p>
               </div>
             </div>
             {account?.cases?.length > 0 && (
@@ -1544,9 +1776,7 @@ export default function Curbside() {
                   <div className="account-legal-item-text">
                     <strong>{tr("Terms of Service")}</strong>
                     <span>
-                      {tr(
-                        "Rights, responsibilities, and cancellation terms.",
-                      )}
+                      {tr("Rights, responsibilities, and cancellation terms.")}
                     </span>
                   </div>
                   <ArrowUpRight
@@ -1588,56 +1818,15 @@ export default function Curbside() {
                     className="account-legal-item-arrow"
                   />
                 </a>
-                <a className="account-legal-item" href="/legal/sources">
-                  <div className="account-legal-item-icon">
-                    <MapPin size={16} />
-                  </div>
-                  <div className="account-legal-item-text">
-                    <strong>{tr("Map Data & Sources")}</strong>
-                    <span>
-                      {tr(
-                        "NYC OpenData, Department of City Planning, and Mapbox.",
-                      )}
-                    </span>
-                  </div>
-                  <ArrowUpRight
-                    size={14}
-                    className="account-legal-item-arrow"
-                  />
-                </a>
               </div>
-              <div className="account-map-attribution">
-                <p className="small muted">
-                  {tr("Map data and geographic information:")}
-                </p>
-                <div className="account-attribution-links">
-                  <a href="/legal/sources">{tr("NYC DCP Map Data")}</a>
-                  <span>·</span>
-                  <a
-                    href="https://www.mapbox.com/about/maps"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    © Mapbox
-                  </a>
-                  <span>·</span>
-                  <a
-                    href="https://www.openstreetmap.org/copyright"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    © OpenStreetMap
-                  </a>
-                  <span>·</span>
-                  <a
-                    href="https://apps.mapbox.com/feedback/"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {tr("Improve this map")}
-                  </a>
+              <a className="account-source-summary" href="/legal/sources">
+                <MapPin size={16} />
+                <div>
+                  <strong>{tr("Map data and geographic information")}</strong>
+                  <span>{tr("View data sources and location accuracy")}</span>
                 </div>
-              </div>
+                <ChevronRight size={16} aria-hidden="true" />
+              </a>
             </div>
           </section>
         )}
@@ -1675,10 +1864,6 @@ export default function Curbside() {
         )}
         <footer className="page-footer">
           <span>{tr("Independent service. Not affiliated with NYC.")}</span>
-          <button onClick={() => go("dealer")}>
-            {tr("For dealerships")}
-            <ArrowUpRight size={11} />
-          </button>
         </footer>
       </main>
       <div
@@ -1687,12 +1872,18 @@ export default function Curbside() {
       />
       <nav
         className={`mobile-nav ${dockHidden ? "dock-hidden" : ""}`}
+        data-active={Math.max(
+          0,
+          nav.findIndex((n) => n.id === view),
+        )}
         aria-label={tr("Mobile navigation")}
       >
+        <span className="nav-indicator" aria-hidden="true" />
         {nav.map((n) => (
           <button
             key={n.id}
             className={view === n.id ? "active" : ""}
+            aria-current={view === n.id ? "page" : undefined}
             onClick={() => go(n.id)}
           >
             <n.icon size={21} />
@@ -1700,90 +1891,127 @@ export default function Curbside() {
           </button>
         ))}
       </nav>
-      {account && !account.user.legalAccepted && (
-        <Modal title={tr("A clear agreement")} close={() => clerk?.signOut()}>
-          <div className="stack">
-            <p className="small muted">
+      {(authOpen || auth.recovering) && supabaseMode && (
+        <Modal
+          title={tr(auth.recovering ? "Reset password" : "Your account")}
+          close={() => {
+            setAuthOpen(false);
+            if (auth.recovering) void signOut();
+          }}
+        >
+          {auth.client ? (
+            <AuthPanel
+              client={auth.client}
+              recovering={auth.recovering}
+              onComplete={() => {
+                setAuthOpen(false);
+                auth.setRecovering(false);
+              }}
+            />
+          ) : (
+            <p role="status">
               {tr(
-                "Before saving vehicles or using account services, please review the current terms. SMS and purchases each have a separate consent.",
+                auth.error
+                  ? "Sign-in is unavailable right now. Please try again later."
+                  : "Account sign-in is loading. Please try again shortly.",
               )}
             </p>
-            <p className="consent-links">
-              <a href="/legal/terms" target="_blank" rel="noreferrer">
-                {tr("Read Terms of service")}
-              </a>{" "}
-              ·{" "}
-              <a href="/legal/privacy" target="_blank" rel="noreferrer">
-                {tr("Read Privacy policy")}
-              </a>
-            </p>
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={termsConsent}
-                onChange={(e) => setTermsConsent(e.target.checked)}
-              />
-              <span>
-                {tr(
-                  "I am at least 18 and agree to the Terms of service, version",
-                )}{" "}
-                {LEGAL_VERSION}
-                {tr(". I acknowledge the Privacy Policy.")}
-              </span>
-            </label>
-            <button
-              className="primary-action"
-              disabled={!termsConsent || busy}
-              onClick={() =>
-                perform(async () => {
-                  await api("legal", "POST", {
-                    accepted: true,
-                    adult: true,
-                    version: LEGAL_VERSION,
-                  });
-                  await refresh();
-                })
-              }
-            >
-              {tr("Agree and continue")}
-              <ArrowRight size={16} />
-            </button>
-            <p className="small muted">
-              {tr(
-                "You can cancel existing billing or stop alerts without accepting new terms.",
-              )}
-            </p>
-            <button
-              className="button"
-              onClick={() =>
-                perform(async () => {
-                  location.href = (await api("billing", "POST", {})).url;
-                })
-              }
-            >
-              {tr("Manage existing billing")}
-            </button>
-            <button
-              className="text-link"
-              onClick={() =>
-                perform(async () => {
-                  await api("sms-stop", "POST", {});
-                  await api("settings", "PATCH", {
-                    emailAlerts: false,
-                    timezone: account.user.timezone,
-                  });
-                  await refresh();
-                }, tr("Service alerts stopped"))
-              }
-            >
-              {tr("Stop service alerts")}
-            </button>
-            <a className="consent-links" href="mailto:ezrefillyny@gmail.com">
-              {tr("Contact support for account or privacy help")}
-            </a>
-          </div>
+          )}
         </Modal>
       )}
+      {account &&
+        !account.user.legalAccepted &&
+        !authOpen &&
+        !auth.recovering && (
+          <Modal title={tr("A clear agreement")} close={() => void signOut()}>
+            <div className="stack">
+              <p className="small muted">
+                {tr(
+                  supabaseMode
+                    ? "Before saving cars, please review our service terms and privacy policy."
+                    : "Before saving vehicles or using account services, please review the current terms. SMS and purchases each have a separate consent.",
+                )}
+              </p>
+              <p className="consent-links">
+                <a href="/legal/terms" target="_blank" rel="noreferrer">
+                  {tr("Read Terms of service")}
+                </a>{" "}
+                ·{" "}
+                <a href="/legal/privacy" target="_blank" rel="noreferrer">
+                  {tr("Read Privacy policy")}
+                </a>
+              </p>
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  checked={termsConsent}
+                  onChange={(e) => setTermsConsent(e.target.checked)}
+                />
+                <span>
+                  {tr(
+                    "I am at least 18 and agree to the Terms of service, version",
+                  )}{" "}
+                  {LEGAL_VERSION}
+                  {tr(". I acknowledge the Privacy Policy.")}
+                </span>
+              </label>
+              <button
+                className="primary-action"
+                disabled={!termsConsent || busy}
+                onClick={() =>
+                  perform(async () => {
+                    await api("legal", "POST", {
+                      accepted: true,
+                      adult: true,
+                      version: LEGAL_VERSION,
+                    });
+                    await refresh();
+                  })
+                }
+              >
+                {tr("Agree and continue")}
+                <ArrowRight size={16} />
+              </button>
+              {!supabaseMode && (
+                <>
+                  <p className="small muted">
+                    {tr(
+                      "You can cancel existing billing or stop alerts without accepting new terms.",
+                    )}
+                  </p>
+                  <button
+                    className="button"
+                    onClick={() =>
+                      perform(async () => {
+                        location.href = (await api("billing", "POST", {})).url;
+                      })
+                    }
+                  >
+                    {tr("Manage existing billing")}
+                  </button>
+                  <button
+                    className="text-link"
+                    onClick={() =>
+                      perform(async () => {
+                        await api("sms-stop", "POST", {});
+                        await api("settings", "PATCH", {
+                          emailAlerts: false,
+                          timezone: account.user.timezone,
+                        });
+                        await refresh();
+                      }, tr("Service alerts stopped"))
+                    }
+                  >
+                    {tr("Stop service alerts")}
+                  </button>
+                </>
+              )}
+              <a className="consent-links" href="mailto:ezrefillyny@gmail.com">
+                {tr("Contact support for account or privacy help")}
+              </a>
+            </div>
+          </Modal>
+        )}
       {purchase && OFFERS[purchase] && (
         <Modal
           title={tr("Review your purchase")}
@@ -1842,22 +2070,33 @@ export default function Curbside() {
       {sheet && !purchase && !(account && !account.user.legalAccepted) && (
         <Modal
           title={
-            sheet === "ticket"
-              ? tr("Violation details")
-              : sheet === "save"
-                ? tr("Add to your garage")
-                : sheet === "dispute"
-                  ? tr("Your dispute workspace")
-                  : sheet === "vehicle"
-                    ? tr("Vehicle settings")
-                    : sheet === "privacy"
-                      ? tr("Your data. Your control.")
-                      : sheet === "delete"
-                        ? tr("Delete saved data?")
-                        : tr("Account activation")
+            sheet === "preferences"
+              ? tr("Display settings")
+              : sheet === "ticket"
+                ? tr("Violation details")
+                : sheet === "save"
+                  ? tr("Add to your garage")
+                  : sheet === "dispute"
+                    ? tr("Your dispute workspace")
+                    : sheet === "vehicle"
+                      ? tr("Vehicle settings")
+                      : sheet === "privacy"
+                        ? tr("Your data. Your control.")
+                        : sheet === "delete"
+                          ? tr("Delete saved data?")
+                          : tr("Account activation")
           }
           close={() => setSheet(null)}
         >
+          {sheet === "preferences" && (
+            <PreferencesPanel
+              onCancel={() => setSheet(null)}
+              onSave={() => {
+                setSheet(null);
+                notify(tr("Settings saved"));
+              }}
+            />
+          )}
           {sheet === "setup" && (
             <div className="stack">
               <LockKeyhole size={28} />
@@ -1964,7 +2203,9 @@ export default function Curbside() {
               </label>
               <p className="small muted">
                 {tr(
-                  "Your first complete scan creates one existing-ticket summary. Later discoveries are notified separately.",
+                  supabaseMode
+                    ? "Saving cars does not enable monitoring or alerts."
+                    : "Your first complete scan creates one existing-ticket summary. Later discoveries are notified separately.",
                 )}
               </p>
               <button className="primary-action" disabled={busy}>
@@ -1977,7 +2218,7 @@ export default function Curbside() {
             <div className="stack">
               <h2>{activeVehicle.plate}</h2>
               <p className="small muted">
-                {tr("Monitoring since")}{" "}
+                {tr(supabaseMode ? "Saved on" : "Monitoring since")}{" "}
                 {niceDate(
                   new Date(activeVehicle.created_at).toISOString(),
                   locale,
@@ -2007,14 +2248,16 @@ export default function Curbside() {
                     defaultValue={activeVehicle.nickname}
                   />
                 </label>
-                <label className="check-row">
-                  <input
-                    type="checkbox"
-                    name="monitoring"
-                    defaultChecked={!!activeVehicle.monitoring}
-                  />
-                  {tr("Monitor this vehicle")}
-                </label>
+                {!supabaseMode && (
+                  <label className="check-row">
+                    <input
+                      type="checkbox"
+                      name="monitoring"
+                      defaultChecked={!!activeVehicle.monitoring}
+                    />
+                    {tr("Monitor this vehicle")}
+                  </label>
+                )}
                 <button className="button primary">
                   {tr("Save settings")}
                 </button>
@@ -2029,7 +2272,11 @@ export default function Curbside() {
                   }, tr("Vehicle removed"))
                 }
               >
-                {tr("Remove vehicle and stop monitoring")}
+                {tr(
+                  supabaseMode
+                    ? "Remove saved vehicle"
+                    : "Remove vehicle and stop monitoring",
+                )}
               </button>
             </div>
           )}
@@ -2039,14 +2286,14 @@ export default function Curbside() {
                 <span className="eyebrow">
                   {selected.plate} / {selected.state}
                 </span>
-                <h2>{selected.description}</h2>
-                <strong>{money(selected.due)}</strong>
+                <h2>{tr(selected.description)}</h2>
+                <strong>{tr(money(selected.due))}</strong>
                 <span className="muted small">{tr("Reported amount due")}</span>
               </div>
               <div className="notice">
                 {selected.localStatus
                   ? tr("Marked ") +
-                    selected.localStatus +
+                    tr(selected.localStatus) +
                     tr(" by you. City confirmation may still be pending.")
                   : selected.status === "Unknown"
                     ? tr(
@@ -2054,6 +2301,74 @@ export default function Curbside() {
                       )
                     : tr(selected.status)}
               </div>
+              <dl className="detail-grid">
+                {[
+                  [tr("Summons"), selected.id],
+                  [tr("Issue date"), niceDate(selected.issued, locale)],
+                  [
+                    tr("Time"),
+                    selected.time?.replace(
+                      /^0?(\d{1,2}):([0-5]\d)([AP])$/,
+                      "$1:$2 $3M",
+                    ),
+                  ],
+                  [tr("Location"), selected.location.label],
+                  ...(detailMode === "geek"
+                    ? [
+                        [tr("Violation code"), selected.code],
+                        [tr("Issuing agency"), selected.agency],
+                        [tr("Plate type"), selected.plateType],
+                        [
+                          tr("Notice date"),
+                          niceDate(selected.noticeDate, locale),
+                        ],
+                        [tr("Location precision"), selected.location.precision],
+                        ...(selected.location.resolvedBy
+                          ? [
+                              [
+                                tr("Location lookup"),
+                                selected.location.resolvedBy,
+                              ],
+                            ]
+                          : []),
+                        [tr("Checked"), niceDate(selected.checkedAt, locale)],
+                      ]
+                    : []),
+                  [
+                    tr("Action date"),
+                    selected.actionDate
+                      ? niceDate(selected.actionDate, locale) +
+                        " (" +
+                        tr(selected.deadlineBasis) +
+                        tr(" + 30 days)")
+                      : tr("Confirm from official notice"),
+                  ],
+                  ...(detailMode === "geek"
+                    ? Object.entries(selected.vehicle || {}).map(
+                        ([key, value]) => [
+                          tr("City-reported vehicle") + " · " + tr(key),
+                          value,
+                        ],
+                      )
+                    : []),
+                ].map(([k, v]) => (
+                  <div
+                    key={k}
+                    className={
+                      k === tr("Summons")
+                        ? "detail-field-wide detail-field-summons"
+                        : k === tr("Location")
+                          ? "detail-field-wide"
+                          : k === tr("Action date")
+                            ? "detail-field-wide detail-field-action"
+                            : undefined
+                    }
+                  >
+                    <dt>{k}</dt>
+                    <dd>{v ? tr(String(v)) : tr("Not provided")}</dd>
+                  </div>
+                ))}
+              </dl>
               <TicketLocation
                 key={selected.id}
                 ticket={selected}
@@ -2065,39 +2380,6 @@ export default function Curbside() {
                   setView("map");
                 }}
               />
-              <dl className="detail-grid">
-                {[
-                  [tr("Summons"), selected.id],
-                  [tr("Violation code"), selected.code],
-                  [tr("Issue date"), niceDate(selected.issued, locale)],
-                  [tr("Time"), selected.time],
-                  [tr("Issuing agency"), selected.agency],
-                  [tr("Location"), selected.location.label],
-                  [tr("Location precision"), selected.location.precision],
-                  ...(selected.location.resolvedBy
-                    ? [[tr("Location lookup"), selected.location.resolvedBy]]
-                    : []),
-                  [tr("Checked"), niceDate(selected.checkedAt, locale)],
-                  [
-                    tr("Action date"),
-                    selected.actionDate
-                      ? niceDate(selected.actionDate, locale) +
-                        " (" +
-                        tr(selected.deadlineBasis) +
-                        tr(" + 30 days)")
-                      : tr("Confirm from official notice"),
-                  ],
-                  [
-                    tr("City-reported vehicle"),
-                    Object.values(selected.vehicle || {}).join(" · "),
-                  ],
-                ].map(([k, v]) => (
-                  <div key={k}>
-                    <dt>{k}</dt>
-                    <dd>{v ? tr(String(v)) : tr("Not provided")}</dd>
-                  </div>
-                ))}
-              </dl>
               <div className="money-table">
                 {[
                   [tr("Fine"), selected.fine],
@@ -2109,7 +2391,7 @@ export default function Curbside() {
                 ].map(([k, v]) => (
                   <div key={k}>
                     <span>{k}</span>
-                    <span>{money(v as number)}</span>
+                    <span>{tr(money(v as number))}</span>
                   </div>
                 ))}
               </div>
@@ -2167,24 +2449,36 @@ export default function Curbside() {
                   ))}
                 </div>
               )}
-              <details className="source-details">
-                <summary>
-                  {tr("Record sources")}
-                  <ChevronDown size={13} />
-                </summary>
-                {selected.sources.map((s: string) => (
-                  <a
-                    key={s}
-                    className="text-link"
-                    href={"https://data.cityofnewyork.us/d/" + s}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {s}
-                    <ArrowUpRight size={12} />
-                  </a>
-                ))}
-              </details>
+              {detailMode === "geek" && (
+                <details className="source-details">
+                  <summary>
+                    {tr("Record sources")}
+                    <ChevronDown size={13} />
+                  </summary>
+                  {selected.sources.map((s: string) => (
+                    <a
+                      key={s}
+                      className="text-link"
+                      href={"https://data.cityofnewyork.us/d/" + s}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {s}
+                      <ArrowUpRight size={12} />
+                    </a>
+                  ))}
+                  <dl className="field-provenance">
+                    {Object.entries(selected.provenance || {}).map(
+                      ([field, source]) => (
+                        <div key={field}>
+                          <dt>{tr(field)}</dt>
+                          <dd>{String(source)}</dd>
+                        </div>
+                      ),
+                    )}
+                  </dl>
+                </details>
+              )}
               <p className="small muted">
                 {tr(
                   "Review the official notice for deadlines. Missing a record or a balance does not establish dismissal.",
@@ -2205,19 +2499,23 @@ export default function Curbside() {
             <div className="stack">
               <p>
                 {tr(
-                  "This removes your saved vehicles, preferences, and eligible dispute records. It does not delete NYC public records or automatically cancel a paid subscription.",
+                  supabaseMode
+                    ? "This removes all cars from your garage. Your login account and consent history remain. NYC public records are not affected."
+                    : "This removes your saved vehicles, preferences, and eligible dispute records. It does not delete NYC public records or automatically cancel a paid subscription.",
                 )}
               </p>
-              <button
-                className="button"
-                onClick={() =>
-                  perform(async () => {
-                    location.href = (await api("billing", "POST", {})).url;
-                  })
-                }
-              >
-                {tr("Manage subscription first")}
-              </button>
+              {!supabaseMode && (
+                <button
+                  className="button"
+                  onClick={() =>
+                    perform(async () => {
+                      location.href = (await api("billing", "POST", {})).url;
+                    })
+                  }
+                >
+                  {tr("Manage subscription first")}
+                </button>
+              )}
               <button
                 className="primary-action"
                 onClick={() =>
@@ -2225,7 +2523,7 @@ export default function Curbside() {
                     await api("account", "DELETE");
                     setAccount(null);
                     setSheet(null);
-                    await clerk?.signOut();
+                    await signOut();
                   }, tr("Your Curbside data was removed"))
                 }
               >
@@ -2243,6 +2541,66 @@ export default function Curbside() {
     </div>
   );
 }
+function VehicleData({ tickets }: { tickets: Violation[] }) {
+  const { tr, locale } = usePreferences();
+  const groups = new Map<
+    string,
+    { values: Violation["vehicle"]; count: number }
+  >();
+  for (const ticket of tickets) {
+    const values = ticket.vehicle || {};
+    if (!Object.values(values).some(Boolean)) continue;
+    const key = JSON.stringify([
+      values.make,
+      values.year,
+      values.color,
+      values.body,
+    ]);
+    const previous = groups.get(key);
+    groups.set(key, { values, count: (previous?.count || 0) + 1 });
+  }
+  return (
+    <section
+      className="vehicle-data"
+      aria-label={tr("City-reported vehicle history")}
+    >
+      <h3>{tr("City-reported vehicle history")}</h3>
+      <p className="small muted">
+        {tr(
+          "Attributes reported on tickets may describe previous vehicles using this plate.",
+        )}
+      </p>
+      {groups.size ? (
+        <div className="vehicle-history-list">
+          {Array.from(groups.entries()).map(([key, { values, count }]) => (
+            <div className="vehicle-history-row" key={key}>
+              <div>
+                {(["make", "year", "color", "body"] as const).map((field) => (
+                  <span key={field}>
+                    <small>{tr(field)}</small>
+                    <strong>
+                      {values[field]
+                        ? tr(String(values[field]))
+                        : tr("Not provided")}
+                    </strong>
+                  </span>
+                ))}
+              </div>
+              <small>
+                {count.toLocaleString(locale)} {tr("tickets")}
+              </small>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="small muted">
+          {tr("No vehicle attributes were reported.")}
+        </p>
+      )}
+    </section>
+  );
+}
+
 function TicketList({
   tickets,
   onSelect,
@@ -2252,7 +2610,7 @@ function TicketList({
   onSelect: (t: any) => void;
   activeId?: string;
 }) {
-  const { tr, locale, resolvedTheme } = usePreferences();
+  const { tr, locale, detailMode } = usePreferences();
 
   return (
     <div className="ticket-list">
@@ -2267,22 +2625,30 @@ function TicketList({
             <Ticket size={18} />
           </div>
           <div className="ticket-main">
-            <h3>{t.description}</h3>
+            <div className="ticket-reference">
+              {detailMode === "geek" && (
+                <>
+                  <span className="mono">{t.id}</span>
+                  <span aria-hidden="true">·</span>
+                </>
+              )}
+              <span>{niceDate(t.issued, locale)}</span>
+            </div>
+            <h3>{tr(t.description)}</h3>
             <p>
               {t.location.label ? (
                 <>
                   <MapPin size={10} />
-                  {t.location.label}
+                  <span>{t.location.label}</span>
                 </>
               ) : (
                 tr("Location not provided")
               )}
-              <span>· {niceDate(t.issued, locale)}</span>
             </p>
           </div>
           <div className="ticket-cost">
             <div>
-              <strong>{money(t.due)}</strong>
+              <strong>{tr(money(t.due))}</strong>
               <p>
                 {t.localStatus
                   ? tr("Marked ") + tr(t.localStatus)
@@ -2587,7 +2953,7 @@ function Dealer({ account, api, perform, signIn }: any) {
           <>
             <div className="row spread">
               <span className="badge">
-                {data.dealer.active
+                {FREE_ACCESS || data.dealer.active
                   ? tr("Active sponsorship")
                   : tr("Billing not active")}
               </span>
@@ -2670,61 +3036,28 @@ function Dealer({ account, api, perform, signIn }: any) {
           </>
         )}
       </div>
-      <div className="glass form-card">
-        <span className="eyebrow">{tr("Dealer-sponsored access")}</span>
-        <div className="price">
-          $149<span>{tr("/ month")}</span>
-        </div>
+      <div className="glass form-card stack">
+        <span className="eyebrow">{tr("For dealerships")}</span>
+        <h2>{tr("A better customer handoff.")}</h2>
+        <p className="small muted">
+          {tr(
+            "Curbside is free during this release. Dealer branding and customer enrollment remain available when account services are configured.",
+          )}
+        </p>
         <ul className="benefits">
-          <li>
-            <Check size={15} />
-            {tr("100 active sponsored customers")}
-          </li>
           <li>
             <Check size={15} />
             {tr("Your dealership branding")}
           </li>
           <li>
             <Check size={15} />
-            {tr("One vehicle per customer")}
+            {tr("Private customer ticket histories")}
           </li>
           <li>
             <Check size={15} />
-            {tr("Email + 10 SMS segments per month")}
-          </li>
-          <li>
-            <Check size={15} />
-            {tr("12-month customer sponsorships")}
+            {tr("No subscription or activation fee")}
           </li>
         </ul>
-        <p className="small muted capacity-note">
-          {tr(
-            "Additional capacity: $1 per active customer per month, enabled through an agreed billing adjustment.",
-          )}
-        </p>
-        <button
-          className="primary-action"
-          onClick={() =>
-            account
-              ? perform(async () => {
-                  location.href = (
-                    await api("checkout", "POST", { kind: "dealer" })
-                  ).url;
-                })
-              : signIn()
-          }
-        >
-          {tr("Activate dealer plan")}
-          <ArrowRight size={16} />
-        </button>
-        <div className="plan-note">
-          <LockKeyhole size={19} />
-          <p>
-            {tr(
-              "Enrollment and billing are visible to you. Tickets, locations, and evidence are visible to the customer.",
-            )}
-          </p>
-        </div>
       </div>
     </div>
   );
@@ -2827,7 +3160,7 @@ function Dispute({ data, setData, api, perform, services }: any) {
           {3 - data.generations}
           {tr("remaining")}
         </button>
-      ) : (
+      ) : !FREE_ACCESS ? (
         <button
           className="button"
           disabled={!services.ai}
@@ -2841,7 +3174,7 @@ function Dispute({ data, setData, api, perform, services }: any) {
         >
           {tr("AI preparation · $9 per case")}
         </button>
-      )}
+      ) : null}
       {!services.ai && (
         <p className="small muted">
           {tr(

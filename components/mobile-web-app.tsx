@@ -71,7 +71,13 @@ export function InstallGuide({
     >
       <div className="install-inner">
         <div className="row spread">
-          <img src="/apple-touch-icon.png" width="56" height="56" alt="" />
+          <div className="install-brand">
+            <img src="/apple-touch-icon.png" width="48" height="48" alt="" />
+            <span>
+              curbside<span className="brand-period">.</span>
+              <small>{tr("Your garage, one tap away")}</small>
+            </span>
+          </div>
           <button
             className="round-control"
             aria-label={tr("Close installation guide")}
@@ -80,12 +86,20 @@ export function InstallGuide({
             <X size={18} />
           </button>
         </div>
+        <div className="install-phone" aria-hidden="true">
+          <div className="install-phone-notch" />
+          <div className="install-phone-grid">
+            {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+              <span key={i} />
+            ))}
+            <div className="install-phone-app">
+              <img src="/apple-touch-icon.png" width="48" height="48" alt="" />
+              <span>Curbside</span>
+            </div>
+          </div>
+        </div>
         <div className="eyebrow">{tr("Curbside, one tap away")}</div>
-        <h2 id="install-title">
-          {tr("A place on your")}
-          <br />
-          {tr("Home Screen.")}
-        </h2>
+        <h2 id="install-title">{tr("Make room for Curbside.")}</h2>
         {standalone ? (
           <p>
             {tr("Curbside is already opening as a web app on this device.")}
