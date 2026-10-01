@@ -332,14 +332,12 @@ export default function Curbside() {
         })
         .catch(() => {
           if (alive)
-            notify(
-              tr("Your garage could not load. Please try signing in again."),
-            );
+            notify("Your garage could not load. Please try signing in again.");
         });
     return () => {
       alive = false;
     };
-  }, [supabaseMode, auth.user?.id, auth.client, notify, tr]);
+  }, [supabaseMode, auth.user?.id, auth.client, notify]);
   useEffect(() => {
     if (!config.turnstileKey || !challengeEl.current) return;
     let widget: any;

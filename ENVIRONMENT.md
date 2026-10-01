@@ -1,6 +1,8 @@
 # Environment setup
 
-The repository contains variable names and empty placeholders, not provider credentials. `.env.local` and `.dev.vars*` are excluded from Git. The app reads runtime bindings from Cloudflare's `env` object through `lib/runtime.ts`.
+The repository contains variable names and empty placeholders, not provider credentials. `.env.local` and `.dev.vars*` are excluded from Git. The Vercel functions read environment variables through `lib/runtime.ts`; the retained Cloudflare adapters also support runtime bindings.
+
+For registration/login and saved cars on Vercel, see [SUPABASE_SETUP.md](SUPABASE_SETUP.md). Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in Vercel and configure Supabase email delivery and redirect URLs. No service-role key is required.
 
 ## Local development
 

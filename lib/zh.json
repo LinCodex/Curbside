@@ -785,6 +785,7 @@
   "Settings": "账户设置",
   "Disputes": "罚单申诉",
   "Timeline": "记录时间线",
+  "Sign in": "登录",
   "Account sign-in is loading. Please try again shortly.": "正在加载登录服务，请稍后再试。",
   "Your garage could not load. Please try signing in again.": "暂时无法加载车库，请重新登录。",
   "Could not sign out. Please try again.": "退出登录失败，请重试。",
@@ -833,5 +834,7 @@
   "This account currently supports saved cars only.": "该账户目前仅支持保存车辆。",
   "Enter a vehicle nickname of 1–60 characters.": "请输入1至60个字符的车辆昵称。",
   "Vehicle details must be 80 characters or fewer.": "车辆信息不得超过80个字符。",
-  "Enter a valid vehicle year.": "请输入有效的车辆年份。"
+  "Enter a valid vehicle year.": "请输入有效的车辆年份。",
+  "Vercel hosts the current website. Supabase handles account authentication, email confirmation, saved vehicles, and recorded agreement to the terms. Its configured email provider delivers account emails. Saving a vehicle does not enable automatic monitoring or alerts. Retained optional integrations include Clerk, Cloudflare, Resend, Twilio, Stripe, and private evidence storage, but operate only when separately activated. Mapbox provides interactive maps when configured. NYC Open Data receives plate queries; location providers receive address/intersection queries. These providers may receive necessary device and network information.": "本网站目前由Vercel托管。Supabase负责账户登录、邮箱验证、已保存车辆，以及您同意服务条款的记录。账户邮件由其配置的邮件服务商发送。保存车辆不会开启自动监控或提醒。保留的可选服务包括Clerk、Cloudflare、Resend、Twilio、Stripe和私密证据存储，只有另行启用后才会运行。配置后，Mapbox提供交互式地图。纽约市开放数据平台接收车牌查询，地点服务商接收地址或路口查询。这些服务商可能接收提供服务所需的设备和网络信息。",
+  "The application caches fonts, app icons, an offline page, and public map geometry for performance. Local browser preferences remember whether the installation guide has been shown and your language and appearance choices. Supabase stores your authentication session in browser storage to keep you signed in; signing out clears that session. Ticket searches and evidence are not saved for offline use. Authentication, payment, anti-abuse, and hosting providers may use cookies or similar storage for their functions. The app does not request your device’s precise GPS location.": "为提高加载速度，本应用缓存字体、应用图标、离线页面和公开地图数据。浏览器本地设置会记录是否已显示安装指南，以及您选择的语言和外观。Supabase将登录会话保存在浏览器中，以维持登录状态；退出登录会清除该会话。罚单查询结果和证据不会保存供离线使用。登录、支付、安全防滥用及托管服务商可能使用Cookie或类似存储来提供服务。本应用不会请求您设备的精确GPS位置。"
 }

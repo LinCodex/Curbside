@@ -29,3 +29,11 @@ Responsive checks cover 320 × 667 and 390 × 844 phones and 1280 × 900 desktop
 Browser emulation is not a substitute for physical iPhone/Safari testing or an exhaustive accessibility audit. The lazy Mapbox library remains a large vendor chunk, loaded only for the interactive map; no claim of universal lag-free performance is made. External provider pages and authoritative addresses/identifiers retain their original names.
 
 Sign-in, emails, SMS, billing, private evidence, and partner filing need configured services and account infrastructure. Their live delivery/authorization flows were not exercised. The standalone Vercel functions currently cover configuration and public search; the remaining existing handlers still require their database/storage adapters. Paid entry points remain disabled for this free release. Legal content remains identified as a prelaunch version, not a legal certification.
+
+## October 1 follow-up: iOS and Supabase
+
+- Emulated a 390 × 844 phone with a 59px top and 34px bottom safe area. The header ends at 135px, its logo clears the notch, and the map canvas reaches the viewport bottom without an extra page scroll. The dock ends at 798px, clear of the home indicator.
+- With real BYEBYE / NY records, the final map card ends at 666px inside a list ending at 685px after scrolling to the end. Registration sheets stay between the top and bottom safe areas.
+- TypeScript, all 27 tests, and the Vercel production build pass. Account language changes no longer reset the saved garage.
+- Live Supabase transaction checks pass for consent gating, owner isolation, rename, duplicate prevention, anonymous denial, immutable ownership, and protected consent timestamps. Temporary fixtures were rolled back. Security and performance advisors report no findings after the hardening migration.
+- Public signup/confirmation and password-reset email delivery remain unverified pending custom SMTP and production redirect/environment configuration. See `SUPABASE_SETUP.md`. Supabase accounts currently support saving cars only; notification, billing, and partner workflows remain outside this release.
