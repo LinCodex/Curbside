@@ -9,9 +9,10 @@ Project: `yangs-projects-008730dc/curbside`, connected to `LinCodex/Curbside` wi
 | HCAPTCHA_SITE_KEY, HCAPTCHA_SECRET_KEY | Active search protection |
 | SUPABASE_URL | Current accounts and shared city-history lookup |
 | SUPABASE_PUBLISHABLE_KEY | Current deployed Supabase sign-in; retire after verified Clerk cutover |
-| APP_ORIGIN | Request origin verification |
+| APP_ORIGIN | Production is staged for https://ticketsafe.ezrefillny.net; previews require their exact origin |
 | CLERK_PUBLISHABLE_KEY | Legacy Clerk fallback; replace with NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY at cutover |
-| CLERK_SECRET_KEY | Clerk server authentication; verify target production instance at cutover |
+| CLERK_SECRET_KEY | Production instance key in Production; development instance key in Preview |
+| NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY | Matching production/development Clerk keys in Production/Preview |
 | MAPBOX_PUBLIC_TOKEN | Interactive maps |
 | NYC_GEOCLIENT_KEY | City location enrichment |
 | SOCRATA_APP_TOKEN | City-data requests |
@@ -34,5 +35,7 @@ The deployed static release does not serve the dormant payment/messaging/AI back
 ## Clerk cutover requirements
 
 Before promoting the new auth release, configure verified production values for NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY, CLERK_SECRET_KEY, CLERK_WEBHOOK_SIGNING_SECRET, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_URL and APP_ORIGIN. Follow CLERK_MIGRATION.md for imports, SQL migration, ownership linking and verification. Do not substitute development Clerk keys in production.
+
+Production Clerk keys and the canonical APP_ORIGIN are now staged without replacing the live deployment. Preview Clerk keys remain development keys. CLERK_WEBHOOK_SIGNING_SECRET and SUPABASE_SERVICE_ROLE_KEY remain pending, as do DNS, social credentials and migrated customer identities. Existing deployment snapshots retain their working prior configuration.
 
 Automatic deployments from main remain gated in vercel.json during this migration. The currently working production deployment continues serving customers. Once cutover is verified, remove that gate and deploy using standard Next.js output.

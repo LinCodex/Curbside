@@ -1,4 +1,4 @@
-# Curbside
+# TicketSafe · 罚单卫士
 
 NYC plate search, private saved cars, retained city ticket histories, and a map. Public search requires no account. Accounts use Clerk; Supabase stores saved cars and preferences.
 
@@ -31,11 +31,13 @@ Vercel now uses its standard Next.js build. Remove old static output/build/insta
 
 Automatic Git deployments from main are temporarily disabled in vercel.json while the existing customer migration is pending. The current production deployment continues serving existing Supabase accounts. After the cutover checks in CLERK_MIGRATION.md pass, remove that branch restriction and deploy the verified release. Other branches remain eligible for preview builds.
 
+TicketSafe’s selected canonical domain is ticketsafe.ezrefillny.net. The production Clerk instance is created and its legal/security settings are configured. DNS setup is deferred; Google/Apple production credentials, deletion webhook and customer migration remain pending. The old curbside-eta.vercel.app address will redirect after the verified cutover. See [TICKETSAFE_PRODUCTION.md](TICKETSAFE_PRODUCTION.md) for the exact DNS records and current status.
+
 ## Cost cleanup
 
 The legacy D1/R2 backend, duplicate five-minute Cloudflare scheduler, static Vite/vinext deployment, Supabase auth email templates, and unused Stripe/Twilio/Resend/AI routes are removed. Those provider credentials no longer activate spending paths in this release. Supabase database storage and its existing daily city-history worker remain because they support saved cars; Mapbox is optional and loaded only for the map.
 
-Vercel Web Analytics remains enabled through the Next.js SDK. Its privacy filter counts only public landing/search/map and legal-page visits, strips unapproved query parameters, excludes authentication and private account/garage/ticket views, rejects custom events, and respects Global Privacy Control and Do Not Track. Keep Web Analytics enabled for the Vercel project. See [Vercel's setup guide](https://vercel.com/docs/analytics/quickstart) and [sensitive-data filtering](https://vercel.com/docs/analytics/redacting-sensitive-data).
+Vercel Web Analytics remains enabled through the Next.js SDK. Its privacy filter counts only explicit public search/map and current legal-page visits, strips unapproved query parameters, excludes the bare root, authentication and private account/garage/ticket views, rejects custom events, and respects Global Privacy Control and Do Not Track. Keep Web Analytics enabled for the Vercel project. See [Vercel's setup guide](https://vercel.com/docs/analytics/quickstart) and [sensitive-data filtering](https://vercel.com/docs/analytics/redacting-sensitive-data).
 
 Removing code does not cancel provider subscriptions or previously deployed jobs. Disable the old Supabase account-delete function during the cutover maintenance window, then retire the Cloudflare scheduler/deployment and unused D1/R2 resources, old auth SMTP sender, and unused paid provider subscriptions after verification. Export/inspect any data before deleting a hosted resource. Keep the Supabase database, snapshot function and daily history schedule.
 

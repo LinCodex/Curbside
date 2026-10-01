@@ -7,7 +7,7 @@
       content="width=device-width,initial-scale=1,viewport-fit=cover"
     />
     <meta name="theme-color" content="#0b0d10" />
-    <title>Curbside · Offline</title>
+    <title>TicketSafe · Offline</title>
     <style>
       :root {
         color-scheme: dark;
@@ -88,22 +88,30 @@
       document.querySelector('meta[name="theme-color"]').content = light
         ? "#f3f4f6"
         : "#0b0d10";
-      document.title = language ? "Curbside · 暂时离线" : "Curbside · Offline";
+      document.title = language
+        ? "罚单卫士 · 暂时离线"
+        : "TicketSafe · Offline";
       document.addEventListener("DOMContentLoaded", () => {
         if (!language) return;
         document.querySelector("h1").textContent = "联网后，继续查看你的车辆。";
         document.querySelector("p").textContent =
-          "你正在查看 Curbside 已缓存的离线页面。查询最新罚单及账户信息需要连接互联网。";
+          "你正在查看罚单卫士已缓存的离线页面。查询最新罚单及账户信息需要连接互联网。";
+        document.querySelector("img").alt = "罚单卫士";
         document.querySelector("a").textContent = "重新连接";
       });
     </script>
   </head>
   <body>
     <main>
-      <img src="/apple-touch-icon.png" width="64" height="64" alt="Curbside" />
+      <img
+        src="/apple-touch-icon.png"
+        width="64"
+        height="64"
+        alt="TicketSafe"
+      />
       <h1>Connect to your city.</h1>
       <p>
-        You’re viewing Curbside’s saved offline page. Live ticket records and
+        You’re viewing TicketSafe’s saved offline page. Live ticket records and
         account information need an internet connection.
       </p>
       <a href="/">Try again</a>

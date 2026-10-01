@@ -1,5 +1,5 @@
-// Cache public assets only; never cache queries, ticket pages, evidence, or accounts.
-const CACHE = "curbside-public-v6";
+// Cache public assets only; never cache queries, ticket pages, or accounts.
+const CACHE = "ticketsafe-public-v7";
 const ASSETS = [
   "/offline.html",
   "/favicon.svg",
@@ -28,7 +28,10 @@ self.addEventListener("activate", (e) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((k) => k.startsWith("curbside-public-") && k !== CACHE)
+            .filter((k) =>
+              (k.startsWith("curbside-public-") || k.startsWith("ticketsafe-public-")) &&
+              k !== CACHE,
+            )
             .map((k) => caches.delete(k)),
         ),
       )

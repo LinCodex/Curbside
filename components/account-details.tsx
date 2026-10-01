@@ -4,7 +4,6 @@ import { usePreferences } from "./preferences";
 export default function AccountDetails({
   onDeleteAccount,
 }: {
-  onResetPassword: () => void;
   onDeleteAccount: () => void;
 }) {
   const { clerk, user } = useAccount();

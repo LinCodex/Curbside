@@ -15,14 +15,14 @@ export function publicAnalyticsURL(raw: string): string | null {
       return null;
     if (
       url.pathname !== "/" &&
-      !/^\/legal(?:\/(terms|privacy|messaging|billing|accessibility|sources))?\/?$/.test(
+      !/^\/legal(?:\/(terms|privacy|accessibility|sources))?\/?$/.test(
         url.pathname,
       )
     )
       return null;
     const view = url.searchParams.get("view");
-    // Garage, account, ticket details and future unreviewed views are private.
-    if (url.pathname === "/" && view && !["search", "map"].includes(view))
+    // The bare root can show a private garage. Only explicit public views count.
+    if (url.pathname === "/" && !["search", "map"].includes(view ?? ""))
       return null;
     url.search = "";
     if (

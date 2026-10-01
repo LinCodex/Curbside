@@ -1,6 +1,7 @@
 "use client";
 import { usePreferences, PreferencesMenu } from "./preferences";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -13,8 +14,7 @@ import {
 } from "lucide-react";
 import CustomSelect from "./custom-select";
 import {
-  LEGAL_VERSION,
-  PRIVACY_VERSION,
+  LEGAL_DISPLAY_REVISION,
   OPERATOR,
   legalDocuments,
   LEGAL_SOURCES,
@@ -27,23 +27,8 @@ export default function LegalPage({
   docName?: string;
   document?: string;
 }) {
-  const initialDoc = docName || docProp;
+  const activeDoc = docName || docProp;
   const { tr, locale } = usePreferences();
-  const [clientDoc, setClientDoc] = useState<string | undefined>(initialDoc);
-
-  useEffect(() => {
-    if (!initialDoc && typeof window !== "undefined") {
-      const seg = window.location.pathname
-        .replace(/^\/legal\/?/, "")
-        .split("/")[0]
-        ?.replace(/\.html$/, "");
-      if (seg && Object.hasOwn(legalDocuments, seg)) {
-        setClientDoc(seg);
-      }
-    }
-  }, [initialDoc]);
-
-  const activeDoc = initialDoc || clientDoc;
   const page = activeDoc ? legalDocuments[activeDoc] : null;
   const sectionTitle = tr;
   const [activeSection, setActiveSection] = useState("section-1");
@@ -54,7 +39,7 @@ export default function LegalPage({
           label: s.title,
         })),
         ...(activeDoc === "sources"
-          ? [{ value: "references", label: "Official reference material" }]
+          ? [{ value: "references", label: "Source references" }]
           : []),
         { value: "contact", label: "Contact the operator" },
       ]
@@ -96,7 +81,7 @@ export default function LegalPage({
       typeof window.document !== "undefined"
     ) {
       const sub = page?.title ? tr(page.title) : tr("Legal & Policies");
-      window.document.title = `${locale === "zh" ? "泊查" : "Curbside"} | ${sub}`;
+      window.document.title = `${locale === "zh" ? "罚单卫士" : "TicketSafe"} | ${sub}`;
     }
   }, [page?.title, tr, locale]);
 
@@ -107,15 +92,19 @@ export default function LegalPage({
       </a>
       <header className="legal-header">
         <div className="legal-header-brand">
-          <a className="wordmark" href="/" aria-label={tr("Curbside home")}>
+          <Link
+            className="wordmark"
+            href="/"
+            aria-label={tr("TicketSafe home")}
+          >
             <span className="curb-mark">
               <span />
               <span />
               <span />
             </span>
-            {locale === "zh" ? "泊查" : "curbside"}
+            {locale === "zh" ? "罚单卫士" : "TicketSafe"}
             <span className="brand-period">.</span>
-          </a>
+          </Link>
         </div>
         <nav className="legal-header-nav" aria-label={tr("Main navigation")}>
           {(
@@ -126,10 +115,14 @@ export default function LegalPage({
               ["account", "Account", UserRound],
             ] as const
           ).map(([view, label, Icon]) => (
-            <a key={view} href={"/?view=" + view} className="legal-main-link">
+            <Link
+              key={view}
+              href={"/?view=" + view}
+              className="legal-main-link"
+            >
               <Icon size={17} aria-hidden="true" />
               <span>{tr(label)}</span>
-            </a>
+            </Link>
           ))}
         </nav>
         <div className="legal-header-actions">
@@ -138,7 +131,7 @@ export default function LegalPage({
       </header>
       <main className="legal-main" id="legal-content">
         <div className="legal-heading">
-          <div className="eyebrow">{tr("Curbside / Legal")}</div>
+          <div className="eyebrow">{tr("TicketSafe / Legal")}</div>
           <h1>
             {(page?.title && tr(page.title)) || tr("Clarity comes first.")}
           </h1>
@@ -151,13 +144,7 @@ export default function LegalPage({
         </div>
         <div className="legal-status">
           <ShieldCheck size={14} aria-hidden="true" />
-          {tr("Prelaunch version")}{" "}
-          {activeDoc === "privacy" ? PRIVACY_VERSION : LEGAL_VERSION}{" "}
-          {tr(
-            activeDoc === "privacy"
-              ? "· October 1, 2026"
-              : "· September 27, 2026",
-          )}
+          {tr("Updated October 1, 2026")} · {LEGAL_DISPLAY_REVISION}
         </div>
         {page ? (
           <div className="legal-layout">
@@ -186,19 +173,19 @@ export default function LegalPage({
                   />
                 </div>
                 <div className="legal-policy-links">
-                  <a href="/legal">
+                  <Link href="/legal">
                     <ArrowLeft size={14} />
                     {tr("Overview")}
-                  </a>
+                  </Link>
                   {Object.entries(legalDocuments).map(([key, p]) => (
-                    <a
+                    <Link
                       key={key}
                       href={"/legal/" + key}
                       aria-current={activeDoc === key ? "page" : undefined}
                     >
                       <FileText size={14} aria-hidden="true" />
                       {tr(p.title)}
-                    </a>
+                    </Link>
                   ))}
                 </div>
               </nav>
@@ -267,10 +254,10 @@ export default function LegalPage({
               ))}
               {activeDoc === "sources" && (
                 <section id="references" tabIndex={-1}>
-                  <h2>{tr("Official reference material")}</h2>
+                  <h2>{tr("Source references")}</h2>
                   <p>
                     {tr(
-                      "These links explain selected requirements. They do not certify Curbside or replace an assessment of the operator’s actual practices.",
+                      "These official sources explain the records and location services used by TicketSafe.",
                     )}
                   </p>
                   <div className="legal-reference-grid">
@@ -296,13 +283,13 @@ export default function LegalPage({
           <>
             <div className="legal-cards">
               {Object.entries(legalDocuments).map(([key, p]) => (
-                <a className="legal-card" key={key} href={"/legal/" + key}>
+                <Link className="legal-card" key={key} href={"/legal/" + key}>
                   <h2>
                     {tr(p.title)}
                     <ArrowUpRight size={19} />
                   </h2>
                   <p>{tr(p.description)}</p>
-                </a>
+                </Link>
               ))}
             </div>
             <Contact />

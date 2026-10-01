@@ -10,15 +10,16 @@ import "mapbox-gl/dist/mapbox-gl.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Curbside | NYC Ticket Monitoring",
-    template: "Curbside | %s",
+    default: "TicketSafe | NYC Ticket Search",
+    template: "TicketSafe | %s",
   },
-  description: "Your NYC tickets, reminders, and next steps. All in one place.",
+  description:
+    "Search NYC parking and camera tickets, save your cars, and view ticket histories and locations.",
   robots: { index: false, follow: false },
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "Curbside",
+    title: "TicketSafe",
     statusBarStyle: "black-translucent",
   },
   icons: {

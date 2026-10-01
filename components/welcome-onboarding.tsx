@@ -68,7 +68,7 @@ export default function WelcomeOnboarding({
             </p>
             <div className="onboarding-note">
               <ShieldCheck size={17} />
-              {tr("Free to explore. No card required.")}
+              {tr("Free to explore.")}
             </div>
           </>
         ) : step === 1 ? (
@@ -94,7 +94,7 @@ export default function WelcomeOnboarding({
               <div>
                 <RefreshCw />
                 <span>
-                  <strong>{tr("History, ready instantly")}</strong>
+                  <strong>{tr("Your saved ticket history")}</strong>
                   <small>
                     {tr(
                       "Saved ticket histories refresh every morning from city data.",
@@ -116,7 +116,7 @@ export default function WelcomeOnboarding({
             </div>
             <p className="small muted">
               {tr(
-                "Email and SMS reminders are not activated yet. City records can appear after a delay.",
+                "City records can appear after a delay. Check the source timestamps when reviewing your history.",
               )}
             </p>
           </>

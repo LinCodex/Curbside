@@ -7,15 +7,15 @@ test("analytics allowlists public pages and strips plates, emails and ticket que
   assert.equal(publicAnalyticsURL("https://example.com/?view=search&plate=SECRET1&email=private@example.com&invite=private"), "https://example.com/?view=search");
   assert.equal(publicAnalyticsURL("https://example.com/?view=map&summons=private"), "https://example.com/?view=map");
   assert.equal(publicAnalyticsURL("https://example.com/legal/privacy?unknown=private"), "https://example.com/legal/privacy");
-  for (const path of ["/?view=account", "/?view=garage", "/?view=ticket&summons=private", "/api/evidence?id=private", "/vehicle/SECRET1", "/sign-in", "/sign-up", "/?auth=recovery", "/?code=private", "/?__clerk_ticket=private", "/?__clerk_db_jwt=private", "/?access_token=private", "/#access_token=private"])
+  for (const path of ["/", "/?plate=SECRET1", "/legal/messaging", "/legal/billing", "/?view=account", "/?view=garage", "/?view=ticket&summons=private", "/api/evidence?id=private", "/vehicle/SECRET1", "/sign-in", "/sign-up", "/?auth=recovery", "/?code=private", "/?__clerk_ticket=private", "/?__clerk_db_jwt=private", "/?access_token=private", "/#access_token=private"])
     assert.equal(publicAnalyticsURL("https://example.com" + path), null);
   assert.equal(publicAnalyticsURL("https://user:secret@example.com/"), null);
   assert.equal(publicAnalyticsURL("file:///private"), null);
 });
 
 test("analytics respects GPC/DNT and rejects custom events", () => {
-  const event = { type: "pageview", url: "https://example.com/?plate=SECRET1" };
-  assert.deepEqual(privateAnalyticsEvent(event, {}), { type: "pageview", url: "https://example.com/" });
+  const event = { type: "pageview", url: "https://example.com/?view=search&plate=SECRET1" };
+  assert.deepEqual(privateAnalyticsEvent(event, {}), { type: "pageview", url: "https://example.com/?view=search" });
   assert.equal(privateAnalyticsEvent(event, { doNotTrack: "1" }), null);
   assert.equal(privateAnalyticsEvent(event, { globalPrivacyControl: true }), null);
   assert.equal(privateAnalyticsEvent({ ...event, type: "event" }, {}), null);

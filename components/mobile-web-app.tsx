@@ -25,7 +25,7 @@ export function InstallGuide({
   manualRequest?: number;
   suppressAutomatic?: boolean;
 }) {
-  const { tr } = usePreferences();
+  const { tr, locale } = usePreferences();
 
   const [open, setOpen] = useState(false),
     [ios, setIOS] = useState(false),
@@ -76,7 +76,8 @@ export function InstallGuide({
           <div className="install-brand">
             <img src="/apple-touch-icon.png" width="48" height="48" alt="" />
             <span>
-              curbside<span className="brand-period">.</span>
+              {locale === "zh" ? "罚单卫士" : "TicketSafe"}
+              <span className="brand-period">.</span>
               <small>{tr("Your garage, one tap away")}</small>
             </span>
           </div>
@@ -96,15 +97,15 @@ export function InstallGuide({
             ))}
             <div className="install-phone-app">
               <img src="/apple-touch-icon.png" width="48" height="48" alt="" />
-              <span>Curbside</span>
+              <span>{locale === "zh" ? "罚单卫士" : "TicketSafe"}</span>
             </div>
           </div>
         </div>
-        <div className="eyebrow">{tr("Curbside, one tap away")}</div>
-        <h2 id="install-title">{tr("Make room for Curbside.")}</h2>
+        <div className="eyebrow">{tr("TicketSafe, one tap away")}</div>
+        <h2 id="install-title">{tr("Make room for TicketSafe.")}</h2>
         {standalone ? (
           <p>
-            {tr("Curbside is already opening as a web app on this device.")}
+            {tr("TicketSafe is already opening as a web app on this device.")}
           </p>
         ) : (
           <>
@@ -163,7 +164,7 @@ export function InstallGuide({
           </>
         )}
         <button className="primary-action" onClick={() => setOpen(false)}>
-          {standalone ? tr("Back to Curbside") : tr("Got it")}
+          {standalone ? tr("Back to TicketSafe") : tr("Got it")}
           <Check size={17} />
         </button>
       </div>

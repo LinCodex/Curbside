@@ -18,7 +18,6 @@ import {
   Plus,
   ChevronRight,
   ArrowUpRight,
-  Bell,
   MapPin,
   ShieldCheck,
   Ticket,
@@ -223,19 +222,17 @@ export default function Curbside() {
   }, []);
   useEffect(() => {
     const activePlate = plate.trim() || results?.query?.plate || "";
-    let sub = "NYC Ticket Monitoring";
+    let sub = "NYC Ticket Search";
     if (activePlate) {
       sub = `${activePlate.toUpperCase()} · ${tr("NYC Tickets")}`;
     } else if (view === "map") {
-      sub = "Live Map";
-    } else if (view === "cases") {
-      sub = "Disputes";
+      sub = "Ticket Map";
     } else if (view === "timeline") {
       sub = "Timeline";
     } else if (view === "account") {
       sub = "Settings";
     }
-    document.title = `${locale === "zh" ? "泊查" : "Curbside"} | ${tr(sub)}`;
+    document.title = `${locale === "zh" ? "罚单卫士" : "TicketSafe"} | ${tr(sub)}`;
   }, [plate, results?.query?.plate, view, tr, locale]);
   useEffect(() => {
     setDockHidden(false);
@@ -481,7 +478,7 @@ export default function Curbside() {
         {
           name: "search_nyc_tickets",
           description: tr(
-            "Search real NYC public violation datasets by plate and state and show the results. Does not save a vehicle or enable monitoring.",
+            "Search NYC public violation datasets by plate and state and show the results. This search does not save a vehicle.",
           ),
           inputSchema: {
             type: "object",
@@ -768,14 +765,14 @@ export default function Curbside() {
         <button
           className="wordmark"
           onClick={() => go("garage")}
-          aria-label={tr("Curbside home")}
+          aria-label={tr("TicketSafe home")}
         >
           <span className="curb-mark">
             <span />
             <span />
             <span />
           </span>
-          {locale === "zh" ? "泊查" : "curbside"}
+          {locale === "zh" ? "罚单卫士" : "TicketSafe"}
           <span className="brand-period">.</span>
         </button>
         <nav
@@ -805,7 +802,7 @@ export default function Curbside() {
           <button
             className="round-control"
             onClick={() => go("account")}
-            aria-label={tr("Account and notifications")}
+            aria-label={tr("Account settings")}
           >
             <UserRound size={19} />
           </button>
@@ -869,7 +866,7 @@ export default function Curbside() {
                     {tr("Violation locations")}
                   </span>
                   <span>
-                    <Bell size={15} />
+                    <CarFront size={15} />
                     {tr("Saved cars")}
                   </span>
                 </div>
@@ -1083,9 +1080,7 @@ export default function Curbside() {
                 )}
                 <div className="dock-footer">
                   <Info size={13} />
-                  {tr(
-                    "Saved histories refresh every morning. Email and SMS reminders are not activated yet.",
-                  )}
+                  {tr("Saved histories refresh every morning from city data.")}
                 </div>
               </div>
             </div>
@@ -1778,7 +1773,7 @@ export default function Curbside() {
                         <span>
                           <strong>{tr("Account details")}</strong>
                           <small>
-                            {tr("Email, password, and phone number")}
+                            {tr("Email, password, and account security")}
                           </small>
                         </span>
                         <ChevronRight size={16} />
@@ -1804,14 +1799,14 @@ export default function Curbside() {
                         className="text-link"
                         onClick={() => setSheet("delete")}
                       >
-                        {tr("Delete my Curbside data")}
+                        {tr("Delete my TicketSafe data")}
                       </button>
                     </details>
                   </>
                 )}
               </div>
               <div className="glass form-card account-tools-card">
-                <h2>{tr("Your Curbside")}</h2>
+                <h2>{tr("Your TicketSafe")}</h2>
                 <button
                   className="account-tool"
                   onClick={() => setSheet("preferences")}
@@ -1836,14 +1831,14 @@ export default function Curbside() {
                   </span>
                   <span>
                     <strong>{tr("Add to Home Screen")}</strong>
-                    <small>{tr("Open Curbside with a single tap")}</small>
+                    <small>{tr("Open TicketSafe with a single tap")}</small>
                   </span>
                   <ChevronRight size={16} />
                 </button>
 
                 <p className="account-free-note">
                   <Check size={13} />
-                  {tr("Free access. No subscription or checkout.")}
+                  {tr("Free access to searches and saved cars.")}
                 </p>
               </div>
             </div>
@@ -1978,7 +1973,7 @@ export default function Curbside() {
       )}
       {onboardingOpen && !authOpen && (
         <Modal
-          title={tr("Welcome to Curbside")}
+          title={tr("Welcome to TicketSafe")}
           close={() => finishOnboarding(false)}
         >
           <WelcomeOnboarding canSignUp={true} finish={finishOnboarding} />
@@ -1996,17 +1991,15 @@ export default function Curbside() {
                   ? tr("Violation details")
                   : sheet === "save"
                     ? tr("Add to your garage")
-                    : sheet === "dispute"
-                      ? tr("Your dispute workspace")
-                      : sheet === "vehicle"
-                        ? tr("Vehicle settings")
-                        : sheet === "privacy"
-                          ? tr("Your data. Your control.")
-                          : sheet === "delete"
-                            ? tr("Delete saved data?")
-                            : sheet === "delete-account"
-                              ? tr("Delete account?")
-                              : tr("Account activation")
+                    : sheet === "vehicle"
+                      ? tr("Vehicle settings")
+                      : sheet === "privacy"
+                        ? tr("Your data. Your control.")
+                        : sheet === "delete"
+                          ? tr("Delete saved data?")
+                          : sheet === "delete-account"
+                            ? tr("Delete account?")
+                            : tr("Account activation")
           }
           close={() => setSheet(null)}
         >
@@ -2017,11 +2010,6 @@ export default function Curbside() {
                 setDeleteConfirmed(false);
                 setError("");
                 setSheet("delete-account");
-              }}
-              onResetPassword={() => {
-                setSheet(null);
-                setAuthInitialMode("reset");
-                setAuthOpen(true);
               }}
             />
           )}
@@ -2040,7 +2028,7 @@ export default function Curbside() {
               <p>{tr("Account sign-in hasn’t been activated yet.")}</p>
               <p className="small muted">
                 {tr(
-                  "You can search real NYC records now. Saving vehicles, alerts, and purchases become available after the service owner connects account and delivery providers.",
+                  "You can search NYC records now. Saving vehicles requires account sign-in to be configured.",
                 )}
               </p>
               <button
@@ -2069,7 +2057,7 @@ export default function Curbside() {
               </p>
               <p>
                 {tr(
-                  "Service messages and marketing permissions are separate. Stop SMS with STOP and unsubscribe from email using the message link. Deleting a saved vehicle stops its monitoring.",
+                  "Deleting a saved vehicle removes it from your garage. Public city records remain available through a plate search.",
                 )}
               </p>
               <a
@@ -2092,7 +2080,7 @@ export default function Curbside() {
               </a>
               <p className="muted">
                 {tr(
-                  "Uploaded evidence is private and only available through short-lived, authorized access. No payment or hearing request is submitted without an explicit action.",
+                  "Use official NYC guidance to review ticket deadlines and available next steps.",
                 )}
               </p>
             </div>
@@ -2136,11 +2124,11 @@ export default function Curbside() {
               </div>
               <label className="check-row">
                 <input type="checkbox" required />
-                {tr("I own or am authorized to monitor this vehicle.")}
+                {tr("I own or am authorized to save this vehicle.")}
               </label>
               <p className="small muted">
                 {tr(
-                  "Saving a car keeps its ticket history ready and refreshes it every morning. Email and SMS alerts are not activated yet.",
+                  "Saving a car keeps its ticket history ready and refreshes it every morning from city data.",
                 )}
               </p>
               <button className="primary-action" disabled={busy}>
@@ -2176,7 +2164,6 @@ export default function Curbside() {
                         year: f.get("year"),
                         color: f.get("color"),
                       },
-                      monitoring: f.get("monitoring") === "on",
                     });
                     await refresh();
                   }, tr("Vehicle updated"));
@@ -2364,43 +2351,9 @@ export default function Curbside() {
                 target="_blank"
                 rel="noreferrer"
               >
-                {tr("Pay or review with NYC")}
+                {tr("Official NYC ticket guidance")}
                 <ArrowUpRight size={17} />
               </a>
-              {account && (
-                <div className="row">
-                  {["paid", "submitted"].map((status) => (
-                    <button
-                      className="button ghost"
-                      key={tr(status)}
-                      onClick={() =>
-                        perform(async () => {
-                          const v = vehicles.find(
-                            (v: any) =>
-                              v.plate === selected.plate &&
-                              v.state === selected.state,
-                          );
-                          if (!v)
-                            throw new Error(
-                              tr(
-                                "Save this vehicle before changing its reminder status.",
-                              ),
-                            );
-                          await api("tickets/" + selected.id, "PATCH", {
-                            vehicleId: v.id,
-                            status,
-                          });
-                          setSelected({ ...selected, localStatus: status });
-                          await refresh();
-                        }, tr("Reminders stopped; city confirmation pending"))
-                      }
-                    >
-                      {tr("Mark")}
-                      {tr(status)}
-                    </button>
-                  ))}
-                </div>
-              )}
               {detailMode === "geek" && (
                 <details className="source-details">
                   <summary>
@@ -2455,7 +2408,7 @@ export default function Curbside() {
                     setAccount(null);
                     setSheet(null);
                     await signOut();
-                  }, tr("Your Curbside data was removed"))
+                  }, tr("Your TicketSafe data was removed"))
                 }
               >
                 {tr("Delete my saved data")}
