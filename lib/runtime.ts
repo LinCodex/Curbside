@@ -1,4 +1,5 @@
 import { FREE_ACCESS } from "./release";
+import { verifyHCaptcha } from "./captcha-verification";
 // Environment variable accessor compatible with Vercel (Edge & Serverless) and Cloudflare runtimes
 const getEnv = (): Record<string, any> => {
   if (typeof process !== "undefined" && process.env) {
@@ -63,6 +64,13 @@ export async function rate(key: string, cap: number, windowMs: number) {
     const now = Date.now();
     const existing = memLimits.get(key);
     if (!existing || now > existing.expiresAt) {
+      for (const [id, item] of memLimits)
+        if (item.expiresAt <= now) memLimits.delete(id);
+      if (!existing && memLimits.size >= 10_000)
+        throw new HttpError(
+          429,
+          "Too many requests. Please wait before trying again.",
+        );
       memLimits.set(key, { count: 1, expiresAt: now + windowMs });
       return;
     }
@@ -124,6 +132,7 @@ export const publicConfig = () => {
           process.env?.MAPBOX_ACCESS_TOKEN)) ||
       null,
     turnstileKey: e.TURNSTILE_SITE_KEY || null,
+    hcaptchaKey: e.HCAPTCHA_SITE_KEY || null,
     services: {
       accounts: !!supabase || !!e.CLERK_SECRET_KEY,
       email: !!(e.RESEND_API_KEY && e.EMAIL_FROM),
@@ -152,6 +161,26 @@ export function sameOrigin(req: Request) {
     throw new HttpError(403, "Request origin is not allowed.");
 }
 export async function turnstile(token: string | undefined, ip: string) {
+  if (config().HCAPTCHA_SECRET_KEY) {
+    if (!token) throw new HttpError(403, "Complete the security check.");
+    let verified = false;
+    try {
+      verified = await verifyHCaptcha({
+        secret: config().HCAPTCHA_SECRET_KEY,
+        sitekey: config().HCAPTCHA_SITE_KEY || "",
+        token,
+        ip,
+      });
+    } catch {
+      throw new HttpError(
+        503,
+        "Security verification is temporarily unavailable. Please try again.",
+      );
+    }
+    if (!verified)
+      throw new HttpError(403, "Security check failed. Please try again.");
+    return;
+  }
   const secret = config().TURNSTILE_SECRET_KEY;
   if (!secret) return;
   if (!token) throw new HttpError(403, "Complete the security check.");

@@ -1,6 +1,12 @@
 "use client";
 import { usePreferences } from "./preferences";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { MapCredits } from "./map-credits";
 
 import type { Violation } from "@/lib/domain";
@@ -51,7 +57,9 @@ export default function CityMap({
     instance = useRef<any>(null);
   const pin = useRef<any>(null);
   const latest = useRef({ tickets, onSelect, interactive, selectedId });
-  latest.current = { tickets, onSelect, interactive, selectedId };
+  useLayoutEffect(() => {
+    latest.current = { tickets, onSelect, interactive, selectedId };
+  }, [tickets, onSelect, interactive, selectedId]);
   const [attempt, setAttempt] = useState(0);
   const [ready, setReady] = useState(0),
     [failed, setFailed] = useState(false);
@@ -60,7 +68,7 @@ export default function CityMap({
   );
   const [paths, setPaths] = useState<any[]>([]),
     [roads, setRoads] = useState<string[]>([]),
-    [zoom, setZoom] = useState(1);
+    [zoom] = useState(1);
   const fit = useCallback(() => {
     const map = instance.current;
     if (!map) return;
@@ -144,9 +152,14 @@ export default function CityMap({
           renderWorldCopies: false,
           interactive: true,
           attributionControl: false,
-          logoPosition: "bottom-left",
+          logoPosition: "top-right",
         });
         instance.current = map;
+        // Required provider credits stay clear of the mobile ticket sheet and dock.
+        map.addControl(
+          new mapbox.AttributionControl({ compact: true }),
+          "top-right",
+        );
         const dropperEl = document.createElement("div");
         dropperEl.className = "refined-map-dropper";
         dropperEl.setAttribute("aria-label", tr("Selected violation pin"));
@@ -346,7 +359,7 @@ export default function CityMap({
       instance.current?.remove();
       instance.current = null;
     };
-  }, [token, resolvedTheme, attempt]);
+  }, [token, resolvedTheme, attempt, tr]);
   // Changing a selection or a form field never constructs another map.
   useEffect(() => {
     const map = instance.current;
@@ -363,7 +376,8 @@ export default function CityMap({
       "doubleClickZoom",
       "touchZoomRotate",
     ])
-      interactive ? map[key].enable() : map[key].disable();
+      if (interactive) map[key].enable();
+      else map[key].disable();
     map.getCanvas().tabIndex = interactive ? 0 : -1;
     map
       .getCanvas()

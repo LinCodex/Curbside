@@ -4,6 +4,11 @@ import { vehicleInput } from "./saved-vehicles";
 
 function check(error: { code?: string; message: string } | null) {
   if (!error) return;
+  if (
+    error.code === "P0001" &&
+    error.message.startsWith("Saved vehicle capacity")
+  )
+    throw new Error("Saved vehicle capacity reached. Please contact support.");
   if (error.code === "23505")
     throw new Error("This vehicle is already in your garage.");
   if (["42P01", "PGRST205"].includes(error.code || ""))
@@ -45,6 +50,30 @@ export async function savedAccountRequest(
     ]);
     check(cars.error);
     check(consent.error);
+    const snapshots = cars.data?.length
+      ? await client
+          .from("curbside_vehicle_snapshots")
+          .select(
+            "key,plate,state,plate_type,payload,checked_at,last_attempt_at,next_check_at,status",
+          )
+      : null;
+    check(snapshots?.error || null);
+    const vehicles = (cars.data || []).map((car) => {
+      const snapshot = snapshots?.data?.find(
+        (row) =>
+          row.plate === car.plate &&
+          row.state === car.state &&
+          row.plate_type === car.plate_type,
+      );
+      return {
+        ...car,
+        snapshot: snapshot?.payload || null,
+        checked_at: snapshot?.checked_at,
+        snapshot_status: snapshot?.status || "pending",
+        next_check_at: snapshot?.next_check_at,
+        last_attempt_at: snapshot?.last_attempt_at,
+      };
+    });
     return {
       user: {
         id: user.id,
@@ -54,7 +83,7 @@ export async function savedAccountRequest(
         legalAccepted: !!consent.data,
         emailVerified: true,
       },
-      vehicles: cars.data || [],
+      vehicles,
       tickets: [],
       cases: [],
     };
@@ -82,6 +111,13 @@ export async function savedAccountRequest(
       .select("id")
       .single();
     check(result.error);
+    // The server verifies ownership and claims a durable job; clients never upload city results.
+    if (result.data)
+      await client.functions
+        .invoke("vehicle-snapshots", {
+          body: { mode: "refresh", vehicleId: result.data.id },
+        })
+        .catch(() => {});
     return result.data;
   }
   const match = /^vehicles\/([0-9a-f-]{36})$/i.exec(path);

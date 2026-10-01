@@ -12,6 +12,11 @@ import {
 } from "./runtime";
 import { canReadCase } from "./domain";
 import { signedToken } from "./providers";
+import {
+  EVIDENCE_ADMISSION,
+  EVIDENCE_UPDATE,
+  RECEIPT_UPDATE,
+} from "./evidence-admission";
 export async function caseFor(id: string, user: any) {
   const c = await one<any>("SELECT * FROM cases WHERE id=?", id);
   if (!c || !canReadCase(user, c)) throw new HttpError(404, "Case not found.");
@@ -160,32 +165,44 @@ export async function evidenceUpload(
   await config().BUCKET.put(key, bytes, {
     httpMetadata: { contentType: f.type },
   });
-  await db().batch([
-    db()
-      .prepare(
-        "INSERT INTO evidence (id,case_id,owner_id,object_key,name,type,size,hash,created_at) VALUES (?,?,?,?,?,?,?,?,?)",
-      )
-      .bind(
-        eid,
-        id,
-        c.owner_id,
-        key,
-        f.name.slice(0, 120),
-        f.type,
-        f.size,
-        await hash(bytes),
-        Date.now(),
-      ),
-    receiptOnly
-      ? db()
-          .prepare("UPDATE cases SET receipt_key=?,updated_at=? WHERE id=?")
-          .bind(key, Date.now(), id)
-      : db()
-          .prepare(
-            "UPDATE cases SET version=version+1,approved_version=NULL,status='draft',updated_at=? WHERE id=?",
-          )
-          .bind(Date.now(), id),
-  ]);
+  try {
+    const admitted = await db().batch([
+      db()
+        .prepare(EVIDENCE_ADMISSION)
+        .bind(
+          eid,
+          key,
+          f.name.slice(0, 120),
+          f.type,
+          f.size,
+          await hash(bytes),
+          Date.now(),
+          id,
+          c.version,
+          c.status,
+          receiptOnly ? 1 : 0,
+          user.id,
+          receiptOnly ? 1 : 0,
+          user.id,
+          f.size,
+        ),
+      receiptOnly
+        ? db().prepare(RECEIPT_UPDATE).bind(key, Date.now(), id, eid)
+        : db().prepare(EVIDENCE_UPDATE).bind(Date.now(), id, eid),
+    ]);
+    if (admitted[0].meta.changes !== 1)
+      throw new HttpError(
+        409,
+        "The case changed or its upload limit was reached. Refresh before uploading again.",
+      );
+  } catch (error) {
+    try {
+      await config().BUCKET.delete(key);
+    } catch {
+      /* private orphan; preserve original failure */
+    }
+    throw error;
+  }
   return { id: eid, name: f.name };
 }
 export async function evidenceLinks(c: any, user: any) {

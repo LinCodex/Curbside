@@ -29,6 +29,9 @@
     }
   ],
   "rewrites": [
-    { "source": "/((?!_next|api|legal|favicon|manifest|robots|sw\\.js|icon|apple).*)", "destination": "/index.html" }
+    {
+      "source": "/((?!_next|_vercel|api|legal|favicon|manifest|robots|sw\\.js|icon|apple).*)",
+      "destination": "/index.html"
+    }
   ]
 }

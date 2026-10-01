@@ -5,6 +5,8 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
+  useLayoutEffect,
   useState,
 } from "react";
 import { DropdownMenu } from "radix-ui";
@@ -17,8 +19,10 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import dictionary from "@/lib/zh.json";
+import { useSupabaseAccount } from "./use-supabase-account";
 import {
   PREFERENCE_KEY,
+  preferenceKey,
   readPreferences,
   resolveLanguage,
   resolveTheme,
@@ -49,7 +53,10 @@ const Context = createContext({
   setDetailMode: (_: DetailMode) => {
     void _;
   },
-  savePreferences: (_: ReturnType<typeof readPreferences>) => {
+  profileId: null as string | null,
+  profileLoading: false,
+  savedPreferences: readPreferences(null),
+  savePreferences: async (_: ReturnType<typeof readPreferences>) => {
     void _;
   },
   previewPreferences: (_: ReturnType<typeof readPreferences> | null) => {
@@ -71,6 +78,15 @@ export function PreferencesProvider({
   const [deviceDark, setDeviceDark] = useState(true);
   const [languages, setLanguages] = useState<readonly string[]>(["en"]);
   const [loaded, setLoaded] = useState(false);
+  const auth = useSupabaseAccount();
+  const profileId = auth.user?.id || null;
+  const activeProfile = useRef(profileId);
+  const activeKey = useRef(PREFERENCE_KEY);
+  useLayoutEffect(() => {
+    activeProfile.current = profileId;
+    activeKey.current = preferenceKey(profileId);
+  }, [profileId]);
+  const [profileLoading, setProfileLoading] = useState(false);
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const updateTheme = () => setDeviceDark(media.matches);
@@ -81,7 +97,7 @@ export function PreferencesProvider({
           : [navigator.language],
       );
     const updateStorage = (event: StorageEvent) => {
-      if (event.key === PREFERENCE_KEY || event.key === null)
+      if (event.key === activeKey.current || event.key === null)
         setPreferences(readPreferences(event.newValue));
     };
     try {
@@ -121,11 +137,115 @@ export function PreferencesProvider({
       );
   }, [resolvedTheme, locale, loaded]);
   useEffect(() => {
-    if (!loaded) return;
+    let alive = true;
+    const key = preferenceKey(profileId);
+    setPreview(null);
     try {
-      localStorage.setItem(PREFERENCE_KEY, JSON.stringify(preferences));
-    } catch {}
-  }, [preferences, loaded]);
+      setPreferences(readPreferences(localStorage.getItem(key)));
+    } catch {
+      setPreferences(readPreferences(null));
+    }
+    if (!profileId || !auth.client) {
+      setProfileLoading(false);
+      return;
+    }
+    setProfileLoading(true);
+    auth.client
+      .from("curbside_preferences")
+      .select("theme,language,detail_mode")
+      .eq("user_id", profileId)
+      .maybeSingle()
+      .then(async ({ data, error }) => {
+        if (!alive) return;
+        if (!error && data) {
+          const next = readPreferences(
+            JSON.stringify({ ...data, detailMode: data.detail_mode }),
+          );
+          setPreferences(next);
+          try {
+            localStorage.setItem(key, JSON.stringify(next));
+          } catch {}
+        } else if (
+          !error &&
+          !data &&
+          auth.user?.user_metadata?.curbside_preferences
+        ) {
+          // Only display preferences, never authorization, come from signup metadata.
+          const next = readPreferences(
+            JSON.stringify(auth.user.user_metadata.curbside_preferences),
+          );
+          const saved = await auth.client!.from("curbside_preferences").insert({
+            user_id: profileId,
+            theme: next.theme,
+            language: next.language,
+            detail_mode: next.detailMode,
+          });
+          if (!alive) return;
+          if (!saved.error) {
+            setPreferences(next);
+            try {
+              localStorage.setItem(key, JSON.stringify(next));
+            } catch {}
+          }
+        }
+        setProfileLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [profileId, auth.client]);
+  const savePreferences = useCallback(
+    async (next: ReturnType<typeof readPreferences>) => {
+      const owner = profileId;
+      const normalized = readPreferences(JSON.stringify(next));
+      if (owner && auth.client) {
+        const { data: identity, error: identityError } =
+          await auth.client.auth.getUser();
+        if (
+          identityError ||
+          identity.user?.id !== owner ||
+          !identity.user.email_confirmed_at
+        )
+          throw new Error(
+            "Your session changed. Sign in again before saving settings.",
+          );
+        const fields = {
+          theme: normalized.theme,
+          language: normalized.language,
+          detail_mode: normalized.detailMode,
+        };
+        const update = () =>
+          auth
+            .client!.from("curbside_preferences")
+            .update(fields)
+            .eq("user_id", owner)
+            .select("user_id");
+        const result = await update();
+        if (result.error)
+          throw new Error("Settings could not be saved. Please try again.");
+        if (!result.data?.length) {
+          const inserted = await auth.client
+            .from("curbside_preferences")
+            .insert({ user_id: owner, ...fields });
+          if (
+            inserted.error &&
+            !(inserted.error.code === "23505" && !(await update()).error)
+          )
+            throw new Error("Settings could not be saved. Please try again.");
+        }
+      }
+      if (activeProfile.current !== owner)
+        throw new Error(
+          "Your session changed. Sign in again before saving settings.",
+        );
+      try {
+        localStorage.setItem(preferenceKey(owner), JSON.stringify(normalized));
+      } catch {}
+      setPreferences(normalized);
+      setPreview(null);
+    },
+    [profileId, auth.client],
+  );
   const tr = useCallback((text: string) => translate(text, locale), [locale]);
   const value = useMemo(
     () => ({
@@ -133,19 +253,29 @@ export function PreferencesProvider({
       resolvedTheme,
       locale,
       tr,
+      profileId,
+      profileLoading,
+      savedPreferences: preferences,
       setTheme: (theme: ThemePreference) =>
-        setPreferences((p) => ({ ...p, theme })),
+        void savePreferences({ ...preferences, theme }).catch(() => {}),
       setLanguage: (language: LanguagePreference) =>
-        setPreferences((p) => ({ ...p, language })),
+        void savePreferences({ ...preferences, language }).catch(() => {}),
       setDetailMode: (detailMode: DetailMode) =>
-        setPreferences((p) => ({ ...p, detailMode })),
-      savePreferences: (next: ReturnType<typeof readPreferences>) => {
-        setPreferences(readPreferences(JSON.stringify(next)));
-        setPreview(null);
-      },
+        void savePreferences({ ...preferences, detailMode }).catch(() => {}),
+      savePreferences,
       previewPreferences,
     }),
-    [displayed, resolvedTheme, locale, tr, previewPreferences],
+    [
+      displayed,
+      preferences,
+      resolvedTheme,
+      locale,
+      tr,
+      previewPreferences,
+      savePreferences,
+      profileId,
+      profileLoading,
+    ],
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
@@ -163,9 +293,19 @@ export function PreferencesPanel({
     detailMode,
     savePreferences,
     previewPreferences,
+    profileId,
+    profileLoading,
+    savedPreferences,
     tr,
   } = usePreferences();
   const [draft, setDraft] = useState({ theme, language, detailMode });
+  useEffect(() => {
+    if (!profileLoading) setDraft(savedPreferences);
+    // Reinitialize only when the bound account finishes loading, not while editing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileId, profileLoading]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   useEffect(() => {
     previewPreferences(draft);
   }, [draft, previewPreferences]);
@@ -223,28 +363,54 @@ export function PreferencesPanel({
         )}
       </p>
       <p className="preference-device-note">
-        {tr("Saved on this device. No account required.")}
+        {tr(
+          profileId
+            ? "Saved to your account. Your settings follow you across devices."
+            : "Saved on this device. No account required.",
+        )}
       </p>
+      {error && (
+        <p className="notice error" role="alert">
+          {tr(error)}
+        </p>
+      )}
       <div className="preference-actions">
-        <button className="button secondary" onClick={onCancel}>
+        <button
+          className="button secondary"
+          disabled={saving}
+          onClick={onCancel}
+        >
           {tr("Cancel")}
         </button>
         <button
           className="button primary"
-          onClick={() => {
-            savePreferences(draft);
-            onSave();
+          disabled={saving || profileLoading}
+          onClick={async () => {
+            setSaving(true);
+            setError("");
+            try {
+              await savePreferences(draft);
+              onSave();
+            } catch (err) {
+              setError(
+                err instanceof Error
+                  ? err.message
+                  : "Settings could not be saved. Please try again.",
+              );
+            } finally {
+              setSaving(false);
+            }
           }}
         >
           <Check size={16} />
-          {tr("Apply")}
+          {tr(saving ? "Saving…" : "Apply")}
         </button>
       </div>
     </section>
   );
 }
 
-function PreferenceChoice({
+export function PreferenceChoice({
   label,
   value,
   onChange,

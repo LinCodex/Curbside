@@ -628,6 +628,26 @@ html[data-theme="light"] .ticket:hover {
 .activity-dock {
   padding: 22px;
 }
+.garage-overview {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 22px;
+  box-shadow: var(--shadow);
+}
+.garage-overview > .plate-balance {
+  margin-bottom: 0;
+}
+.vehicle-scene .scene-top .segmented {
+  background: var(--panel);
+  backdrop-filter: none;
+}
+.vehicle-identity > .garage-check-action {
+  margin-block: 16px;
+}
+.vehicle-identity > .activity-dock {
+  background: var(--panel);
+}
 .sheet,
 html[data-theme="light"] .sheet {
   background: var(--panel);
@@ -712,6 +732,9 @@ html[data-theme="light"] .toast {
 .welcome-title > .eyebrow {
   display: block;
   width: 100%;
+}
+.welcome-title > :is(.eyebrow, h1, p) {
+  text-align: center;
 }
 .welcome-title :is(h1, p) {
   margin-inline: auto;
@@ -2619,7 +2642,9 @@ html[data-theme="light"] .legal-section-links a[aria-current="location"] {
     max-height: 84px;
   }
   .app[data-view="map"]
-    .map-results:not(.map-results-compact):not(.map-box-minimized):has(> .empty) {
+    .map-results:not(.map-results-compact):not(.map-box-minimized):has(
+      > .empty
+    ) {
     height: auto;
   }
   .app[data-view="map"] .atlas {
@@ -2632,10 +2657,139 @@ html[data-theme="light"] .legal-section-links a[aria-current="location"] {
     min-height: 0;
   }
   .modal-backdrop {
-    padding: calc(12px + env(safe-area-inset-top, 0px)) 12px
-      calc(12px + env(safe-area-inset-bottom, 0px));
+    align-items: flex-end;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 0 0;
   }
   .modal-backdrop .sheet {
+    width: 100%;
+    margin: 0;
+    flex-shrink: 0;
     max-height: 100%;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 0px));
   }
+  .install-guide {
+    position: fixed;
+    inset: auto 0 0;
+    margin: 0;
+    width: 100%;
+    max-width: none;
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 12px);
+    border-radius: 24px 24px 0 0;
+  }
+  .install-inner {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  }
+  html,
+  body {
+    touch-action: pan-x pan-y;
+  }
+  .mapboxgl-canvas-container {
+    touch-action: none;
+  }
+  input,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+}
+.welcome-onboarding {
+  display: grid;
+  gap: 20px;
+}
+.onboarding-progress {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+.onboarding-progress > span:not(.sr-only) {
+  width: 24px;
+  height: 3px;
+  border-radius: 4px;
+  background: var(--line);
+  transition: background 200ms;
+}
+.onboarding-progress > span.active {
+  background: var(--text);
+}
+.onboarding-slide {
+  display: grid;
+  gap: 14px;
+  animation: instrument-enter 240ms ease both;
+}
+.onboarding-slide h2 {
+  font-size: clamp(24px, 5vw, 32px);
+  line-height: 1.16;
+  letter-spacing: -0.035em;
+  margin: 0;
+}
+.onboarding-slide > p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+.onboarding-symbol {
+  width: 84px;
+  height: 84px;
+  display: grid;
+  place-items: center;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 25px;
+  margin: 0 auto 8px;
+}
+.onboarding-slide:has(.onboarding-symbol) {
+  text-align: center;
+}
+.onboarding-note {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.onboarding-features {
+  display: grid;
+  gap: 18px;
+  margin: 8px 0;
+}
+.onboarding-features > div {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.onboarding-features svg {
+  flex-shrink: 0;
+  width: 22px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.onboarding-features strong {
+  font-size: 14px;
+  display: block;
+}
+.onboarding-features small {
+  display: block;
+  margin-top: 4px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.onboarding-actions {
+  display: grid;
+  gap: 16px;
+}
+.onboarding-cookie {
+  text-align: center;
+  margin: 0;
+  font-size: 11px;
+}
+.bot-challenge {
+  display: grid;
+  justify-content: center;
+  min-height: 78px;
+  max-width: 100%;
+}
+.bot-challenge .notice {
+  max-width: 304px;
+  display: grid;
+  gap: 8px;
 }

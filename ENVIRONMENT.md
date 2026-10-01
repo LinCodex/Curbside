@@ -4,6 +4,10 @@ The repository contains variable names and empty placeholders, not provider cred
 
 For registration/login and saved cars on Vercel, see [SUPABASE_SETUP.md](SUPABASE_SETUP.md). Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in Vercel and configure Supabase email delivery and redirect URLs. No service-role key is required.
 
+Public search protection uses `HCAPTCHA_SITE_KEY` and server-only `HCAPTCHA_SECRET_KEY`. hCaptcha takes priority over legacy Turnstile variables. The same hCaptcha secret must be configured separately in Supabase Auth Attack Protection. The `/api/config` response exposes only the site key. Vercel Analytics requires its project dashboard switch, not an API key in the application.
+
+Shared saved histories and the morning schedule run inside Supabase using its runtime credentials and a Vault cron secret. No Vercel service-role key or `JOBS_SECRET` is needed for this new scheduler. See SUPABASE_SETUP.md for deployment and rollback details.
+
 ## Local development
 
 From the project directory, create the local file only if it does not already exist:
@@ -59,18 +63,17 @@ node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 
 Keep the two values different. Rotating `SIGNING_SECRET` invalidates existing signed evidence and unsubscribe links.
 
-## Production hosting
+## Production hosting: Vercel
 
-This project uses Cloudflare Workers, D1, and private R2 bindings. A GitHub push alone neither deploys the application nor supplies its environment.
+The current release deploys from GitHub to Vercel using vercel.json and scripts/build-vercel.mjs. It serves static client assets and the standalone /api/config and /api/search functions. Keep Framework Preset set to Other; this build does not emit a Next routes-manifest.
 
-1. In the production host, configure the same names from `.env.example` as **runtime** variables. On a directly managed Cloudflare Worker, use **Workers & Pages → your Worker → Settings → Variables and Secrets**. In Sites-managed hosting, use that site's environment/secret settings.
-2. Store server-only values as encrypted **secrets**. Set ordinary configuration as text variables. Build-system variables or GitHub repository secrets alone do not automatically become Worker runtime bindings.
-3. Set `APP_ORIGIN` to the actual HTTPS origin, for example `https://your-domain.example`, without a trailing slash. Replace this example with your real domain.
-4. Configure D1 as binding `DB` and private R2 as `BUCKET`. These are resource bindings, not API keys to paste into dotenv files. Apply the migrations before enabling account features.
-5. Deploy or redeploy the app after configuring the environment. Keep checkout and monitoring disabled until the relevant provider setup is complete.
-6. When activating the scheduler, configure its own Worker with the same `JOBS_SECRET` and the production `APP_ORIGIN`; those values are not inherited from the web app.
+Configure SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY and MAPBOX_PUBLIC_TOKEN for the environments you use, then redeploy. SOCRATA_APP_TOKEN and NYC_GEOCLIENT_KEY are optional city API credentials. TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY are an optional matching pair for public search protection.
 
-Do not deploy the current placeholder database IDs or scheduler origin as production settings. The Sites hosting project still needs to be made available before a live Sites deployment can complete. See [Cloudflare secrets](https://developers.cloudflare.com/workers/configuration/secrets/) and [SETUP.md](SETUP.md) for provider onboarding, webhook endpoints, billing prices, and scheduler steps.
+Supabase authentication email is sent using the SMTP credentials configured in Supabase itself. RESEND_API_KEY and EMAIL_FROM in Vercel do not configure those auth emails.
+
+The remaining table entries above belong to retained Cloudflare monitoring, SMS, billing, dealer, AI and partner adapters. Current Vercel deployment does not expose those routes, has no D1/R2 bindings and does not run their scheduler. Do not enable SCHEDULER_ENABLED or COMMERCE_ENABLED to imply that those services are available on Vercel. They require a separately designed backend deployment.
+
+Sensitive Vercel values cannot be read back after saving. Before removing unused provider configuration, retain recoverable credentials in your secret manager; an unreadable value is not evidence that it is blank. Never replace working production configuration with empty placeholders.
 
 ## Removing or replacing credentials
 

@@ -285,10 +285,16 @@ async function handler(req: Request) {
       );
       if (v.status !== "approved")
         throw new HttpError(400, "The code was not accepted.");
-      await run(
-        "UPDATE users SET phone_verified=1,sms_consent=1,sms_stopped=0 WHERE id=?",
+      const verified = await run(
+        "UPDATE users SET phone_verified=1,sms_consent=1,sms_stopped=0 WHERE id=? AND phone=?",
         user.id,
+        user.phone,
       );
+      if (verified.meta.changes !== 1)
+        throw new HttpError(
+          409,
+          "Your phone number changed. Request a new verification code.",
+        );
       await run(
         "INSERT INTO consents (id,owner_id,channel,action,version,created_at) VALUES (?,?,?,?,?,?)",
         uid(),

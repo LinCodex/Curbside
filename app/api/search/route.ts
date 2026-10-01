@@ -1,19 +1,27 @@
+import { searchWithSnapshot } from "@/lib/snapshot-search";
 import { normalizePlate } from "@/lib/domain";
-import { searchNYC, geocode } from "@/lib/nyc";
-import { readJson, rate, hash, turnstile, HttpError } from "@/lib/runtime";
+import { geocode } from "@/lib/nyc";
+import {
+  readJson,
+  rate,
+  hash,
+  turnstile,
+  HttpError,
+  config,
+} from "@/lib/runtime";
+import { clientIp } from "@/lib/client-ip";
 export async function POST(req: Request) {
   try {
     const body = await readJson(req);
     const plate = normalizePlate(body);
-    const ip =
-      req.headers.get("cf-connecting-ip") ||
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-      req.headers.get("x-real-ip") ||
-      "unknown";
+    const ip = clientIp(
+      req.headers,
+      config().VERCEL === "1" ? "vercel" : "cloudflare",
+    );
     await rate("search:" + (await hash(ip)), 30, 3600_000);
     await turnstile(body.challenge, ip);
-    const result = await searchNYC(plate, body.history === true);
-    if (body.locations === true) {
+    const result = await searchWithSnapshot(plate, body.history === true);
+    if (body.locations === true && !result.snapshot) {
       result.tickets = await Promise.all(
         result.tickets.map((t, i) =>
           i < 15 ? geocode(t) : Promise.resolve(t),

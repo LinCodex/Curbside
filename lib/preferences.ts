@@ -2,6 +2,8 @@ export type ThemePreference = "system" | "light" | "dark";
 export type LanguagePreference = "system" | "en" | "zh";
 export type DetailMode = "normal" | "geek";
 export const PREFERENCE_KEY = "curbside.preferences.v1";
+export const preferenceKey = (userId?: string | null) =>
+  userId ? `${PREFERENCE_KEY}.${userId}` : PREFERENCE_KEY;
 export function readPreferences(raw: string | null) {
   try {
     const value = JSON.parse(raw || "{}");

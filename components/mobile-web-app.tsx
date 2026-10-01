@@ -1,6 +1,6 @@
 "use client";
 import { usePreferences } from "./preferences";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ArrowDown,
   Check,
@@ -20,8 +20,10 @@ import {
 
 export function InstallGuide({
   manualRequest = 0,
+  suppressAutomatic = false,
 }: {
   manualRequest?: number;
+  suppressAutomatic?: boolean;
 }) {
   const { tr } = usePreferences();
 
@@ -44,14 +46,14 @@ export function InstallGuide({
     try {
       seen = localStorage.getItem(INSTALL_HINT_KEY) === "seen";
     } catch {}
-    if (shouldShowInstallGuide(apple, installed, seen)) {
+    if (!suppressAutomatic && shouldShowInstallGuide(apple, installed, seen)) {
       // Record presentation, not account data. Dismissal and later visits do not nag.
       try {
         localStorage.setItem(INSTALL_HINT_KEY, "seen");
       } catch {}
       setOpen(true);
     }
-  }, []);
+  }, [suppressAutomatic]);
   useEffect(() => {
     if (manualRequest) setOpen(true);
   }, [manualRequest]);
@@ -182,7 +184,9 @@ export function PullToRefresh({
     [refreshing, setRefreshing] = useState(false),
     [message, setMessage] = useState("");
   const latest = useRef({ onRefresh, disabled });
-  latest.current = { onRefresh, disabled };
+  useLayoutEffect(() => {
+    latest.current = { onRefresh, disabled };
+  }, [onRefresh, disabled]);
   const locked = useRef(false),
     timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {

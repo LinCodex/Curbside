@@ -52,6 +52,12 @@ export type SearchResult = {
   checkedAt: string;
   complete: boolean;
   unavailable: boolean;
+  snapshot?: {
+    retainedRecords: number;
+    status?: string;
+    nextCheckAt?: string;
+    lastAttemptAt?: string;
+  };
 };
 export const STATES =
   "AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY PR VI GU AS MP AB BC MB NB NL NS NT NU ON PE QC SK YT".split(

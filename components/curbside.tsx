@@ -5,6 +5,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from "react";
@@ -28,13 +29,10 @@ import {
   Download,
   LogIn,
   FileText,
-  Mail,
-  MessageSquare,
   ChevronDown,
   ChevronUp,
   LoaderCircle,
   RefreshCw,
-  ArrowLeft,
   Navigation,
   LockKeyhole,
   CheckCircle2,
@@ -53,7 +51,6 @@ import {
   hasPoint,
   contextRadius,
   cleanLocationLabel,
-  autocorrectAddress,
 } from "@/lib/map-locations";
 import { InstallGuide, PullToRefresh } from "./mobile-web-app";
 import { PLATE_TYPES } from "@/lib/plate-types";
@@ -62,6 +59,9 @@ import { FREE_ACCESS } from "@/lib/release";
 import { useSupabaseAccount } from "./use-supabase-account";
 import AuthPanel from "./auth-panel";
 import { savedAccountRequest } from "@/lib/supabase-account";
+import WelcomeOnboarding from "./welcome-onboarding";
+import BotChallenge from "./bot-challenge";
+import { hasOnboarded, onboardingCookie } from "@/lib/onboarding";
 import {
   money,
   STATES,
@@ -94,10 +94,11 @@ const download = (name: string, text: string) => {
   URL.revokeObjectURL(u);
 };
 export default function Curbside() {
-  const { tr, locale, resolvedTheme, detailMode } = usePreferences();
+  const { tr, locale, detailMode } = usePreferences();
+  const auth = useSupabaseAccount();
+  const config = auth.configuration;
 
   const [view, setView] = useState("garage"),
-    [config, setConfig] = useState<any>({ services: {} }),
     [account, setAccount] = useState<any>(null),
     [clerk, setClerk] = useState<any>(null),
     [results, setResults] = useState<SearchResult | null>(null),
@@ -127,17 +128,23 @@ export default function Curbside() {
   const [autocorrectPending, setAutocorrectPending] = useState(false);
   const [autocorrectError, setAutocorrectError] = useState("");
   const [installGuideRequest, setInstallGuideRequest] = useState(0);
-  const auth = useSupabaseAccount(
-    config.supabase?.url,
-    config.supabase?.publishableKey,
-  );
   const supabaseMode = !!config.supabase;
   const [authOpen, setAuthOpen] = useState(false);
+  const [authInitialMode, setAuthInitialMode] = useState<"login" | "register">(
+    "login",
+  );
+  const [onboardingOpen, setOnboardingOpen] = useState<boolean | null>(null);
   const currentAuthId = useRef<string | undefined>(undefined);
-  currentAuthId.current = auth.user?.id;
+  useLayoutEffect(() => {
+    currentAuthId.current = auth.user?.id;
+  }, [auth.user?.id]);
   const [dockHidden, setDockHidden] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const challenge = useRef("");
+  const [captchaReset, setCaptchaReset] = useState(0);
+  const receiveChallenge = useCallback((token: string) => {
+    challenge.current = token;
+  }, []);
   const challengeEl = useRef<HTMLDivElement>(null);
   const notify = useCallback((s: string) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -206,10 +213,51 @@ export default function Curbside() {
     }
   }, [api, clerk, notify, auth.user, supabaseMode]);
   useEffect(() => {
-    fetch("/api/config")
-      .then((r) => r.json())
-      .then(setConfig)
-      .catch(() => setError(tr("Service configuration is unavailable.")));
+    if (auth.loading || onboardingOpen !== null) return;
+    const callback =
+      new URLSearchParams(location.search).has("auth") ||
+      /access_token=|type=recovery/.test(location.hash);
+    const seen = hasOnboarded(document.cookie);
+    if (seen)
+      document.cookie = onboardingCookie(location.protocol === "https:");
+    setOnboardingOpen(!seen && !auth.user && !callback);
+  }, [auth.loading, auth.user, onboardingOpen]);
+  const finishOnboarding = (signup: boolean) => {
+    document.cookie = onboardingCookie(location.protocol === "https:");
+    setOnboardingOpen(false);
+    if (signup) {
+      setAuthInitialMode("register");
+      setAuthOpen(true);
+    }
+  };
+  const pendingSnapshots = !!account?.vehicles?.some(
+    (vehicle: any) =>
+      !vehicle.snapshot || vehicle.snapshot_status === "checking",
+  );
+  useEffect(() => {
+    if (!supabaseMode || !auth.client || !pendingSnapshots) return;
+    // Resume pending initial histories on a later visit, without admitting duplicate fetches.
+    account.vehicles
+      .filter((vehicle: any) => !vehicle.snapshot)
+      .forEach((vehicle: any) => {
+        void auth.client!.functions.invoke("vehicle-snapshots", {
+          body: { mode: "refresh", vehicleId: vehicle.id },
+        });
+      });
+    let elapsed = 0;
+    const timer = setInterval(() => {
+      elapsed += 10_000;
+      if (elapsed > 150_000) {
+        clearInterval(timer);
+        return;
+      }
+      void refresh();
+    }, 10_000);
+    return () => clearInterval(timer);
+    // Start one bounded poll per account while initial work is pending.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabaseMode, auth.client, auth.user?.id, pendingSnapshots]);
+  useEffect(() => {
     if ("serviceWorker" in navigator)
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     const q = new URLSearchParams(location.search);
@@ -244,6 +292,8 @@ export default function Curbside() {
     document.title = `${locale === "zh" ? "泊查" : "Curbside"} | ${tr(sub)}`;
   }, [plate, results?.query?.plate, view, tr, locale]);
   useEffect(() => {
+    setDockHidden(false);
+    if (view === "map") return;
     const positions = new Map<EventTarget, { y: number; travel: number }>();
     positions.set(document, { y: Math.max(0, window.scrollY), travel: 0 });
     document
@@ -366,7 +416,8 @@ export default function Curbside() {
     };
   }, [supabaseMode, auth.user?.id, auth.client, notify]);
   useEffect(() => {
-    if (!config.turnstileKey || !challengeEl.current) return;
+    if (config.hcaptchaKey || !config.turnstileKey || !challengeEl.current)
+      return;
     let widget: any;
     let timer: any;
     const render = () => {
@@ -395,10 +446,12 @@ export default function Curbside() {
       clearInterval(timer);
       if (widget != null) (window as any).turnstile?.remove(widget);
     };
-  }, [config.turnstileKey, view, sheet]);
+  }, [config.hcaptchaKey, config.turnstileKey, view, sheet]);
   const signIn = () => {
-    if (supabaseMode) setAuthOpen(true);
-    else if (clerk) clerk.openSignIn();
+    if (supabaseMode) {
+      setAuthInitialMode("login");
+      setAuthOpen(true);
+    } else if (clerk) clerk.openSignIn();
     else {
       setSheet("setup");
     }
@@ -432,6 +485,25 @@ export default function Curbside() {
   const search = useCallback(
     async (input: any) => {
       const p = normalizePlate(input);
+      const saved = account?.vehicles?.find(
+        (vehicle: any) =>
+          vehicle.plate === p.plate &&
+          vehicle.state === p.state &&
+          vehicle.plate_type === p.plateType,
+      )?.snapshot as SearchResult | undefined;
+      if (saved) {
+        setResults(saved);
+        setPlate(p.plate);
+        setState(p.state);
+        setPlateType(p.plateType);
+        setView("search");
+        setSheet(null);
+        return {
+          count: saved.tickets.length,
+          complete: saved.complete,
+          unavailable: saved.unavailable,
+        };
+      }
       setBusy(true);
       setError("");
       try {
@@ -465,10 +537,11 @@ export default function Curbside() {
       } finally {
         setBusy(false);
         challenge.current = "";
+        setCaptchaReset((value) => value + 1);
         (window as any).turnstile?.reset();
       }
     },
-    [tr],
+    [tr, account?.vehicles],
   );
   useEffect(() => {
     const context = (document as any).modelContext;
@@ -510,7 +583,8 @@ export default function Curbside() {
     results?.query.plateType === activeVehicle.plate_type;
   const garageTickets = currentVehicleResults
     ? results?.tickets || []
-    : (account?.tickets || []).filter(
+    : activeVehicle?.snapshot?.tickets ||
+      (account?.tickets || []).filter(
         (t: any) => !activeVehicle || t.vehicleId === activeVehicle.id,
       );
   const tickets: Violation[] = results?.tickets || garageTickets;
@@ -605,7 +679,15 @@ export default function Curbside() {
           </span>
         </button>
       </div>
-      <div className="challenge-container" ref={challengeEl} />
+      {config.hcaptchaKey ? (
+        <BotChallenge
+          siteKey={config.hcaptchaKey}
+          onToken={receiveChallenge}
+          resetKey={captchaReset}
+        />
+      ) : (
+        <div className="challenge-container" ref={challengeEl} />
+      )}
       <button className="primary-action" disabled={busy || offline}>
         {busy ? (
           <LoaderCircle className="spin" size={19} />
@@ -693,16 +775,21 @@ export default function Curbside() {
       <a className="skip-link" href="#main-content">
         {tr("Skip to content")}
       </a>
-      <InstallGuide manualRequest={installGuideRequest} />
+      <InstallGuide
+        manualRequest={installGuideRequest}
+        suppressAutomatic={
+          onboardingOpen !== false || authOpen || auth.recovering
+        }
+      />
       <PullToRefresh
-        disabled={busy || !!sheet || !!purchase}
+        disabled={busy || !!sheet || !!purchase || !!onboardingOpen || authOpen}
         onRefresh={async () => {
           if (!navigator.onLine)
             throw new Error(tr("You’re offline. Connect to refresh."));
           const response = await fetch("/api/config", { cache: "no-store" });
           if (!response.ok)
             throw new Error(tr("Refresh unavailable. Try again."));
-          setConfig(await response.json());
+          auth.setConfiguration(await response.json());
           if (results && ["search", "map"].includes(view)) {
             const current = view;
             try {
@@ -874,7 +961,11 @@ export default function Curbside() {
                   <button
                     key={v.id}
                     className={activeVehicle.id === v.id ? "active" : ""}
-                    onClick={() => setVehicleId(v.id)}
+                    onClick={() => {
+                      setVehicleId(v.id);
+                      setResults(v.snapshot || null);
+                      setMapSelection("");
+                    }}
                   >
                     {v.nickname}
                   </button>
@@ -889,61 +980,65 @@ export default function Curbside() {
               </button>
             </div>
             <div className="vehicle-identity">
-              <div className="eyebrow">
-                {activeVehicle.state} /{" "}
-                {activeVehicle.plate_type || tr("All plate types")}
-              </div>
-              <h1>{activeVehicle.plate}</h1>
-              <div className="vehicle-subtitle">
-                {activeVehicle.nickname && (
-                  <span className="vehicle-nickname">
-                    {activeVehicle.nickname}
+              <div className="garage-overview">
+                <div className="eyebrow">
+                  {activeVehicle.state} /{" "}
+                  {activeVehicle.plate_type || tr("All plate types")}
+                </div>
+                <h1>{activeVehicle.plate}</h1>
+                <div className="vehicle-subtitle">
+                  {activeVehicle.nickname && (
+                    <span className="vehicle-nickname">
+                      {activeVehicle.nickname}
+                    </span>
+                  )}
+                  <span className="vehicle-check-time">
+                    <Clock3 size={12} />
+                    {activeVehicle.checked_at
+                      ? tr("Checked ") +
+                        niceDate(
+                          new Date(activeVehicle.checked_at).toISOString(),
+                          locale,
+                        )
+                      : tr(
+                          supabaseMode
+                            ? "Saved vehicle"
+                            : "Initial scan pending",
+                        )}
                   </span>
-                )}
-                <span className="vehicle-check-time">
-                  <Clock3 size={12} />
-                  {activeVehicle.checked_at
-                    ? tr("Checked ") +
-                      niceDate(
-                        new Date(activeVehicle.checked_at).toISOString(),
-                        locale,
-                      )
-                    : tr(
-                        supabaseMode ? "Saved vehicle" : "Initial scan pending",
+                </div>
+                <div className="scene-summary">
+                  <div>
+                    <strong>
+                      {tr(
+                        money(
+                          garageTickets.some((t: any) => t.due != null)
+                            ? garageTickets.reduce(
+                                (s: number, t: any) => s + (t.due || 0),
+                                0,
+                              )
+                            : null,
+                        ),
                       )}
-                </span>
-              </div>
-              <div className="scene-summary">
-                <div>
-                  <strong>
-                    {tr(
-                      money(
-                        garageTickets.some((t: any) => t.due != null)
-                          ? garageTickets.reduce(
-                              (s: number, t: any) => s + (t.due || 0),
-                              0,
-                            )
-                          : null,
-                      ),
-                    )}
-                  </strong>
-                  <span>{tr("Known outstanding")}</span>
+                    </strong>
+                    <span>{tr("Known outstanding")}</span>
+                  </div>
+                  <div>
+                    <strong>
+                      {garageTickets.filter((t: any) => t.due > 0).length}
+                    </strong>
+                    <span>{tr("Open tickets")}</span>
+                  </div>
+                  <button className="pill" onClick={() => setSheet("vehicle")}>
+                    <SlidersHorizontal size={15} />
+                    {tr("Vehicle settings")}
+                  </button>
                 </div>
-                <div>
-                  <strong>
-                    {garageTickets.filter((t: any) => t.due > 0).length}
-                  </strong>
-                  <span>{tr("Open tickets")}</span>
-                </div>
-                <button className="pill" onClick={() => setSheet("vehicle")}>
-                  <SlidersHorizontal size={15} />
-                  {tr("Vehicle settings")}
-                </button>
+                <PlateBalance tickets={garageTickets} />
               </div>
-              <PlateBalance tickets={garageTickets} />
               {supabaseMode && (
                 <button
-                  className="primary-action"
+                  className="primary-action garage-check-action"
                   disabled={busy}
                   onClick={() =>
                     search({
@@ -955,7 +1050,11 @@ export default function Curbside() {
                   }
                 >
                   <Search size={17} />
-                  {tr("Check this vehicle")}
+                  {tr(
+                    activeVehicle.snapshot
+                      ? "View full history"
+                      : "Check this vehicle",
+                  )}
                 </button>
               )}
               {detailMode === "geek" && <VehicleData tickets={garageTickets} />}
@@ -976,7 +1075,9 @@ export default function Curbside() {
                   <p className="small muted">
                     {tr(
                       supabaseMode
-                        ? "Check this vehicle to see its latest city records. Search results are not stored in your account."
+                        ? activeVehicle.snapshot
+                          ? "No tickets found in the saved history."
+                          : "Preparing your saved history. It will appear here automatically."
                         : "No records saved yet. A complete source scan establishes your baseline before new-ticket alerts begin.",
                     )}
                   </p>
@@ -984,7 +1085,9 @@ export default function Curbside() {
                 <div className="dock-footer">
                   <Info size={13} />
                   {supabaseMode
-                    ? tr("Manual checks only. No automatic alerts.")
+                    ? tr(
+                        "Saved histories refresh every morning. Email and SMS reminders are not activated yet.",
+                      )
                     : config.services.monitoring
                       ? tr("Checks use available city records.")
                       : tr("Automatic monitoring awaits service setup.")}
@@ -1077,10 +1180,23 @@ export default function Curbside() {
                       <div className="notice warning">
                         {results.unavailable
                           ? tr("NYC sources did not respond. Please try again.")
-                          : tr(
-                              "Some sources are unavailable or reached a result limit. These results are incomplete.",
-                            )}
+                          : results.snapshot?.retainedRecords
+                            ? tr(
+                                "Some records were retained from an earlier check. Their disappearance does not confirm payment or dismissal.",
+                              )
+                            : tr(
+                                "Some sources are unavailable or reached a result limit. These results are incomplete.",
+                              )}
                       </div>
+                    )}
+                    {results.snapshot && (
+                      <p className="small muted">
+                        {tr(
+                          results.snapshot.status === "retry"
+                            ? "Showing the last saved history. The latest city check failed and will retry."
+                            : "Saved history · refreshed every morning",
+                        )}
+                      </p>
                     )}
                     <PlateBalance
                       tickets={results.tickets}
@@ -1930,6 +2046,7 @@ export default function Curbside() {
             <AuthPanel
               client={auth.client}
               recovering={auth.recovering}
+              initialMode={authInitialMode}
               onComplete={() => {
                 setAuthOpen(false);
                 auth.setRecovering(false);
@@ -1944,6 +2061,17 @@ export default function Curbside() {
               )}
             </p>
           )}
+        </Modal>
+      )}
+      {onboardingOpen && !authOpen && !auth.recovering && (
+        <Modal
+          title={tr("Welcome to Curbside")}
+          close={() => finishOnboarding(false)}
+        >
+          <WelcomeOnboarding
+            canSignUp={supabaseMode}
+            finish={finishOnboarding}
+          />
         </Modal>
       )}
       {account &&
@@ -2231,7 +2359,7 @@ export default function Curbside() {
               <p className="small muted">
                 {tr(
                   supabaseMode
-                    ? "Saving cars does not enable monitoring or alerts."
+                    ? "Saving a car keeps its ticket history ready and refreshes it every morning. Email and SMS alerts are not activated yet."
                     : "Your first complete scan creates one existing-ticket summary. Later discoveries are notified separately.",
                 )}
               </p>
@@ -2262,6 +2390,14 @@ export default function Curbside() {
                   perform(async () => {
                     await api("vehicles/" + activeVehicle.id, "PATCH", {
                       nickname: f.get("nickname"),
+                      ...(supabaseMode
+                        ? {
+                            make: f.get("make"),
+                            model: f.get("model"),
+                            year: f.get("year"),
+                            color: f.get("color"),
+                          }
+                        : {}),
                       monitoring: f.get("monitoring") === "on",
                     });
                     await refresh();
@@ -2284,6 +2420,30 @@ export default function Curbside() {
                     />
                     {tr("Monitor this vehicle")}
                   </label>
+                )}
+                {supabaseMode && (
+                  <div className="form-grid">
+                    {(["make", "model", "year", "color"] as const).map(
+                      (field) => (
+                        <label className="field" key={field}>
+                          {tr(
+                            {
+                              make: "Make",
+                              model: "Model",
+                              year: "Year",
+                              color: "Color",
+                            }[field],
+                          )}
+                          <input
+                            name={field}
+                            defaultValue={activeVehicle[field] ?? ""}
+                            maxLength={field === "year" ? 4 : 80}
+                            inputMode={field === "year" ? "numeric" : "text"}
+                          />
+                        </label>
+                      ),
+                    )}
+                  </div>
                 )}
                 <button className="button primary">
                   {tr("Save settings")}

@@ -5,6 +5,8 @@ import "./polish.css";
 import "./preferences.css";
 import "./design.css";
 import { PreferencesProvider } from "@/components/preferences";
+import { SupabaseAccountProvider } from "@/components/use-supabase-account";
+import PrivateAnalytics from "@/components/private-analytics";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 export const metadata: Metadata = {
@@ -32,6 +34,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover",
   themeColor: "#050607",
 };
@@ -51,7 +55,10 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <PreferencesProvider>{children}</PreferencesProvider>
+        <SupabaseAccountProvider>
+          <PreferencesProvider>{children}</PreferencesProvider>
+        </SupabaseAccountProvider>
+        <PrivateAnalytics />
       </body>
     </html>
   );

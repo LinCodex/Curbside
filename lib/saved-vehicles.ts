@@ -5,8 +5,6 @@ export function vehicleInput(input: Record<string, unknown>, editing = false) {
   const nickname = String(input.nickname ?? "").trim();
   if (!nickname || nickname.length > 60)
     throw new Error("Enter a vehicle nickname of 1–60 characters.");
-  if (editing) return { nickname };
-  const plate = normalizePlate(input);
   const text = (key: string) => {
     const value = String(input[key] ?? "").trim();
     if (value.length > 80)
@@ -21,6 +19,17 @@ export function vehicleInput(input: Record<string, unknown>, editing = false) {
       +year > new Date().getFullYear() + 2)
   )
     throw new Error("Enter a valid vehicle year.");
+  if (editing)
+    return {
+      nickname,
+      ...Object.fromEntries(
+        ["make", "model", "color"]
+          .filter((key) => key in input)
+          .map((key) => [key, text(key)]),
+      ),
+      ...("year" in input ? { year: year ? +year : null } : {}),
+    };
+  const plate = normalizePlate(input);
   return {
     plate: plate.plate,
     state: plate.state,

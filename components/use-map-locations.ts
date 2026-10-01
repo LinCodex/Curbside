@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Location, Violation } from "@/lib/domain";
 import {
   hasPoint,
@@ -7,7 +7,6 @@ import {
   mapboxLocation,
   geoSearchLocation,
   cleanLocationLabel,
-  autocorrectAddress,
 } from "@/lib/map-locations";
 
 export function useMapLocations(
@@ -16,7 +15,7 @@ export function useMapLocations(
   active: boolean,
 ) {
   // Temporary Mapbox results stay in this page's memory, never D1/localStorage.
-  const cache = useRef(new Map<string, Location | null>());
+  const [cache] = useState(() => new Map<string, Location | null>());
   const [customOverrides, setCustomOverrides] = useState<
     Record<string, Location>
   >({});
@@ -37,9 +36,7 @@ export function useMapLocations(
         (JSON.parse(signature) as Location[]).map((l) => [l.label, l]),
       ).values(),
     ];
-    const pending = unique
-      .slice(0, limit)
-      .filter((l) => !cache.current.has(l.label));
+    const pending = unique.slice(0, limit).filter((l) => !cache.has(l.label));
     if (!pending.length) return;
     setResolving(true);
     setError("");
@@ -110,7 +107,7 @@ export function useMapLocations(
                 } catch {}
               }
 
-              if (!abort.signal.aborted) cache.current.set(original.label, loc);
+              if (!abort.signal.aborted) cache.set(original.label, loc);
             }),
           );
           if (!abort.signal.aborted) setRevision((r) => r + 1);
@@ -165,7 +162,7 @@ export function useMapLocations(
               ...loc,
               resolvedBy: "Autocorrected address",
             };
-            cache.current.set(ticket.location.label, finalLoc);
+            cache.set(ticket.location.label, finalLoc);
             setCustomOverrides((prev) => ({ ...prev, [ticket.id]: finalLoc }));
             setRevision((r) => r + 1);
             return finalLoc;
@@ -187,7 +184,7 @@ export function useMapLocations(
           geoJson.features?.[0],
         );
         if (loc) {
-          cache.current.set(ticket.location.label, loc);
+          cache.set(ticket.location.label, loc);
           setCustomOverrides((prev) => ({ ...prev, [ticket.id]: loc }));
           setRevision((r) => r + 1);
           return loc;
@@ -203,7 +200,7 @@ export function useMapLocations(
     if (customOverrides[t.id]) {
       return { ...t, location: customOverrides[t.id] };
     }
-    const cached = cache.current.get(t.location.label);
+    const cached = cache.get(t.location.label);
     if (cached) {
       return { ...t, location: cached };
     }

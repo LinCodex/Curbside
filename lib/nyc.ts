@@ -1,3 +1,4 @@
+import { BoundedCache } from "./ttl-cache";
 import {
   type Plate,
   type Violation,
@@ -143,17 +144,11 @@ export function normalizeRow(
     if (v != null && v !== "") t.provenance[k] = source;
   return applyDeadline(t);
 }
-const memCache = new Map<string, { payload: any; expiresAt: number }>();
+const memCache = new BoundedCache<unknown>(128, 16 * 1024 * 1024);
 
 async function cached(key: string) {
   if (!config().DB) {
-    const item = memCache.get(key);
-    if (!item) return null;
-    if (Date.now() > item.expiresAt) {
-      memCache.delete(key);
-      return null;
-    }
-    return item.payload;
+    return memCache.get(key);
   }
   try {
     const v = await one<any>(
@@ -168,7 +163,7 @@ async function cached(key: string) {
 }
 async function put(key: string, payload: any, ttl: number) {
   if (!config().DB) {
-    memCache.set(key, { payload, expiresAt: Date.now() + ttl });
+    memCache.set(key, payload, ttl, new TextEncoder().encode(JSON.stringify(payload)).byteLength);
     return;
   }
   try {
