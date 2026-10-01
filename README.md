@@ -29,9 +29,13 @@ Account APIs validate the Clerk session and verified primary email on the server
 
 Vercel now uses its standard Next.js build. Remove old static output/build/install overrides in the project dashboard. Production needs Clerk keys, Supabase server credentials, APP_ORIGIN, and a signed user.deleted webhook at /api/webhooks/clerk. Secrets must never be supplied through NEXT_PUBLIC_ variables.
 
+Automatic Git deployments from main are temporarily disabled in vercel.json while the existing customer migration is pending. The current production deployment continues serving existing Supabase accounts. After the cutover checks in CLERK_MIGRATION.md pass, remove that branch restriction and deploy the verified release. Other branches remain eligible for preview builds.
+
 ## Cost cleanup
 
-The legacy D1/R2 backend, duplicate five-minute Cloudflare scheduler, static Vite/vinext deployment, Vercel analytics, Supabase auth email templates, and unused Stripe/Twilio/Resend/AI routes are removed. Those provider credentials no longer activate spending paths in this release. Supabase database storage and its existing daily city-history worker remain because they support saved cars; Mapbox is optional and loaded only for the map.
+The legacy D1/R2 backend, duplicate five-minute Cloudflare scheduler, static Vite/vinext deployment, Supabase auth email templates, and unused Stripe/Twilio/Resend/AI routes are removed. Those provider credentials no longer activate spending paths in this release. Supabase database storage and its existing daily city-history worker remain because they support saved cars; Mapbox is optional and loaded only for the map.
+
+Vercel Web Analytics remains enabled through the Next.js SDK. Its privacy filter counts only public landing/search/map and legal-page visits, strips unapproved query parameters, excludes authentication and private account/garage/ticket views, rejects custom events, and respects Global Privacy Control and Do Not Track. Keep Web Analytics enabled for the Vercel project. See [Vercel's setup guide](https://vercel.com/docs/analytics/quickstart) and [sensitive-data filtering](https://vercel.com/docs/analytics/redacting-sensitive-data).
 
 Removing code does not cancel provider subscriptions or previously deployed jobs. Disable the old Supabase account-delete function during the cutover maintenance window, then retire the Cloudflare scheduler/deployment and unused D1/R2 resources, old auth SMTP sender, and unused paid provider subscriptions after verification. Export/inspect any data before deleting a hosted resource. Keep the Supabase database, snapshot function and daily history schedule.
 

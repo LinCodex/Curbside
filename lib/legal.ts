@@ -100,7 +100,7 @@ export const legalDocuments: Record<string, LegalDocument> = {
       {
         title: "How information is used",
         paragraphs: [
-          "We use this information to answer searches, refresh saved vehicle histories, save your display preferences, respond to support, prevent abuse, and maintain service security. We do not sell vehicle data or display behavioral ads. Vercel Web Analytics is disabled in this release.",
+          "We use this information to answer searches, refresh saved vehicle histories, save your display preferences, respond to support, prevent abuse, and maintain service security. We do not sell vehicle data or display behavioral ads. Vercel Web Analytics measures public page visits without tracking cookies. Our filter excludes authentication and private account, garage and ticket views, strips plates, emails, ticket details and unapproved query parameters, and does not send custom events.",
           "Public violation history does not prove that a ticket belongs to you. We do not obtain driver identity from DMV records or use violation data to make consumer eligibility decisions.",
         ],
       },
@@ -116,7 +116,7 @@ export const legalDocuments: Record<string, LegalDocument> = {
         title: "Cookies, local storage, and signals",
         paragraphs: [
           "The application caches fonts, app icons, an offline page, and public map geometry for performance. An essential welcome cookie remembers completion of onboarding for this browser for up to one year, renewed on visits; clearing cookies lets the welcome appear again. Browser storage remembers the installation guide and guest display preferences. Verified profile settings are also stored in Supabase, with a separate local cache for each account. Clerk uses essential cookies and browser storage to manage authentication. Signing out ends the active Clerk session. Saved city histories are stored on the server, not made available offline. The app does not request precise device GPS location or use advertising cookies.",
-          "We do not operate cross-site advertising tracking, sell information, or share it for cross-context behavioral advertising. Analytics is disabled. When configured, hCaptcha or Turnstile processes device and interaction information needed to detect automated abuse under its privacy policy. Essential authentication and abuse prevention still operate. External sites and provider-hosted pages have their own practices.",
+          "We do not operate cross-site advertising tracking, sell information, or share it for cross-context behavioral advertising. Vercel Web Analytics uses cookie-free visit measurement; our filter suppresses measurement when Global Privacy Control or Do Not Track is enabled. When configured, hCaptcha or Turnstile processes device and interaction information needed to detect automated abuse under its privacy policy. Essential authentication and abuse prevention still operate. External sites and provider-hosted pages have their own practices.",
         ],
       },
       {

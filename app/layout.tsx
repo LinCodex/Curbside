@@ -5,6 +5,7 @@ import "./polish.css";
 import "./preferences.css";
 import "./design.css";
 import AppProviders from "@/components/app-providers";
+import PrivateAnalytics from "@/components/private-analytics";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 export const metadata: Metadata = {
@@ -54,6 +55,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <AppProviders>{children}</AppProviders>
+        <PrivateAnalytics />
       </body>
     </html>
   );
