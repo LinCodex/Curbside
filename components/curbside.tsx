@@ -21,7 +21,6 @@ import {
   Bell,
   MapPin,
   ShieldCheck,
-  Building2,
   Ticket,
   Info,
   ArrowRight,
@@ -55,13 +54,12 @@ import {
 } from "@/lib/map-locations";
 import { InstallGuide, PullToRefresh } from "./mobile-web-app";
 import { PLATE_TYPES } from "@/lib/plate-types";
-import { LEGAL_VERSION, OFFERS } from "@/lib/legal";
 import { FREE_ACCESS } from "@/lib/release";
-import { useSupabaseAccount } from "./use-supabase-account";
-import AuthPanel from "./auth-panel";
+import { useAccount } from "./account-provider";
+import AuthPanel from "./clerk-auth-panel";
+import { UserButton } from "@clerk/nextjs";
 import AccountDetails from "./account-details";
 import { combinedGarageHistory } from "@/lib/garage-history";
-import { savedAccountRequest } from "@/lib/supabase-account";
 import WelcomeOnboarding from "./welcome-onboarding";
 import BotChallenge from "./bot-challenge";
 import { hasOnboarded, onboardingCookie } from "@/lib/onboarding";
@@ -88,22 +86,12 @@ const niceDate = (s?: string | null, locale = "en") =>
     : locale === "zh"
       ? "未提供"
       : "Not provided";
-const download = (name: string, text: string) => {
-  const u = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
-  const a = document.createElement("a");
-  a.href = u;
-  a.download = name;
-  a.click();
-  URL.revokeObjectURL(u);
-};
 export default function Curbside() {
   const { tr, locale, detailMode } = usePreferences();
-  const auth = useSupabaseAccount();
+  const auth = useAccount();
   const config = auth.configuration;
-
   const [view, setView] = useState("garage"),
     [account, setAccount] = useState<any>(null),
-    [clerk, setClerk] = useState<any>(null),
     [results, setResults] = useState<SearchResult | null>(null),
     [selected, setSelected] = useState<any>(null),
     [sheet, setSheet] = useState<string | null>(null),
@@ -115,15 +103,9 @@ export default function Curbside() {
     [plateType, setPlateType] = useState(""),
     [history, setHistory] = useState(true),
     [filter, setFilter] = useState("all"),
-    [caseData, setCaseData] = useState<any>(null),
     [offline, setOffline] = useState(false),
-    [invite, setInvite] = useState(""),
     [vehicleId, setVehicleId] = useState("");
-  const [purchase, setPurchase] = useState<string | null>(null);
-  const [purchaseConsent, setPurchaseConsent] = useState(false);
-  const [termsConsent, setTermsConsent] = useState(false);
   const [deleteConfirmed, setDeleteConfirmed] = useState(false);
-  const purchaseResolve = useRef<((accepted: boolean) => void) | null>(null);
   const [mapSelection, setMapSelection] = useState("");
   const [mapVehicleId, setMapVehicleId] = useState("");
   const [mapFilter, setMapFilter] = useState("all");
@@ -133,7 +115,6 @@ export default function Curbside() {
   const [autocorrectPending, setAutocorrectPending] = useState(false);
   const [autocorrectError, setAutocorrectError] = useState("");
   const [installGuideRequest, setInstallGuideRequest] = useState(0);
-  const supabaseMode = !!config.supabase;
   const [authOpen, setAuthOpen] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState<
     "login" | "register" | "reset"
@@ -167,61 +148,17 @@ export default function Curbside() {
     },
     [],
   );
-  const api = useCallback(
-    async (path: string, method = "GET", body?: any) => {
-      if (path === "checkout" && method === "POST") {
-        if (FREE_ACCESS)
-          throw new Error(
-            tr("Curbside is free during this release. Purchases are disabled."),
-          );
-        setPurchaseConsent(false);
-        setPurchase(body.kind);
-        const accepted = await new Promise<boolean>((resolve) => {
-          purchaseResolve.current = resolve;
-        });
-        if (!accepted)
-          throw new Error(tr("Purchase canceled. You have not been charged."));
-        body = { ...body, purchaseAccepted: true, legalVersion: LEGAL_VERSION };
-      }
-      if (supabaseMode) {
-        if (!auth.client)
-          throw new Error(
-            tr("Account sign-in is loading. Please try again shortly."),
-          );
-        return savedAccountRequest(auth.client, path, method, body);
-      }
-      const token = await clerk?.session?.getToken();
-      const r = await fetch("/api/app/" + path, {
-        method,
-        headers: {
-          ...(body instanceof FormData
-            ? {}
-            : { "Content-Type": "application/json" }),
-          ...(token ? { Authorization: "Bearer " + token } : {}),
-        },
-        body:
-          body === undefined
-            ? undefined
-            : body instanceof FormData
-              ? body
-              : JSON.stringify(body),
-      });
-      const j: any = await r.json();
-      if (!r.ok) throw new Error(j.error || tr("Request unavailable"));
-      return j;
-    },
-    [clerk, tr, supabaseMode, auth.client],
-  );
+  const api = auth.request;
   const refresh = useCallback(async () => {
-    if (!auth.user && !clerk?.user) return;
-    const userId = auth.user?.id;
+    if (!auth.user) return;
+    const userId = auth.user.id;
     try {
       const next = await api("me");
-      if (!supabaseMode || currentAuthId.current === userId) setAccount(next);
+      if (currentAuthId.current === userId) setAccount(next);
     } catch (e) {
       notify((e as Error).message);
     }
-  }, [api, clerk, notify, auth.user, supabaseMode]);
+  }, [api, notify, auth.user?.id]);
   useEffect(() => {
     if (auth.loading || onboardingOpen !== null) return;
     const callback =
@@ -245,35 +182,34 @@ export default function Curbside() {
       !vehicle.snapshot || vehicle.snapshot_status === "checking",
   );
   useEffect(() => {
-    if (!supabaseMode || !auth.client || !pendingSnapshots) return;
+    if (!auth.user || !pendingSnapshots) return;
     // Resume pending initial histories on a later visit, without admitting duplicate fetches.
     account.vehicles
       .filter((vehicle: any) => !vehicle.snapshot)
       .forEach((vehicle: any) => {
-        void auth.client!.functions.invoke("vehicle-snapshots", {
-          body: { mode: "refresh", vehicleId: vehicle.id },
-        });
+        void api("vehicles/" + vehicle.id + "/refresh", "POST", {}).catch(
+          () => {},
+        );
       });
     let elapsed = 0;
     const timer = setInterval(() => {
-      elapsed += 10_000;
-      if (elapsed > 150_000) {
+      elapsed += 10000;
+      if (elapsed > 150000) {
         clearInterval(timer);
         return;
       }
       void refresh();
-    }, 10_000);
+    }, 10000);
     return () => clearInterval(timer);
     // Start one bounded poll per account while initial work is pending.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabaseMode, auth.client, auth.user?.id, pendingSnapshots]);
+  }, [auth.user?.id, pendingSnapshots]);
   useEffect(() => {
     if ("serviceWorker" in navigator)
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     const q = new URLSearchParams(location.search);
-    if (q.get("view")) setView(q.get("view")!);
+    if (nav.some((item) => item.id === q.get("view"))) setView(q.get("view")!);
     if (q.get("invite")) {
-      setInvite(q.get("invite")!);
       setView("account");
     }
     const online = () => setOffline(!navigator.onLine);
@@ -304,7 +240,13 @@ export default function Curbside() {
   useEffect(() => {
     setDockHidden(false);
     if (view === "map") return;
-    const positions = new Map<EventTarget, { y: number; travel: number }>();
+    const positions = new Map<
+      EventTarget,
+      {
+        y: number;
+        travel: number;
+      }
+    >();
     positions.set(document, { y: Math.max(0, window.scrollY), travel: 0 });
     document
       .querySelectorAll<HTMLElement>(
@@ -349,7 +291,7 @@ export default function Curbside() {
       }
     };
     const onScroll = (event: Event) => {
-      if (sheet || authOpen || purchase) return;
+      if (sheet || authOpen) return;
       const element = event.target instanceof HTMLElement ? event.target : null;
       if (element && !element.closest(".main-view")) return;
       source = element;
@@ -363,7 +305,7 @@ export default function Curbside() {
       cancelAnimationFrame(frame);
       document.removeEventListener("scroll", onScroll, true);
     };
-  }, [view, sheet, authOpen, purchase]);
+  }, [view, sheet, authOpen]);
   useEffect(() => {
     // View changes should never inherit a scrolled-down position from Search.
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -376,55 +318,26 @@ export default function Curbside() {
     }
   }, [mapSelection]);
   useEffect(() => {
-    if (!config.clerkKey || supabaseMode) return;
-    let disposed = false;
-    let unsub: (() => void) | undefined;
-    import("@clerk/clerk-js")
-      .then(async ({ Clerk }) => {
-        const c = new Clerk(config.clerkKey);
-        await c.load();
-        if (disposed) return;
-        setClerk(c);
-        unsub = c.addListener(({ user }: any) => {
-          if (!user) setAccount(null);
-          else
-            c.session
-              ?.getToken()
-              .then((token: string | null) =>
-                fetch("/api/app/me", {
-                  headers: token ? { Authorization: "Bearer " + token } : {},
-                }),
-              )
-              .then((r: Response) => r.json())
-              .then((j: any) => {
-                if (!j.error) setAccount(j);
-              });
-        });
-      })
-      .catch(() => notify(tr("Sign-in could not load. Try again shortly.")));
-    return () => {
-      disposed = true;
-      unsub?.();
-    };
-  }, [config.clerkKey, notify, supabaseMode]);
-  useEffect(() => {
-    if (!supabaseMode) return;
     let alive = true;
     setAccount(null);
     setVehicleId("");
-    if (auth.user && auth.client)
-      savedAccountRequest(auth.client, "me")
+    setSelected(null);
+    setSheet(null);
+    if (auth.user)
+      api("me")
         .then((next) => {
-          if (alive) setAccount(next);
+          if (alive) {
+            setAccount(next);
+            setAuthOpen(false);
+          }
         })
-        .catch(() => {
-          if (alive)
-            notify("Your garage could not load. Please try signing in again.");
+        .catch((error: Error) => {
+          if (alive) notify(error.message);
         });
     return () => {
       alive = false;
     };
-  }, [supabaseMode, auth.user?.id, auth.client, notify]);
+  }, [auth.user?.id, api, notify]);
   useEffect(() => {
     if (config.hcaptchaKey || !config.turnstileKey || !challengeEl.current)
       return;
@@ -458,22 +371,16 @@ export default function Curbside() {
     };
   }, [config.hcaptchaKey, config.turnstileKey, view, sheet]);
   const signIn = () => {
-    if (supabaseMode) {
-      setAuthInitialMode("login");
-      setAuthOpen(true);
-    } else if (clerk) clerk.openSignIn();
-    else {
-      setSheet("setup");
-    }
+    setAuthInitialMode("login");
+    setAuthOpen(true);
   };
   const signOut = async () => {
-    if (supabaseMode && auth.client) {
-      const result = await auth.client.auth.signOut();
-      if (result.error) {
-        notify(tr("Could not sign out. Please try again."));
-        return;
-      }
-    } else await clerk?.signOut();
+    try {
+      await auth.clerk.signOut();
+    } catch {
+      notify(tr("Could not sign out. Please try again."));
+      return;
+    }
     setAccount(null);
     setResults(null);
     setSelected(null);
@@ -604,7 +511,6 @@ export default function Curbside() {
   const activeVehicle =
     vehicles.find((v: any) => v.id === vehicleId) || vehicles[0];
   const currentVehicleResults =
-    supabaseMode &&
     activeVehicle &&
     results?.query.plate === activeVehicle.plate &&
     results?.query.state === activeVehicle.state &&
@@ -648,7 +554,7 @@ export default function Curbside() {
         : tickets;
   const locations = useMapLocations(
     scopedMapTickets,
-    config.mapboxToken,
+    config.mapboxToken || undefined,
     view === "map",
   );
   const mapTickets = locations.tickets.filter(
@@ -686,7 +592,7 @@ export default function Curbside() {
           onChange={(e) => setPlate(e.target.value.toUpperCase())}
           autoCapitalize="characters"
           autoComplete="off"
-          spellCheck={false}
+          spellCheck
           placeholder={tr("Enter your plate")}
           maxLength={12}
           required
@@ -738,7 +644,6 @@ export default function Curbside() {
         </button>
       </div>
       {!authOpen &&
-        !auth.recovering &&
         (config.hcaptchaKey ? (
           <div
             className={
@@ -780,33 +685,6 @@ export default function Curbside() {
       </p>
     </form>
   );
-  const openDispute = async () => {
-    if (!account) {
-      signIn();
-      return;
-    }
-    const v = vehicles.find(
-      (v: any) => v.plate === selected.plate && v.state === selected.state,
-    );
-    if (!v) {
-      notify(
-        tr(
-          "Save this vehicle and complete its first scan before opening a dispute.",
-        ),
-      );
-      return;
-    }
-    await perform(async () => {
-      const existing = account.cases?.find(
-        (c: any) => c.summons === selected.id,
-      );
-      const c =
-        existing ||
-        (await api("cases", "POST", { vehicleId: v.id, summons: selected.id }));
-      setCaseData(await api("cases/" + c.id));
-      setSheet("dispute");
-    });
-  };
   const saveVehicle = async (e: any) => {
     e.preventDefault();
     if (!account) {
@@ -814,22 +692,15 @@ export default function Curbside() {
       return;
     }
     const data = Object.fromEntries(new FormData(e.currentTarget));
-    await perform(
-      async () => {
-        await api("vehicles", "POST", {
-          ...(results?.query || { plate, state, plateType }),
-          ...data,
-        });
-        await refresh();
-        setSheet(null);
-        setView("garage");
-      },
-      tr(
-        supabaseMode
-          ? "Vehicle saved to your garage."
-          : "Vehicle saved. Monitoring starts after its complete initial scan.",
-      ),
-    );
+    await perform(async () => {
+      await api("vehicles", "POST", {
+        ...(results?.query || { plate, state, plateType }),
+        ...data,
+      });
+      await refresh();
+      setSheet(null);
+      setView("garage");
+    }, tr("Vehicle saved to your garage."));
   };
   const go = (v: string) => {
     setView(v);
@@ -849,12 +720,10 @@ export default function Curbside() {
       </a>
       <InstallGuide
         manualRequest={installGuideRequest}
-        suppressAutomatic={
-          onboardingOpen !== false || authOpen || auth.recovering
-        }
+        suppressAutomatic={onboardingOpen !== false || authOpen}
       />
       <PullToRefresh
-        disabled={busy || !!sheet || !!purchase || !!onboardingOpen || authOpen}
+        disabled={busy || !!sheet || !!onboardingOpen || authOpen}
         onRefresh={async () => {
           if (!navigator.onLine)
             throw new Error(tr("You’re offline. Connect to refresh."));
@@ -874,7 +743,7 @@ export default function Curbside() {
               setView(current);
             }
           }
-          if (auth.user || clerk?.user) {
+          if (auth.user) {
             setAccount(await api("me"));
           }
         }}
@@ -884,7 +753,7 @@ export default function Curbside() {
           <Suspense fallback={<CityBackdrop />}>
             <CityMap
               tickets={mapTickets}
-              token={config.mapboxToken}
+              token={config.mapboxToken || undefined}
               onSelect={selectMapTicket}
               interactive
               selectedId={mapTicket?.id}
@@ -932,6 +801,7 @@ export default function Curbside() {
           ))}
         </nav>
         <div className="header-right">
+          {auth.user && <UserButton />}
           <button
             className="round-control"
             onClick={() => go("account")}
@@ -1000,7 +870,7 @@ export default function Curbside() {
                   </span>
                   <span>
                     <Bell size={15} />
-                    {tr(supabaseMode ? "Saved cars" : "Ticket reminders")}
+                    {tr("Saved cars")}
                   </span>
                 </div>
               </div>
@@ -1097,11 +967,7 @@ export default function Curbside() {
                             new Date(activeVehicle.checked_at).toISOString(),
                             locale,
                           )
-                        : tr(
-                            supabaseMode
-                              ? "Saved vehicle"
-                              : "Initial scan pending",
-                          )}
+                        : tr("Saved vehicle")}
                   </span>
                 </div>
                 <div className="scene-summary">
@@ -1144,16 +1010,14 @@ export default function Curbside() {
                       : activeVehicle.snapshot?.complete
                   }
                 />
-                {supabaseMode &&
-                  allVehicles &&
-                  allHistory.ready < vehicles.length && (
-                    <p className="small muted">
-                      {allHistory.ready} / {vehicles.length}{" "}
-                      {tr(
-                        "saved histories ready. Remaining vehicles are still being checked.",
-                      )}
-                    </p>
-                  )}
+                {allVehicles && allHistory.ready < vehicles.length && (
+                  <p className="small muted">
+                    {allHistory.ready} / {vehicles.length}{" "}
+                    {tr(
+                      "saved histories ready. Remaining vehicles are still being checked.",
+                    )}
+                  </p>
+                )}
               </div>
               {allVehicles ? (
                 <button
@@ -1167,27 +1031,25 @@ export default function Curbside() {
                   {tr("View all locations")}
                 </button>
               ) : (
-                supabaseMode && (
-                  <button
-                    className="primary-action garage-check-action"
-                    disabled={busy}
-                    onClick={() =>
-                      search({
-                        plate: activeVehicle.plate,
-                        state: activeVehicle.state,
-                        plateType: activeVehicle.plate_type,
-                        history,
-                      }).catch(() => {})
-                    }
-                  >
-                    <Search size={17} />
-                    {tr(
-                      activeVehicle.snapshot
-                        ? "View full history"
-                        : "Check this vehicle",
-                    )}
-                  </button>
-                )
+                <button
+                  className="primary-action garage-check-action"
+                  disabled={busy}
+                  onClick={() =>
+                    search({
+                      plate: activeVehicle.plate,
+                      state: activeVehicle.state,
+                      plateType: activeVehicle.plate_type,
+                      history,
+                    }).catch(() => {})
+                  }
+                >
+                  <Search size={17} />
+                  {tr(
+                    activeVehicle.snapshot
+                      ? "View full history"
+                      : "Check this vehicle",
+                  )}
+                </button>
               )}
               {detailMode === "geek" && <VehicleData tickets={garageTickets} />}
               <div className="glass activity-dock">
@@ -1209,27 +1071,21 @@ export default function Curbside() {
                 ) : (
                   <p className="small muted">
                     {tr(
-                      supabaseMode
-                        ? (
-                            allVehicles
-                              ? allHistory.ready === vehicles.length
-                              : activeVehicle.snapshot
-                          )
-                          ? "No tickets found in the saved history."
-                          : "Preparing your saved history. It will appear here automatically."
-                        : "No records saved yet. A complete source scan establishes your baseline before new-ticket alerts begin.",
+                      (
+                        allVehicles
+                          ? allHistory.ready === vehicles.length
+                          : activeVehicle.snapshot
+                      )
+                        ? "No tickets found in the saved history."
+                        : "Preparing your saved history. It will appear here automatically.",
                     )}
                   </p>
                 )}
                 <div className="dock-footer">
                   <Info size={13} />
-                  {supabaseMode
-                    ? tr(
-                        "Saved histories refresh every morning. Email and SMS reminders are not activated yet.",
-                      )
-                    : config.services.monitoring
-                      ? tr("Checks use available city records.")
-                      : tr("Automatic monitoring awaits service setup.")}
+                  {tr(
+                    "Saved histories refresh every morning. Email and SMS reminders are not activated yet.",
+                  )}
                 </div>
               </div>
             </div>
@@ -1861,29 +1717,7 @@ export default function Curbside() {
               <h1>{tr("Account")}</h1>
               <p>{tr("Your preferences, your way.")}</p>
             </div>
-            {invite && (
-              <div className="notice" style={{ marginBottom: 20 }}>
-                {tr("You have a dealership sponsorship invitation.")}{" "}
-                {account ? (
-                  <button
-                    className="text-link"
-                    onClick={() =>
-                      perform(async () => {
-                        await api("enroll", "POST", { token: invite });
-                        setInvite("");
-                        await refresh();
-                      }, tr("Sponsorship activated"))
-                    }
-                  >
-                    {tr("Activate my benefit →")}
-                  </button>
-                ) : (
-                  <button className="text-link" onClick={signIn}>
-                    {tr("Sign in to activate →")}
-                  </button>
-                )}
-              </div>
-            )}
+
             <div className="account-layout">
               <div className="glass form-card stack account-signin-panel">
                 <div className="account-identity-heading">
@@ -1905,9 +1739,7 @@ export default function Curbside() {
                   <>
                     <p className="small muted">
                       {tr(
-                        supabaseMode
-                          ? "Create an account to save cars and access your garage on any device."
-                          : "Save a vehicle to monitor new records. Verify your email before enabling alerts.",
+                        "Create an account to save cars and access your garage on any device.",
                       )}
                     </p>
                     <button className="primary-action" onClick={signIn}>
@@ -1934,21 +1766,8 @@ export default function Curbside() {
                           : tr(account.user.plan) + " " + tr("plan")}
                       </span>
                     </p>
-                    {account.user.role === "partner" && (
-                      <button className="button" onClick={() => go("partner")}>
-                        {tr("Open assigned cases")}
-                      </button>
-                    )}
-                    {!supabaseMode && (
-                      <Settings
-                        account={account}
-                        api={api}
-                        refresh={refresh}
-                        perform={perform}
-                        services={config.services}
-                      />
-                    )}
-                    {supabaseMode && (
+
+                    {
                       <button
                         className="account-tool"
                         onClick={() => setSheet("account-details")}
@@ -1964,7 +1783,7 @@ export default function Curbside() {
                         </span>
                         <ChevronRight size={16} />
                       </button>
-                    )}
+                    }
                     <button
                       className="button ghost"
                       onClick={() => void signOut()}
@@ -1978,9 +1797,7 @@ export default function Curbside() {
                       </summary>
                       <p className="small muted">
                         {tr(
-                          supabaseMode
-                            ? "Remove all saved cars. To delete your login account and associated consent records, contact support."
-                            : "Remove monitoring and saved records. Active partner cases must be resolved first.",
+                          "Remove saved cars, or permanently delete your account from Account details.",
                         )}
                       </p>
                       <button
@@ -2023,46 +1840,14 @@ export default function Curbside() {
                   </span>
                   <ChevronRight size={16} />
                 </button>
-                <div className="dealer-entry">
-                  <span className="eyebrow">{tr("For dealership staff")}</span>
-                  <button className="account-tool" onClick={() => go("dealer")}>
-                    <span className="account-tool-icon">
-                      <Building2 size={19} />
-                    </span>
-                    <span>
-                      <strong>{tr("Dealership portal")}</strong>
-                      <small>{tr("Branding and customer enrollment")}</small>
-                    </span>
-                    <ChevronRight size={16} />
-                  </button>
-                </div>
+
                 <p className="account-free-note">
                   <Check size={13} />
                   {tr("Free access. No subscription or checkout.")}
                 </p>
               </div>
             </div>
-            {account?.cases?.length > 0 && (
-              <div className="glass form-card" style={{ marginTop: 20 }}>
-                <h2>{tr("Your dispute cases")}</h2>
-                {account.cases.map((c: any) => (
-                  <button
-                    className="setting"
-                    style={{ width: "100%" }}
-                    key={c.id}
-                    onClick={() =>
-                      perform(async () => {
-                        setCaseData(await api("cases/" + c.id));
-                        setSheet("dispute");
-                      })
-                    }
-                  >
-                    <span>{c.summons}</span>
-                    <span className="badge">{tr(c.status)}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+
             <div
               className="glass form-card account-legal-card"
               style={{ marginTop: 20 }}
@@ -2155,38 +1940,7 @@ export default function Curbside() {
             </div>
           </section>
         )}
-        {view === "partner" && (
-          <section className="content-page view-enter">
-            <div className="page-heading">
-              <span className="eyebrow">{tr("Partner workspace")}</span>
-              <h1>
-                {tr("Every case.")}
-                <br />
-                <span>{tr("Accounted for.")}</span>
-              </h1>
-            </div>
-            <Partner api={api} perform={perform} />
-          </section>
-        )}
-        {view === "dealer" && (
-          <section className="content-page view-enter">
-            <div className="page-heading">
-              <span className="eyebrow">
-                {tr("Curbside / For dealerships")}
-              </span>
-              <h1>{tr("For dealerships")}</h1>
-              <p>
-                {tr("A private ticket-monitoring benefit for your customers.")}
-              </p>
-            </div>
-            <Dealer
-              account={account}
-              api={api}
-              perform={perform}
-              signIn={signIn}
-            />
-          </section>
-        )}
+
         <footer className="page-footer">
           <span>{tr("Independent service. Not affiliated with NYC.")}</span>
         </footer>
@@ -2217,198 +1971,21 @@ export default function Curbside() {
           </button>
         ))}
       </nav>
-      {(authOpen || auth.recovering) && supabaseMode && (
-        <Modal
-          title={tr(auth.recovering ? "Reset password" : "Your account")}
-          close={() => {
-            setAuthOpen(false);
-            if (auth.recovering) void signOut();
-          }}
-        >
-          {auth.client ? (
-            <AuthPanel
-              client={auth.client}
-              recovering={auth.recovering}
-              initialMode={authInitialMode}
-              initialEmail={
-                authInitialMode === "reset" ? auth.user?.email : undefined
-              }
-              onComplete={() => {
-                setAuthOpen(false);
-                auth.setRecovering(false);
-              }}
-            />
-          ) : (
-            <p role="status">
-              {tr(
-                auth.error
-                  ? "Sign-in is unavailable right now. Please try again later."
-                  : "Account sign-in is loading. Please try again shortly.",
-              )}
-            </p>
-          )}
+      {authOpen && (
+        <Modal title={tr("Your account")} close={() => setAuthOpen(false)}>
+          <AuthPanel initialMode={authInitialMode} />
         </Modal>
       )}
-      {onboardingOpen && !authOpen && !auth.recovering && (
+      {onboardingOpen && !authOpen && (
         <Modal
           title={tr("Welcome to Curbside")}
           close={() => finishOnboarding(false)}
         >
-          <WelcomeOnboarding
-            canSignUp={supabaseMode}
-            finish={finishOnboarding}
-          />
+          <WelcomeOnboarding canSignUp={true} finish={finishOnboarding} />
         </Modal>
       )}
-      {account &&
-        !account.user.legalAccepted &&
-        !authOpen &&
-        !auth.recovering && (
-          <Modal title={tr("A clear agreement")} close={() => void signOut()}>
-            <div className="stack">
-              <p className="small muted">
-                {tr(
-                  supabaseMode
-                    ? "Before saving cars, please review our service terms and privacy policy."
-                    : "Before saving vehicles or using account services, please review the current terms. SMS and purchases each have a separate consent.",
-                )}
-              </p>
-              <p className="consent-links">
-                <a href="/legal/terms" target="_blank" rel="noreferrer">
-                  {tr("Read Terms of service")}
-                </a>{" "}
-                ·{" "}
-                <a href="/legal/privacy" target="_blank" rel="noreferrer">
-                  {tr("Read Privacy policy")}
-                </a>
-              </p>
-              <label className="check-row">
-                <input
-                  type="checkbox"
-                  checked={termsConsent}
-                  onChange={(e) => setTermsConsent(e.target.checked)}
-                />
-                <span>
-                  {tr(
-                    "I am at least 18 and agree to the Terms of service, version",
-                  )}{" "}
-                  {LEGAL_VERSION}
-                  {tr(". I acknowledge the Privacy Policy.")}
-                </span>
-              </label>
-              <button
-                className="primary-action"
-                disabled={!termsConsent || busy}
-                onClick={() =>
-                  perform(async () => {
-                    await api("legal", "POST", {
-                      accepted: true,
-                      adult: true,
-                      version: LEGAL_VERSION,
-                    });
-                    await refresh();
-                  })
-                }
-              >
-                {tr("Agree and continue")}
-                <ArrowRight size={16} />
-              </button>
-              {!supabaseMode && (
-                <>
-                  <p className="small muted">
-                    {tr(
-                      "You can cancel existing billing or stop alerts without accepting new terms.",
-                    )}
-                  </p>
-                  <button
-                    className="button"
-                    onClick={() =>
-                      perform(async () => {
-                        location.href = (await api("billing", "POST", {})).url;
-                      })
-                    }
-                  >
-                    {tr("Manage existing billing")}
-                  </button>
-                  <button
-                    className="text-link"
-                    onClick={() =>
-                      perform(async () => {
-                        await api("sms-stop", "POST", {});
-                        await api("settings", "PATCH", {
-                          emailAlerts: false,
-                          timezone: account.user.timezone,
-                        });
-                        await refresh();
-                      }, tr("Service alerts stopped"))
-                    }
-                  >
-                    {tr("Stop service alerts")}
-                  </button>
-                </>
-              )}
-              <a className="consent-links" href="mailto:ezrefillyny@gmail.com">
-                {tr("Contact support for account or privacy help")}
-              </a>
-            </div>
-          </Modal>
-        )}
-      {purchase && OFFERS[purchase] && (
-        <Modal
-          title={tr("Review your purchase")}
-          close={() => {
-            purchaseResolve.current?.(false);
-            setPurchase(null);
-          }}
-        >
-          <div className="stack">
-            <div className="eyebrow">{tr(OFFERS[purchase].name)}</div>
-            <h2>{tr(OFFERS[purchase].price)}</h2>
-            <p className="small">{tr(OFFERS[purchase].includes)}</p>
-            <div className="notice">{tr(OFFERS[purchase].renewal)}</div>
-            <p className="consent-links">
-              <a href="/legal/billing" target="_blank" rel="noreferrer">
-                {tr("Billing, refunds & cancellation")}
-              </a>{" "}
-              ·{" "}
-              <a href="/legal/terms" target="_blank" rel="noreferrer">
-                {tr("Terms")}
-              </a>
-            </p>
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={purchaseConsent}
-                onChange={(e) => setPurchaseConsent(e.target.checked)}
-              />
-              <span>
-                {purchase === "ai"
-                  ? tr("I agree to this one-time purchase and the terms above.")
-                  : tr(
-                      "I agree to the recurring price, renewal schedule, and cancellation terms above.",
-                    )}
-              </span>
-            </label>
-            <button
-              className="primary-action"
-              disabled={!purchaseConsent || !config.services.billing}
-              onClick={() => {
-                purchaseResolve.current?.(true);
-                setPurchase(null);
-              }}
-            >
-              {tr("Continue to secure checkout")}
-              <ArrowRight size={16} />
-            </button>
-            {!config.services.billing && (
-              <p className="small muted">
-                {tr("Paid services are not open yet. No charge can be made.")}
-              </p>
-            )}
-          </div>
-        </Modal>
-      )}
-      {sheet && !purchase && !(account && !account.user.legalAccepted) && (
+
+      {sheet && (
         <Modal
           title={
             sheet === "preferences"
@@ -2487,7 +2064,7 @@ export default function Curbside() {
               </p>
               <p>
                 {tr(
-                  "Saved vehicles, notification preferences, and dispute evidence are private to your account. Dealerships see sponsorship enrollment and billing, not ticket locations or evidence. A filing partner can access only the case you authorize.",
+                  "Saved cars and display preferences are private to your account. Clerk manages sign-in and account security.",
                 )}
               </p>
               <p>
@@ -2563,9 +2140,7 @@ export default function Curbside() {
               </label>
               <p className="small muted">
                 {tr(
-                  supabaseMode
-                    ? "Saving a car keeps its ticket history ready and refreshes it every morning. Email and SMS alerts are not activated yet."
-                    : "Your first complete scan creates one existing-ticket summary. Later discoveries are notified separately.",
+                  "Saving a car keeps its ticket history ready and refreshes it every morning. Email and SMS alerts are not activated yet.",
                 )}
               </p>
               <button className="primary-action" disabled={busy}>
@@ -2578,7 +2153,7 @@ export default function Curbside() {
             <div className="stack">
               <h2>{activeVehicle.plate}</h2>
               <p className="small muted">
-                {tr(supabaseMode ? "Saved on" : "Monitoring since")}{" "}
+                {tr("Saved on")}{" "}
                 {niceDate(
                   new Date(activeVehicle.created_at).toISOString(),
                   locale,
@@ -2595,14 +2170,12 @@ export default function Curbside() {
                   perform(async () => {
                     await api("vehicles/" + activeVehicle.id, "PATCH", {
                       nickname: f.get("nickname"),
-                      ...(supabaseMode
-                        ? {
-                            make: f.get("make"),
-                            model: f.get("model"),
-                            year: f.get("year"),
-                            color: f.get("color"),
-                          }
-                        : {}),
+                      ...{
+                        make: f.get("make"),
+                        model: f.get("model"),
+                        year: f.get("year"),
+                        color: f.get("color"),
+                      },
                       monitoring: f.get("monitoring") === "on",
                     });
                     await refresh();
@@ -2616,17 +2189,8 @@ export default function Curbside() {
                     defaultValue={activeVehicle.nickname}
                   />
                 </label>
-                {!supabaseMode && (
-                  <label className="check-row">
-                    <input
-                      type="checkbox"
-                      name="monitoring"
-                      defaultChecked={!!activeVehicle.monitoring}
-                    />
-                    {tr("Monitor this vehicle")}
-                  </label>
-                )}
-                {supabaseMode && (
+
+                {
                   <div className="form-grid">
                     {(["make", "model", "year", "color"] as const).map(
                       (field) => (
@@ -2649,7 +2213,7 @@ export default function Curbside() {
                       ),
                     )}
                   </div>
-                )}
+                }
                 <button className="button primary">
                   {tr("Save settings")}
                 </button>
@@ -2664,11 +2228,7 @@ export default function Curbside() {
                   }, tr("Vehicle removed"))
                 }
               >
-                {tr(
-                  supabaseMode
-                    ? "Remove saved vehicle"
-                    : "Remove vehicle and stop monitoring",
-                )}
+                {tr("Remove saved vehicle")}
               </button>
             </div>
           )}
@@ -2764,7 +2324,7 @@ export default function Curbside() {
               <TicketLocation
                 key={selected.id}
                 ticket={selected}
-                token={config.mapboxToken}
+                token={config.mapboxToken || undefined}
                 onOpen={(ticket) => {
                   setMapSelection(ticket.id);
                   setMapFilter("all");
@@ -2878,41 +2438,20 @@ export default function Curbside() {
               </p>
             </div>
           )}
-          {sheet === "dispute" && caseData && (
-            <Dispute
-              data={caseData}
-              setData={setCaseData}
-              api={api}
-              perform={perform}
-              services={config.services}
-            />
-          )}
+
           {sheet === "delete" && (
             <div className="stack">
               <p>
                 {tr(
-                  supabaseMode
-                    ? "This removes all cars from your garage. Your login account and consent history remain. NYC public records are not affected."
-                    : "This removes your saved vehicles, preferences, and eligible dispute records. It does not delete NYC public records or automatically cancel a paid subscription.",
+                  "This removes all cars from your garage. Your login account and consent history remain. NYC public records are not affected.",
                 )}
               </p>
-              {!supabaseMode && (
-                <button
-                  className="button"
-                  onClick={() =>
-                    perform(async () => {
-                      location.href = (await api("billing", "POST", {})).url;
-                    })
-                  }
-                >
-                  {tr("Manage subscription first")}
-                </button>
-              )}
+
               <button
                 className="primary-action"
                 onClick={() =>
                   perform(async () => {
-                    await api(supabaseMode ? "garage" : "account", "DELETE");
+                    await api("garage", "DELETE");
                     setAccount(null);
                     setSheet(null);
                     await signOut();
@@ -2921,7 +2460,7 @@ export default function Curbside() {
               >
                 {tr("Delete my saved data")}
               </button>
-              {supabaseMode && (
+              {
                 <button
                   className="text-link"
                   onClick={() => {
@@ -2932,10 +2471,10 @@ export default function Curbside() {
                 >
                   {tr("Delete account")}
                 </button>
-              )}
+              }
             </div>
           )}
-          {sheet === "delete-account" && supabaseMode && auth.user && (
+          {sheet === "delete-account" && auth.user && (
             <div className="stack">
               <p>
                 {tr(
@@ -2944,7 +2483,7 @@ export default function Curbside() {
               </p>
               <p className="small muted">
                 {tr(
-                  "After deletion, you can sign up again with the same email. You will need to confirm a new email link.",
+                  "After deletion, you can sign up again with the same email through Clerk.",
                 )}
               </p>
               <label className="check-row">
@@ -2981,6 +2520,7 @@ export default function Curbside() {
                     setMapSelection("");
                     setSheet(null);
                     setView("garage");
+                    await auth.clerk.signOut();
                   }, tr("Your account was deleted. You can sign up again with the same email."))
                 }
               >
@@ -3003,7 +2543,10 @@ function VehicleData({ tickets }: { tickets: Violation[] }) {
   const { tr, locale } = usePreferences();
   const groups = new Map<
     string,
-    { values: Violation["vehicle"]; count: number }
+    {
+      values: Violation["vehicle"];
+      count: number;
+    }
   >();
   for (const ticket of tickets) {
     const values = ticket.vehicle || {};
@@ -3058,7 +2601,6 @@ function VehicleData({ tickets }: { tickets: Violation[] }) {
     </section>
   );
 }
-
 function TicketList({
   tickets,
   onSelect,
@@ -3071,7 +2613,6 @@ function TicketList({
   showPlate?: boolean;
 }) {
   const { tr, locale, detailMode } = usePreferences();
-
   return (
     <div className="ticket-list">
       {tickets.map((t) => (
@@ -3141,7 +2682,6 @@ function Modal({
   children: React.ReactNode;
 }) {
   const { tr, locale, resolvedTheme } = usePreferences();
-
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const last = document.activeElement as HTMLElement;
@@ -3196,721 +2736,6 @@ function Modal({
         </div>
         {children}
       </div>
-    </div>
-  );
-}
-function Settings({ account, api, refresh, perform, services }: any) {
-  const { tr, locale, resolvedTheme } = usePreferences();
-
-  const [email, setEmail] = useState(account.user.emailAlerts),
-    [timezone, setTimezone] = useState(account.user.timezone),
-    [phone, setPhone] = useState(account.user.phone || ""),
-    [consent, setConsent] = useState(false),
-    [code, setCode] = useState(""),
-    [sent, setSent] = useState(false);
-  return (
-    <div className="stack">
-      <form
-        className="stack"
-        onSubmit={(e) => {
-          e.preventDefault();
-          perform(async () => {
-            await api("settings", "PATCH", { emailAlerts: email, timezone });
-            await refresh();
-          }, tr("Preferences saved"));
-        }}
-      >
-        <label className="check-row">
-          <input
-            type="checkbox"
-            checked={email}
-            onChange={(e) => setEmail(e.target.checked)}
-          />
-          {tr("Email me new-ticket summaries and reminders.")}
-        </label>
-        <label className="field">
-          {tr("Timezone")}
-          <CustomSelect
-            value={timezone}
-            onChange={setTimezone}
-            label={tr("Timezone")}
-            options={[
-              { value: "America/New_York", label: tr("Eastern time") },
-              { value: "America/Chicago", label: tr("Central time") },
-              { value: "America/Denver", label: tr("Mountain time") },
-              { value: "America/Phoenix", label: tr("Arizona time") },
-              { value: "America/Los_Angeles", label: tr("Pacific time") },
-              { value: "America/Anchorage", label: tr("Alaska time") },
-              { value: "Pacific/Honolulu", label: tr("Hawaii time") },
-            ]}
-          />
-        </label>
-        <p className="small muted">
-          {tr(
-            "Quiet hours: 9 p.m.–8 a.m. Reminders are scheduled only when the ticket has a supported action date.",
-          )}
-        </p>
-        <button className="button">{tr("Save preferences")}</button>
-      </form>
-      <details>
-        <summary>{tr("SMS alerts")}</summary>
-        {account.user.smsConsent ? (
-          <>
-            <p className="small">
-              {tr("Verified:")}
-              {account.user.phone}
-            </p>
-            <button
-              className="text-link"
-              onClick={() =>
-                perform(async () => {
-                  await api("sms-stop", "POST", {});
-                  await refresh();
-                }, tr("SMS alerts stopped"))
-              }
-            >
-              {tr("Stop SMS alerts")}
-            </button>
-          </>
-        ) : (
-          <div className="stack" style={{ marginTop: 15 }}>
-            <label className="field">
-              {tr("US phone number")}
-              <input
-                type="tel"
-                placeholder="+12125550123"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </label>
-            <label className="check-row">
-              <input
-                type="checkbox"
-                checked={consent}
-                onChange={(e) => setConsent(e.target.checked)}
-              />
-              {tr(
-                "I agree to receive automated ticket alerts from Curbside. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase.",
-              )}
-            </label>
-            <p className="consent-links">
-              <a href="/legal/messaging" target="_blank" rel="noreferrer">
-                {tr("Messaging terms")}
-              </a>{" "}
-              ·{" "}
-              <a href="/legal/privacy" target="_blank" rel="noreferrer">
-                {tr("Privacy policy")}
-              </a>
-            </p>
-            <button
-              className="button"
-              disabled={!services.sms}
-              onClick={() =>
-                perform(async () => {
-                  await api("phone", "POST", { phone, consent });
-                  setSent(true);
-                }, tr("Verification code sent"))
-              }
-            >
-              {tr("Send verification code")}
-            </button>
-            {!services.sms && (
-              <p className="small muted">
-                {tr("SMS provider setup is pending.")}
-              </p>
-            )}
-            {sent && (
-              <>
-                <input
-                  aria-label={tr("Verification code")}
-                  inputMode="numeric"
-                  placeholder={tr("Verification code")}
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                />
-                <button
-                  className="button"
-                  onClick={() =>
-                    perform(async () => {
-                      await api("phone-confirm", "POST", { code });
-                      await refresh();
-                    }, tr("Phone verified"))
-                  }
-                >
-                  {tr("Verify phone")}
-                </button>
-              </>
-            )}
-          </div>
-        )}
-      </details>
-      <button
-        className="text-link"
-        onClick={() =>
-          perform(async () => {
-            location.href = (await api("billing", "POST", {})).url;
-          })
-        }
-      >
-        {tr("Manage billing")}
-        <ArrowUpRight size={13} />
-      </button>
-    </div>
-  );
-}
-function Dealer({ account, api, perform, signIn }: any) {
-  const { tr, locale, resolvedTheme } = usePreferences();
-
-  const [data, setData] = useState<any>(null),
-    [url, setUrl] = useState("");
-  useEffect(() => {
-    if (account)
-      api("dealer")
-        .then(setData)
-        .catch(() => {});
-  }, [account, api]);
-  return (
-    <div className="account-layout">
-      <div className="glass form-card stack">
-        <Building2 size={28} />
-        <h2>{data?.dealer.name || tr("A thoughtful handoff.")}</h2>
-        <p className="small muted">
-          {tr(
-            "Give your customers a year of ticket monitoring. They manage their own vehicles; their ticket history and locations stay private.",
-          )}
-        </p>
-        {!account ? (
-          <button className="primary-action" onClick={signIn}>
-            {tr("Set up your dealership")}
-            <ArrowRight size={16} />
-          </button>
-        ) : !data ? (
-          <form
-            className="stack"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const f = Object.fromEntries(new FormData(e.currentTarget));
-              perform(async () => {
-                await api("dealer", "POST", f);
-                setData(await api("dealer"));
-              }, tr("Dealership created"));
-            }}
-          >
-            <label className="field">
-              {tr("Dealership name")}
-              <input name="name" required />
-            </label>
-            <label className="field">
-              {tr("URL name")}
-              <input
-                name="slug"
-                pattern="[a-z][a-z0-9-]{2,40}"
-                placeholder="your-dealership"
-                required
-              />
-            </label>
-            <button className="primary-action">
-              {tr("Create dealership")}
-              <Plus size={16} />
-            </button>
-          </form>
-        ) : (
-          <>
-            <div className="row spread">
-              <span className="badge">
-                {FREE_ACCESS || data.dealer.active
-                  ? tr("Active sponsorship")
-                  : tr("Billing not active")}
-              </span>
-              <strong>
-                {data.enrollments.length}
-                {tr("enrolled")}
-              </strong>
-            </div>
-            <form
-              className="stack"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const f = Object.fromEntries(new FormData(e.currentTarget));
-                perform(async () => {
-                  await api("dealer/branding", "PATCH", f);
-                  setData(await api("dealer"));
-                }, tr("Branding updated"));
-              }}
-            >
-              <label className="field">
-                {tr("Display name")}
-                <input name="name" defaultValue={data.dealer.name} />
-              </label>
-              <label className="field">
-                {tr("Brand color")}
-                <input
-                  name="color"
-                  type="color"
-                  defaultValue={data.dealer.color}
-                />
-              </label>
-              <button className="button">{tr("Save branding")}</button>
-            </form>
-            <button
-              className="primary-action"
-              onClick={() =>
-                perform(async () => {
-                  setUrl((await api("dealer/invite", "POST", {})).url);
-                })
-              }
-            >
-              {tr("Create customer invitation")}
-              <Plus size={16} />
-            </button>
-            {url && (
-              <label className="field">
-                {tr("Share this private activation link")}
-                <input
-                  readOnly
-                  value={url}
-                  onFocus={(e) => e.target.select()}
-                />
-                <button
-                  className="button"
-                  onClick={() => navigator.clipboard.writeText(url)}
-                >
-                  {tr("Copy link")}
-                </button>
-              </label>
-            )}
-            <p className="small muted">
-              {tr(
-                "Links expire after 30 days and can be claimed once. Customers consent to alerts themselves.",
-              )}
-            </p>
-            <div className="source-details">
-              {data.enrollments.map((e: any) => (
-                <div key={e.id}>
-                  <span>
-                    {tr("Customer")}
-                    {e.id.slice(0, 8)}
-                  </span>
-                  <span>
-                    {tr("Expires")}
-                    {niceDate(new Date(e.expires_at).toISOString(), locale)}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-      <div className="glass form-card stack">
-        <span className="eyebrow">{tr("For dealerships")}</span>
-        <h2>{tr("A better customer handoff.")}</h2>
-        <p className="small muted">
-          {tr(
-            "Curbside is free during this release. Dealer branding and customer enrollment remain available when account services are configured.",
-          )}
-        </p>
-        <ul className="benefits">
-          <li>
-            <Check size={15} />
-            {tr("Your dealership branding")}
-          </li>
-          <li>
-            <Check size={15} />
-            {tr("Private customer ticket histories")}
-          </li>
-          <li>
-            <Check size={15} />
-            {tr("No subscription or activation fee")}
-          </li>
-        </ul>
-      </div>
-    </div>
-  );
-}
-function Dispute({ data, setData, api, perform, services }: any) {
-  const { tr, locale, resolvedTheme } = usePreferences();
-
-  const [facts, setFacts] = useState(data.facts),
-    [draft, setDraft] = useState(data.draft),
-    [confirmed, setConfirmed] = useState(false);
-  const load = async () => setData(await api("cases/" + data.id));
-  return (
-    <div className="stack">
-      <div className="row spread">
-        <span className="mono">{data.summons}</span>
-        <span className="badge">{tr(data.status)}</span>
-      </div>
-      <div className="notice">
-        {tr(
-          "Prepare your case here. Nothing is filed until an eligible partner submits it and provides an official receipt.",
-        )}
-      </div>
-      <details open>
-        <summary>{tr("1. Gather your evidence")}</summary>
-        <ul className="benefits">
-          <li>
-            <Check size={14} />
-            {tr("Your ticket or Notice of Liability")}
-          </li>
-          <li>
-            <Check size={14} />
-            {tr("Clear photos of relevant signs and surroundings")}
-          </li>
-          <li>
-            <Check size={14} />
-            {tr("Receipts, permits, or other supporting records")}
-          </li>
-        </ul>
-        <label className="field">
-          {tr("Upload evidence · PDF, JPEG, PNG")}
-          <input
-            type="file"
-            accept=".pdf,.jpg,.jpeg,.png"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              const b = new FormData();
-              b.append("file", f);
-              perform(async () => {
-                await api("cases/" + data.id + "/evidence", "POST", b);
-                await load();
-              }, tr("Evidence added; review is required again"));
-            }}
-          />
-        </label>
-        <p className="small muted">
-          {tr(
-            "Up to 10 files, 10 MB each, 20 MB total. AI drafting uses your written facts; it does not inspect these attachments.",
-          )}
-        </p>
-        {data.evidence?.map((e: any) => (
-          <a
-            className="text-link"
-            key={e.id}
-            href={e.url}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {e.name}
-            <ArrowUpRight size={12} />
-          </a>
-        ))}
-      </details>
-      <label className="field">
-        {tr("2. What happened? Confirmed facts only.")}
-        <textarea
-          value={facts}
-          onChange={(e) => setFacts(e.target.value)}
-          maxLength={6000}
-          placeholder={tr(
-            "Describe what happened, why you believe the ticket is incorrect, and the evidence you have.",
-          )}
-        />
-      </label>
-      {data.paid ? (
-        <button
-          className="button"
-          disabled={!services.ai || data.generations >= 3}
-          onClick={() =>
-            perform(async () => {
-              const d = await api("cases/" + data.id + "/generate", "POST", {
-                facts,
-              });
-              setData(d);
-              setDraft(d.draft);
-            }, tr("Draft ready for your review"))
-          }
-        >
-          {tr("Generate reviewed-facts draft ·")}
-          {3 - data.generations}
-          {tr("remaining")}
-        </button>
-      ) : !FREE_ACCESS ? (
-        <button
-          className="button"
-          disabled={!services.ai}
-          onClick={() =>
-            perform(async () => {
-              location.href = (
-                await api("checkout", "POST", { kind: "ai", caseId: data.id })
-              ).url;
-            })
-          }
-        >
-          {tr("AI preparation · $9 per case")}
-        </button>
-      ) : null}
-      {!services.ai && (
-        <p className="small muted">
-          {tr(
-            "AI preparation is awaiting activation. You can write and export your own statement below.",
-          )}
-        </p>
-      )}
-      <label className="field">
-        {tr("3. Your statement")}
-        <textarea
-          value={draft}
-          onChange={(e) => {
-            setDraft(e.target.value);
-            setConfirmed(false);
-          }}
-          rows={10}
-          maxLength={15000}
-        />
-      </label>
-      <button
-        className="button"
-        onClick={() =>
-          perform(async () => {
-            await api("cases/" + data.id, "PATCH", { facts, draft });
-            await load();
-          }, tr("Statement saved; review this version before approval"))
-        }
-      >
-        {tr("Save statement")}
-      </button>
-      <label className="check-row">
-        <input
-          type="checkbox"
-          checked={confirmed}
-          onChange={(e) => setConfirmed(e.target.checked)}
-        />
-        {tr(
-          "I reviewed this statement and all attachments. The facts are accurate, and I understand that no hearing has been requested yet.",
-        )}
-      </label>
-      <button
-        className="primary-action"
-        disabled={!confirmed || draft !== data.draft}
-        onClick={() =>
-          perform(async () => {
-            await api("cases/" + data.id + "/approve", "POST", {
-              confirmed,
-              version: data.version,
-            });
-            await load();
-          }, tr("Current version approved"))
-        }
-      >
-        {tr("Approve version")}
-        {data.version} <Check size={16} />
-      </button>
-      <button
-        className="button"
-        onClick={() =>
-          download(
-            "curbside-dispute-" + data.summons + ".txt",
-            tr("Summons: ") +
-              data.summons +
-              tr("\nStatus: ") +
-              data.status +
-              "\n\n" +
-              draft +
-              tr("\n\nEvidence: ") +
-              (data.evidence || []).map((e: any) => e.name).join(", ") +
-              tr(
-                "\n\nPrepared for customer review. This document is not a filing receipt.",
-              ),
-          )
-        }
-      >
-        <Download size={15} />
-        {tr("Export statement")}
-      </button>
-      <a
-        className="button"
-        href="https://www.nyc.gov/site/finance/vehicles/dispute-web.page"
-        target="_blank"
-        rel="noreferrer"
-      >
-        {tr("Submit directly with NYC")}
-        <ArrowUpRight size={14} />
-      </a>
-      <button
-        className="button ghost"
-        disabled={data.status !== "approved"}
-        onClick={() =>
-          perform(async () => {
-            const r = await api("cases/" + data.id + "/handoff", "POST", {
-              authorized: true,
-            });
-            await load();
-            if (r.instructions) alert(r.instructions);
-          })
-        }
-      >
-        {tr("Request partner filing")}
-      </button>
-      <p className="small muted">
-        {tr(
-          "Partner filing is unavailable until an eligible partner is onboarded. A request is not a submission. Official receipt:",
-        )}{" "}
-        {data.filing_reference || tr("Not received")}.
-      </p>
-    </div>
-  );
-}
-
-function Partner({ api, perform }: any) {
-  const { tr, locale, resolvedTheme } = usePreferences();
-
-  const [cases, setCases] = useState<any[]>([]),
-    [current, setCurrent] = useState<any>(null),
-    [receipt, setReceipt] = useState("");
-  useEffect(() => {
-    api("partner")
-      .then((r: any) => setCases(r.cases))
-      .catch(() => {});
-  }, [api]);
-  const load = async (id: string) => setCurrent(await api("cases/" + id));
-  return (
-    <div className="account-layout">
-      <div className="glass form-card stack">
-        <h2>{tr("Assigned cases")}</h2>
-        <p className="small muted">
-          {tr(
-            "Only cases explicitly assigned to your partner account appear here.",
-          )}
-        </p>
-        {cases.length ? (
-          cases.map((c) => (
-            <button
-              key={c.id}
-              className="setting"
-              onClick={() => perform(() => load(c.id))}
-            >
-              <span>{c.summons}</span>
-              <span className="badge">{tr(c.status)}</span>
-            </button>
-          ))
-        ) : (
-          <p className="small muted">{tr("No cases assigned.")}</p>
-        )}
-      </div>
-      {current && (
-        <div className="glass form-card stack">
-          <div className="row spread">
-            <h2>{current.summons}</h2>
-            <span className="badge">{tr(current.status)}</span>
-          </div>
-          <pre className="draft">{current.draft}</pre>
-          {current.evidence?.map((e: any) => (
-            <a
-              key={e.id}
-              className="text-link"
-              href={e.url}
-              target="_blank"
-              rel="noreferrer"
-            >
-              {e.name} ↗
-            </a>
-          ))}
-          <button
-            className="button"
-            onClick={() =>
-              download("case-" + current.summons + ".txt", current.draft)
-            }
-          >
-            {tr("Export statement")}
-          </button>
-          {current.status === "awaiting authorization" && (
-            <form
-              className="stack"
-              onSubmit={(e) => {
-                e.preventDefault();
-                perform(async () => {
-                  await api("partner/" + current.id, "PATCH", {
-                    status: "accepted",
-                    authorizationVerified: true,
-                  });
-                  await load(current.id);
-                }, tr("Case accepted"));
-              }}
-            >
-              <label className="check-row">
-                <input type="checkbox" required />
-                {tr(
-                  "I verified the customer’s required authorization under the partner agreement.",
-                )}
-              </label>
-              <button className="primary-action">{tr("Accept case")}</button>
-            </form>
-          )}
-          {current.status === "accepted" && (
-            <form
-              className="stack"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const f = new FormData(e.currentTarget);
-                perform(async () => {
-                  await api("partner/" + current.id, "PATCH", {
-                    status: "filed",
-                    receiptEvidenceId: receipt,
-                    filingReference: f.get("reference"),
-                  });
-                  await load(current.id);
-                }, tr("Official filing recorded"));
-              }}
-            >
-              <label className="field">
-                {tr("Official filing receipt")}
-                <input
-                  type="file"
-                  accept=".pdf,.png,.jpg,.jpeg"
-                  required
-                  onChange={(e) => {
-                    const f = e.target.files?.[0];
-                    if (!f) return;
-                    const b = new FormData();
-                    b.append("file", f);
-                    perform(async () => {
-                      setReceipt(
-                        (
-                          await api(
-                            "partner/" + current.id + "/receipt",
-                            "POST",
-                            b,
-                          )
-                        ).id,
-                      );
-                    }, tr("Receipt uploaded"));
-                  }}
-                />
-              </label>
-              <label className="field">
-                {tr("Official confirmation reference")}
-                <input name="reference" required />
-              </label>
-              <button className="primary-action" disabled={!receipt}>
-                {tr("Record verified filing")}
-              </button>
-            </form>
-          )}
-          {current.status === "filed" && (
-            <form
-              className="stack"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const f = new FormData(e.currentTarget);
-                perform(async () => {
-                  await api("partner/" + current.id, "PATCH", {
-                    status: "resolved",
-                    outcome: f.get("outcome"),
-                  });
-                  await load(current.id);
-                }, tr("Outcome recorded"));
-              }}
-            >
-              <label className="field">
-                {tr("Official outcome")}
-                <textarea name="outcome" required />
-              </label>
-              <button className="button">{tr("Record outcome")}</button>
-            </form>
-          )}
-        </div>
-      )}
     </div>
   );
 }

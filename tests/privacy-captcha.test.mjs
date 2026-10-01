@@ -1,31 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { publicAnalyticsURL } from "../lib/analytics-privacy.ts";
 import { verifyHCaptcha } from "../lib/captcha-verification.ts";
-test("analytics only allowlists public routes and strips plate, email, invite and ticket data", () => {
-  assert.equal(
-    publicAnalyticsURL(
-      "https://example.com/?view=search&plate=SECRET1&email=private@example.com&invite=private",
-    ),
-    "https://example.com/?view=search",
-  );
-  assert.equal(
-    publicAnalyticsURL("https://example.com/?view=ticket&summons=private"),
-    "https://example.com/",
-  );
-  for (const path of [
-    "/api/evidence?id=private",
-    "/vehicle/SECRET1",
-    "/?auth=recovery",
-    "/?code=private",
-    "/#access_token=private",
-  ])
-    assert.equal(publicAnalyticsURL("https://example.com" + path), null);
-  assert.equal(
-    publicAnalyticsURL("https://example.com/legal/privacy?unknown=private"),
-    "https://example.com/legal/privacy",
-  );
-});
 test("hCaptcha requires server success, binds sitekey and never accepts an empty token", async () => {
   let called = false;
   const send = async (url, options) => {

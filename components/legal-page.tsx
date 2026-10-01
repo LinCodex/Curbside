@@ -14,6 +14,7 @@ import {
 import CustomSelect from "./custom-select";
 import {
   LEGAL_VERSION,
+  PRIVACY_VERSION,
   OPERATOR,
   legalDocuments,
   LEGAL_SOURCES,
@@ -150,7 +151,13 @@ export default function LegalPage({
         </div>
         <div className="legal-status">
           <ShieldCheck size={14} aria-hidden="true" />
-          {tr("Prelaunch version")} {LEGAL_VERSION} {tr("· September 27, 2026")}
+          {tr("Prelaunch version")}{" "}
+          {activeDoc === "privacy" ? PRIVACY_VERSION : LEGAL_VERSION}{" "}
+          {tr(
+            activeDoc === "privacy"
+              ? "· October 1, 2026"
+              : "· September 27, 2026",
+          )}
         </div>
         {page ? (
           <div className="legal-layout">

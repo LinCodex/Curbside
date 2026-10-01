@@ -1,25 +1,5 @@
-import { FREE_ACCESS } from "./release";
 import { verifyHCaptcha } from "./captcha-verification";
-// Environment variable accessor compatible with Vercel (Edge & Serverless) and Cloudflare runtimes
-const getEnv = (): Record<string, any> => {
-  if (typeof process !== "undefined" && process.env) {
-    return process.env as unknown as Record<string, any>;
-  }
-  // @ts-ignore
-  if (typeof globalThis !== "undefined" && globalThis.env) {
-    // @ts-ignore
-    return globalThis.env as Record<string, any>;
-  }
-  return {} as Record<string, any>;
-};
-
-export const config = () => getEnv();
-export const db = () => {
-  const d = config().DB as D1Database | undefined;
-  if (!d)
-    throw new HttpError(503, "Storage is unavailable. Please try again later.");
-  return d;
-};
+export const config = () => process.env;
 export class HttpError extends Error {
   constructor(
     public status: number,
@@ -28,24 +8,6 @@ export class HttpError extends Error {
     super(message);
   }
 }
-export const one = async <T = any>(sql: string, ...args: any[]) =>
-  db()
-    .prepare(sql)
-    .bind(...args)
-    .first<T>();
-export const all = async <T = any>(sql: string, ...args: any[]) =>
-  (
-    await db()
-      .prepare(sql)
-      .bind(...args)
-      .all<T>()
-  ).results ?? [];
-export const run = (sql: string, ...args: any[]) =>
-  db()
-    .prepare(sql)
-    .bind(...args)
-    .run();
-export const uid = () => crypto.randomUUID();
 export const hash = async (s: string | ArrayBuffer) =>
   Array.from(
     new Uint8Array(
@@ -60,45 +22,27 @@ export const hash = async (s: string | ArrayBuffer) =>
 const memLimits = new Map<string, { count: number; expiresAt: number }>();
 
 export async function rate(key: string, cap: number, windowMs: number) {
-  if (!config().DB) {
-    const now = Date.now();
-    const existing = memLimits.get(key);
-    if (!existing || now > existing.expiresAt) {
-      for (const [id, item] of memLimits)
-        if (item.expiresAt <= now) memLimits.delete(id);
-      if (!existing && memLimits.size >= 10_000)
-        throw new HttpError(
-          429,
-          "Too many requests. Please wait before trying again.",
-        );
-      memLimits.set(key, { count: 1, expiresAt: now + windowMs });
-      return;
-    }
-    existing.count += 1;
-    if (existing.count > cap) {
+  const now = Date.now();
+  const existing = memLimits.get(key);
+  if (!existing || now > existing.expiresAt) {
+    for (const [id, item] of memLimits)
+      if (item.expiresAt <= now) memLimits.delete(id);
+    if (!existing && memLimits.size >= 10_000)
       throw new HttpError(
         429,
         "Too many requests. Please wait before trying again.",
       );
-    }
+    memLimits.set(key, { count: 1, expiresAt: now + windowMs });
     return;
   }
-  try {
-    const bucket = Math.floor(Date.now() / windowMs);
-    const k = key + ":" + bucket;
-    const row = await one<any>(
-      "INSERT INTO limits (key,count,expires_at) VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1 RETURNING count",
-      k,
-      (bucket + 2) * windowMs,
+  existing.count += 1;
+  if (existing.count > cap) {
+    throw new HttpError(
+      429,
+      "Too many requests. Please wait before trying again.",
     );
-    if (row && row.count > cap)
-      throw new HttpError(
-        429,
-        "Too many requests. Please wait before trying again.",
-      );
-  } catch (e) {
-    if (e instanceof HttpError && e.status === 429) throw e;
   }
+  return;
 }
 export async function readJson(req: Request, max = 16000) {
   if (Number(req.headers.get("content-length") ?? 0) > max)
@@ -113,13 +57,8 @@ export async function readJson(req: Request, max = 16000) {
 }
 export const publicConfig = () => {
   const e = config();
-  const supabase =
-    e.SUPABASE_URL && e.SUPABASE_PUBLISHABLE_KEY
-      ? { url: e.SUPABASE_URL, publishableKey: e.SUPABASE_PUBLISHABLE_KEY }
-      : null;
   return {
-    supabase,
-    clerkKey: e.CLERK_PUBLISHABLE_KEY || null,
+    clerkKey: e.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || null,
     mapboxToken:
       e.MAPBOX_PUBLIC_TOKEN ||
       e.NEXT_PUBLIC_MAPBOX_TOKEN ||
@@ -134,25 +73,20 @@ export const publicConfig = () => {
     turnstileKey: e.TURNSTILE_SITE_KEY || null,
     hcaptchaKey: e.HCAPTCHA_SITE_KEY || null,
     services: {
-      accounts: !!supabase || !!e.CLERK_SECRET_KEY,
-      email: !!(e.RESEND_API_KEY && e.EMAIL_FROM),
-      sms: !!(
-        e.TWILIO_ACCOUNT_SID &&
-        e.TWILIO_AUTH_TOKEN &&
-        e.TWILIO_VERIFY_SERVICE_SID &&
-        e.TWILIO_MESSAGING_SERVICE_SID
+      accounts: !!(
+        e.CLERK_SECRET_KEY &&
+        e.SUPABASE_URL &&
+        e.SUPABASE_SERVICE_ROLE_KEY
       ),
-      billing:
-        !FREE_ACCESS && !!e.STRIPE_SECRET_KEY && e.COMMERCE_ENABLED === "true",
-      ai: !!(e.AI_API_KEY && e.AI_MODEL),
+      email: false,
+      sms: false,
+      billing: false,
+      ai: false,
       geocoding: !!e.NYC_GEOCLIENT_KEY,
-      monitoring: e.SCHEDULER_ENABLED === "true",
+      monitoring: false,
     },
   };
 };
-export function requireService(condition: any, message: string) {
-  if (!condition) throw new HttpError(503, message);
-}
 export function sameOrigin(req: Request) {
   if (["GET", "HEAD"].includes(req.method)) return;
   const origin = req.headers.get("origin");
@@ -166,7 +100,7 @@ export async function turnstile(token: string | undefined, ip: string) {
     let verified = false;
     try {
       verified = await verifyHCaptcha({
-        secret: config().HCAPTCHA_SECRET_KEY,
+        secret: config().HCAPTCHA_SECRET_KEY!,
         sitekey: config().HCAPTCHA_SITE_KEY || "",
         token,
         ip,

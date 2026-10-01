@@ -5,31 +5,10 @@ import {
   resolveLanguage,
   resolveTheme,
 } from "../lib/preferences.ts";
-import { legalDocuments, OFFERS } from "../lib/legal.ts";
+import { legalDocuments } from "../lib/legal.ts";
 import fs from "node:fs";
 import ts from "typescript";
-import {
-  meetsPasswordRequirement,
-  PASSWORD_REQUIREMENT,
-} from "../lib/password-policy.ts";
-const zh = JSON.parse(
-  fs.readFileSync(new URL("../lib/zh.json", import.meta.url), "utf8"),
-);
-
-test("new-password UI requires eight characters, lowercase, uppercase and a digit", () => {
-  for (const password of [
-    "Abc1234",
-    "abcdefgh1",
-    "ABCDEFGH1",
-    "Abcdefgh",
-    "12345678",
-    "中文中文中文A1",
-  ])
-    assert.equal(meetsPasswordRequirement(password), false);
-  for (const password of ["Abcdefg1", "Abcd1234", "Abcde 12", "Abcde!12"])
-    assert.equal(meetsPasswordRequirement(password), true);
-  assert.ok(zh[PASSWORD_REQUIREMENT]);
-});
+const zh = JSON.parse(fs.readFileSync(new URL("../lib/zh.json", import.meta.url), "utf8"));
 
 test("device defaults and invalid saved preferences safely use system", () => {
   for (const input of [
@@ -76,16 +55,12 @@ test("system appearance changes independently of explicit overrides", () => {
   assert.equal(resolveTheme("light", true), "light");
   assert.equal(resolveTheme("dark", false), "dark");
 });
-test("every legal document and offer has Chinese copy without changing numeric terms", () => {
-  const branded = new Set(["Curbside Plus"]);
+test("every legal document has Chinese copy without changing numeric terms", () => {
   const check = (text) => {
     for (const part of text.split(" — ")) {
-      if (branded.has(part)) continue;
       assert.ok(zh[part], `Missing Chinese legal text: ${part.slice(0, 90)}`);
     }
   };
-  for (const offer of Object.values(OFFERS))
-    Object.values(offer).forEach(check);
   for (const document of Object.values(legalDocuments)) {
     check(document.title);
     check(document.description);

@@ -13,7 +13,6 @@ const { combinedGarageHistory } = await import(
     Buffer.from(compiled.outputFiles[0].text).toString("base64")
 );
 import { plateTotals } from "../lib/plate-totals.ts";
-import { requestEmailChange } from "../lib/account-details.ts";
 
 const ticket = (id, plate, due, checkedAt) => ({
   id,
@@ -60,73 +59,4 @@ test("combined garage excludes removed vehicles and labels missing or partial sn
   assert.deepEqual(result.tickets, []);
   assert.equal(result.ready, 1);
   assert.equal(result.complete, false);
-});
-test("email editing rejects removal, invalid addresses, unconfirmed users and profile switches before mutation", async () => {
-  let updates = 0;
-  let user = {
-    id: "owner",
-    email: "old@example.com",
-    email_confirmed_at: "2026-01-01",
-  };
-  const client = {
-    auth: {
-      getUser: async () => ({ data: { user }, error: null }),
-      updateUser: async () => {
-        updates++;
-        return { data: { user }, error: null };
-      },
-    },
-  };
-  for (const email of ["", "invalid", "old@example.com"])
-    await assert.rejects(
-      requestEmailChange(client, "owner", email, "https://example.com"),
-    );
-  user = { ...user, email_confirmed_at: null };
-  await assert.rejects(
-    requestEmailChange(
-      client,
-      "owner",
-      "new@example.com",
-      "https://example.com",
-    ),
-  );
-  user = { ...user, email_confirmed_at: "2026-01-01", id: "other" };
-  await assert.rejects(
-    requestEmailChange(
-      client,
-      "owner",
-      "new@example.com",
-      "https://example.com",
-    ),
-  );
-  assert.equal(updates, 0);
-});
-test("email editing uses the authenticated SDK and exact account redirect, preserving the confirmed identity until confirmation", async () => {
-  const user = {
-    id: "owner",
-    email: "old@example.com",
-    new_email: "new@example.com",
-    email_confirmed_at: "2026-01-01",
-  };
-  const client = {
-    auth: {
-      getUser: async () => ({ data: { user }, error: null }),
-      updateUser: async (attributes, options) => {
-        assert.deepEqual(attributes, { email: "new@example.com" });
-        assert.equal(
-          options.emailRedirectTo,
-          "https://curbside-eta.vercel.app/?view=account",
-        );
-        return { data: { user }, error: null };
-      },
-    },
-  };
-  const updated = await requestEmailChange(
-    client,
-    "owner",
-    " New@Example.com ",
-    "https://curbside-eta.vercel.app",
-  );
-  assert.equal(updated.email, "old@example.com");
-  assert.equal(updated.new_email, "new@example.com");
 });

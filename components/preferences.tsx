@@ -19,7 +19,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import dictionary from "@/lib/zh.json";
-import { useSupabaseAccount } from "./use-supabase-account";
+import { useAccount } from "./account-provider";
 import {
   PREFERENCE_KEY,
   preferenceKey,
@@ -78,7 +78,7 @@ export function PreferencesProvider({
   const [deviceDark, setDeviceDark] = useState(true);
   const [languages, setLanguages] = useState<readonly string[]>(["en"]);
   const [loaded, setLoaded] = useState(false);
-  const auth = useSupabaseAccount();
+  const auth = useAccount();
   const profileId = auth.user?.id || null;
   const activeProfile = useRef(profileId);
   const activeKey = useRef(PREFERENCE_KEY);
@@ -145,94 +145,41 @@ export function PreferencesProvider({
     } catch {
       setPreferences(readPreferences(null));
     }
-    if (!profileId || !auth.client) {
+    if (!profileId) {
       setProfileLoading(false);
       return;
     }
     setProfileLoading(true);
-    auth.client
-      .from("curbside_preferences")
-      .select("theme,language,detail_mode")
-      .eq("user_id", profileId)
-      .maybeSingle()
-      .then(async ({ data, error }) => {
-        if (!alive) return;
-        if (!error && data) {
-          const next = readPreferences(
-            JSON.stringify({ ...data, detailMode: data.detail_mode }),
-          );
-          setPreferences(next);
-          try {
-            localStorage.setItem(key, JSON.stringify(next));
-          } catch {}
-        } else if (
-          !error &&
-          !data &&
-          auth.user?.user_metadata?.curbside_preferences
-        ) {
-          // Only display preferences, never authorization, come from signup metadata.
-          const next = readPreferences(
-            JSON.stringify(auth.user.user_metadata.curbside_preferences),
-          );
-          const saved = await auth.client!.from("curbside_preferences").insert({
-            user_id: profileId,
-            theme: next.theme,
-            language: next.language,
-            detail_mode: next.detailMode,
-          });
-          if (!alive) return;
-          if (!saved.error) {
-            setPreferences(next);
-            try {
-              localStorage.setItem(key, JSON.stringify(next));
-            } catch {}
-          }
-        }
-        setProfileLoading(false);
+    auth
+      .request("preferences")
+      .then((data) => {
+        if (!alive || !data) return;
+        const next = readPreferences(
+          JSON.stringify({ ...data, detailMode: data.detail_mode }),
+        );
+        setPreferences(next);
+        try {
+          localStorage.setItem(key, JSON.stringify(next));
+        } catch {}
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (alive) setProfileLoading(false);
       });
     return () => {
       alive = false;
     };
-  }, [profileId, auth.client]);
+  }, [profileId, auth.request]);
   const savePreferences = useCallback(
     async (next: ReturnType<typeof readPreferences>) => {
       const owner = profileId;
       const normalized = readPreferences(JSON.stringify(next));
-      if (owner && auth.client) {
-        const { data: identity, error: identityError } =
-          await auth.client.auth.getUser();
-        if (
-          identityError ||
-          identity.user?.id !== owner ||
-          !identity.user.email_confirmed_at
-        )
-          throw new Error(
-            "Your session changed. Sign in again before saving settings.",
-          );
-        const fields = {
+      if (owner) {
+        await auth.request("preferences", "PATCH", {
           theme: normalized.theme,
           language: normalized.language,
           detail_mode: normalized.detailMode,
-        };
-        const update = () =>
-          auth
-            .client!.from("curbside_preferences")
-            .update(fields)
-            .eq("user_id", owner)
-            .select("user_id");
-        const result = await update();
-        if (result.error)
-          throw new Error("Settings could not be saved. Please try again.");
-        if (!result.data?.length) {
-          const inserted = await auth.client
-            .from("curbside_preferences")
-            .insert({ user_id: owner, ...fields });
-          if (
-            inserted.error &&
-            !(inserted.error.code === "23505" && !(await update()).error)
-          )
-            throw new Error("Settings could not be saved. Please try again.");
-        }
+        });
       }
       if (activeProfile.current !== owner)
         throw new Error(
@@ -244,7 +191,7 @@ export function PreferencesProvider({
       setPreferences(normalized);
       setPreview(null);
     },
-    [profileId, auth.client],
+    [profileId, auth.request],
   );
   const tr = useCallback((text: string) => translate(text, locale), [locale]);
   const value = useMemo(

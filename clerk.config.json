@@ -1,0 +1,38 @@
+{
+  "auth_email": {
+    "used_for_sign_in": true,
+    "used_for_sign_up": true,
+    "required_for_sign_up": true,
+    "verify_at_sign_up": true
+  },
+  "auth_phone": {
+    "used_for_sign_in": false,
+    "used_for_sign_up": false,
+    "required_for_sign_up": false,
+    "verify_at_sign_up": false,
+    "used_for_second_factor": false,
+    "sign_in_strategies": [],
+    "second_factor_strategies": [],
+    "verification_strategies": []
+  },
+  "auth_username": {
+    "used_for_sign_in": false,
+    "used_for_sign_up": false,
+    "required_for_sign_up": false
+  },
+  "auth_password": {
+    "enabled": true,
+    "required": true
+  },
+  "billing": {
+    "user_enabled": false,
+    "organization_enabled": false
+  },
+  "compliance": {
+    "legal_consent": {
+      "enabled": true,
+      "terms_of_service_url": "https://curbside-eta.vercel.app/legal/terms",
+      "privacy_policy_url": "https://curbside-eta.vercel.app/legal/privacy"
+    }
+  }
+}

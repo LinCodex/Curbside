@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@clerk/ui/themes/shadcn.css";
 :root {
   color-scheme: dark;
   --bg: #080f1b;
