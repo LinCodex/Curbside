@@ -10,6 +10,10 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { usePreferences } from "./preferences";
+import {
+  meetsPasswordRequirement,
+  PASSWORD_REQUIREMENT,
+} from "../lib/password-policy";
 
 export default function AuthPanel({
   client,
@@ -32,6 +36,14 @@ export default function AuthPanel({
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email") || "").trim();
     const password = String(form.get("password") || "");
+    if (
+      (recovering || mode === "register") &&
+      !meetsPasswordRequirement(password)
+    ) {
+      setError(tr(PASSWORD_REQUIREMENT));
+      setMessage("");
+      return;
+    }
     setBusy(true);
     setError("");
     setMessage("");
@@ -55,10 +67,7 @@ export default function AuthPanel({
           setError(tr("Email or password is incorrect."));
         else if (code === "email_not_confirmed")
           setError(tr("Verify your email before signing in."));
-        else if (code === "weak_password")
-          setError(
-            tr("Choose a stronger password with at least 8 characters."),
-          );
+        else if (code === "weak_password") setError(tr(PASSWORD_REQUIREMENT));
         else if (
           ["over_request_rate_limit", "over_email_send_rate_limit"].includes(
             code || "",
@@ -157,6 +166,11 @@ export default function AuthPanel({
                     : "current-password"
                 }
                 minLength={mode === "login" && !recovering ? undefined : 8}
+                aria-describedby={
+                  recovering || mode === "register"
+                    ? "password-requirement"
+                    : undefined
+                }
                 maxLength={128}
                 required
                 disabled={busy}
@@ -174,10 +188,8 @@ export default function AuthPanel({
           </label>
         )}
         {(recovering || mode === "register") && (
-          <p className="small muted">
-            {tr(
-              "Use at least 8 characters. A longer, unique password is best.",
-            )}
+          <p id="password-requirement" className="small muted">
+            {tr(PASSWORD_REQUIREMENT)}
           </p>
         )}
         {error && (

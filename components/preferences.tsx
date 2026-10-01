@@ -52,6 +52,9 @@ const Context = createContext({
   savePreferences: (_: ReturnType<typeof readPreferences>) => {
     void _;
   },
+  previewPreferences: (_: ReturnType<typeof readPreferences> | null) => {
+    void _;
+  },
   tr: (text: string) => text,
 });
 export const usePreferences = () => useContext(Context);
@@ -62,6 +65,9 @@ export function PreferencesProvider({
   children: React.ReactNode;
 }) {
   const [preferences, setPreferences] = useState(readPreferences(null));
+  const [preview, setPreview] = useState<ReturnType<
+    typeof readPreferences
+  > | null>(null);
   const [deviceDark, setDeviceDark] = useState(true);
   const [languages, setLanguages] = useState<readonly string[]>(["en"]);
   const [loaded, setLoaded] = useState(false);
@@ -93,8 +99,15 @@ export function PreferencesProvider({
       window.removeEventListener("storage", updateStorage);
     };
   }, []);
-  const resolvedTheme = resolveTheme(preferences.theme, deviceDark);
-  const locale = resolveLanguage(preferences.language, languages);
+  const displayed = preview || preferences;
+  const previewPreferences = useCallback(
+    (next: ReturnType<typeof readPreferences> | null) => {
+      setPreview(next);
+    },
+    [],
+  );
+  const resolvedTheme = resolveTheme(displayed.theme, deviceDark);
+  const locale = resolveLanguage(displayed.language, languages);
   useEffect(() => {
     if (!loaded) return;
     document.documentElement.dataset.theme = resolvedTheme;
@@ -106,14 +119,17 @@ export function PreferencesProvider({
         "content",
         resolvedTheme === "dark" ? "#050607" : "#f3f5f7",
       );
+  }, [resolvedTheme, locale, loaded]);
+  useEffect(() => {
+    if (!loaded) return;
     try {
       localStorage.setItem(PREFERENCE_KEY, JSON.stringify(preferences));
     } catch {}
-  }, [preferences, resolvedTheme, locale, loaded]);
+  }, [preferences, loaded]);
   const tr = useCallback((text: string) => translate(text, locale), [locale]);
   const value = useMemo(
     () => ({
-      ...preferences,
+      ...displayed,
       resolvedTheme,
       locale,
       tr,
@@ -123,10 +139,13 @@ export function PreferencesProvider({
         setPreferences((p) => ({ ...p, language })),
       setDetailMode: (detailMode: DetailMode) =>
         setPreferences((p) => ({ ...p, detailMode })),
-      savePreferences: (next: ReturnType<typeof readPreferences>) =>
-        setPreferences(readPreferences(JSON.stringify(next))),
+      savePreferences: (next: ReturnType<typeof readPreferences>) => {
+        setPreferences(readPreferences(JSON.stringify(next)));
+        setPreview(null);
+      },
+      previewPreferences,
     }),
-    [preferences, resolvedTheme, locale, tr],
+    [displayed, resolvedTheme, locale, tr, previewPreferences],
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
@@ -138,15 +157,28 @@ export function PreferencesPanel({
   onSave: () => void;
   onCancel: () => void;
 }) {
-  const { theme, language, detailMode, savePreferences, tr } = usePreferences();
+  const {
+    theme,
+    language,
+    detailMode,
+    savePreferences,
+    previewPreferences,
+    tr,
+  } = usePreferences();
   const [draft, setDraft] = useState({ theme, language, detailMode });
+  useEffect(() => {
+    previewPreferences(draft);
+  }, [draft, previewPreferences]);
+  useEffect(() => () => previewPreferences(null), [previewPreferences]);
   return (
     <section
       className="preference-panel preference-popup"
       aria-label={tr("Display settings")}
     >
       <p className="small muted">
-        {tr("Choose your view. Changes apply when you save.")}
+        {tr(
+          "Preview your changes. Press Apply to keep them, or Cancel to restore your settings.",
+        )}
       </p>
       <PreferenceChoice
         label={tr("Appearance")}
@@ -205,7 +237,7 @@ export function PreferencesPanel({
           }}
         >
           <Check size={16} />
-          {tr("Save settings")}
+          {tr("Apply")}
         </button>
       </div>
     </section>

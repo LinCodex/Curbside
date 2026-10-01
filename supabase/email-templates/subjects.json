@@ -1,0 +1,145 @@
+[
+  {
+    "file": "confirm-signup.html",
+    "dashboardTemplate": "Confirm signup",
+    "subject": {
+      "en": "Confirm your email · Curbside",
+      "zh": "验证您的邮箱 · 泊查"
+    },
+    "variables": [
+      "Email",
+      "ConfirmationURL",
+      "SiteURL"
+    ]
+  },
+  {
+    "file": "magic-link.html",
+    "dashboardTemplate": "Magic Link or OTP",
+    "subject": {
+      "en": "Your sign-in link · Curbside",
+      "zh": "您的登录链接 · 泊查"
+    },
+    "variables": [
+      "Email",
+      "ConfirmationURL",
+      "SiteURL"
+    ]
+  },
+  {
+    "file": "email-otp.html",
+    "dashboardTemplate": "Magic Link or OTP (alternative)",
+    "subject": {
+      "en": "Your sign-in code · Curbside",
+      "zh": "您的登录验证码 · 泊查"
+    },
+    "variables": [
+      "Email",
+      "Token",
+      "SiteURL"
+    ]
+  },
+  {
+    "file": "change-email-address.html",
+    "dashboardTemplate": "Change email address",
+    "subject": {
+      "en": "Confirm your email change · Curbside",
+      "zh": "确认更换邮箱 · 泊查"
+    },
+    "variables": [
+      "Email",
+      "NewEmail",
+      "ConfirmationURL",
+      "SiteURL"
+    ]
+  },
+  {
+    "file": "reset-password.html",
+    "dashboardTemplate": "Reset password",
+    "subject": {
+      "en": "Reset your password · Curbside",
+      "zh": "重设您的密码 · 泊查"
+    },
+    "variables": [
+      "Email",
+      "ConfirmationURL",
+      "SiteURL"
+    ]
+  },
+  {
+    "file": "reauthentication.html",
+    "dashboardTemplate": "Reauthentication",
+    "subject": {
+      "en": "Verify it’s you · Curbside",
+      "zh": "验证您的身份 · 泊查"
+    },
+    "variables": [
+      "Email",
+      "Token",
+      "SiteURL"
+    ]
+  },
+  {
+    "file": "password-changed.html",
+    "dashboardTemplate": "Password changed",
+    "subject": {
+      "en": "Your password was changed · Curbside",
+      "zh": "您的密码已更改 · 泊查"
+    },
+    "variables": [
+      "Email",
+      "SiteURL"
+    ]
+  },
+  {
+    "file": "email-address-changed.html",
+    "dashboardTemplate": "Email Address changed",
+    "subject": {
+      "en": "Your email address was changed · Curbside",
+      "zh": "您的邮箱已更改 · 泊查"
+    },
+    "variables": [
+      "OldEmail",
+      "Email",
+      "SiteURL"
+    ]
+  },
+  {
+    "file": "phone-number-changed.html",
+    "dashboardTemplate": "Phone number changed",
+    "subject": {
+      "en": "Your phone number was changed · Curbside",
+      "zh": "您的手机号已更改 · 泊查"
+    },
+    "variables": [
+      "OldPhone",
+      "Phone",
+      "SiteURL"
+    ]
+  },
+  {
+    "file": "sign-in-method-linked.html",
+    "dashboardTemplate": "Sign in method linked",
+    "subject": {
+      "en": "A sign-in method was linked · Curbside",
+      "zh": "已关联新的登录方式 · 泊查"
+    },
+    "variables": [
+      "Email",
+      "Provider",
+      "SiteURL"
+    ]
+  },
+  {
+    "file": "sign-in-method-removed.html",
+    "dashboardTemplate": "Sign in method removed",
+    "subject": {
+      "en": "A sign-in method was removed · Curbside",
+      "zh": "已移除一种登录方式 · 泊查"
+    },
+    "variables": [
+      "Email",
+      "Provider",
+      "SiteURL"
+    ]
+  }
+]

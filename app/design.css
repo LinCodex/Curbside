@@ -81,12 +81,22 @@ body {
   background: var(--bg);
 }
 .city-backdrop-image {
-  opacity: 0.45;
+  opacity: 1;
+  filter: brightness(1.5) contrast(1.08);
 }
 .app:not([data-view="map"]) .map-vignette {
   background:
-    linear-gradient(90deg, var(--bg), transparent 160%),
-    linear-gradient(0deg, var(--bg), transparent 90%);
+    linear-gradient(90deg, #0b0d105c, transparent 72%),
+    linear-gradient(0deg, #0b0d1066, transparent 55%);
+}
+html[data-theme="light"] .city-backdrop-image {
+  opacity: 1;
+  filter: brightness(0.84) contrast(1.22);
+}
+html[data-theme="light"] .app:not([data-view="map"]) .map-vignette {
+  background:
+    linear-gradient(90deg, #f3f4f652, transparent 70%),
+    linear-gradient(0deg, #f3f4f64d, transparent 50%);
 }
 .ambient-grain {
   display: none;
@@ -696,6 +706,21 @@ html[data-theme="light"] .toast {
 }
 .welcome-title {
   animation: none;
+  text-align: center;
+  width: 100%;
+}
+.welcome-title > .eyebrow {
+  display: block;
+  width: 100%;
+}
+.welcome-title :is(h1, p) {
+  margin-inline: auto;
+}
+.welcome-title :is(.welcome-source, .welcome-features) {
+  justify-content: center;
+}
+html[lang="zh-Hans"] .wordmark {
+  letter-spacing: 0.02em;
 }
 .search-dock {
   animation: instrument-enter 260ms 30ms var(--ease-out) both;
@@ -732,6 +757,9 @@ html[data-theme="light"] .toast {
 }
 .map-results {
   padding: 20px;
+}
+.view-map .map-results .dock-footer {
+  padding-bottom: 0;
 }
 .map-results .ticket {
   padding: 12px;
@@ -2150,6 +2178,24 @@ html[data-theme="light"] .app :is(.desktop-nav, .mobile-nav) {
 .app :is(.desktop-nav, .mobile-nav) button {
   z-index: 2;
 }
+.app :is(.desktop-nav, .mobile-nav) {
+  transform-origin: center center;
+  transition:
+    opacity 180ms ease,
+    transform 240ms var(--ease-out);
+}
+.app .desktop-nav.dock-hidden {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.86);
+  pointer-events: none;
+}
+.app .mobile-nav.dock-hidden {
+  opacity: 0;
+  transform: translateY(12px) scale(0.82);
+  pointer-events: none;
+  filter: none;
+  -webkit-filter: none;
+}
 @media (max-width: 800px) {
   .app .mobile-nav::before {
     background: color-mix(in srgb, var(--panel) 94%, transparent);
@@ -2346,6 +2392,158 @@ html[data-theme="light"] .app :is(.desktop-nav, .mobile-nav) {
   align-items: center;
   gap: 12px;
 }
+
+/* Legal navigation separates app destinations, policies, and article sections. */
+.legal-header {
+  padding-top: calc(20px + env(safe-area-inset-top, 0px));
+  border-color: var(--line);
+}
+.legal-header-nav {
+  gap: 4px;
+  margin-left: auto;
+  margin-right: 12px;
+}
+.legal-main-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 14px;
+  color: var(--muted);
+  border-radius: 12px;
+  font-size: 13px;
+  text-decoration: none;
+  transition:
+    background-color 180ms var(--ease-out),
+    color 180ms var(--ease-out);
+}
+.legal-main-link:hover {
+  color: var(--text);
+  background: var(--accent-soft);
+}
+.legal-nav {
+  position: sticky;
+  top: calc(20px + env(safe-area-inset-top, 0px));
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 18px;
+  max-height: calc(100dvh - 40px - env(safe-area-inset-top, 0px));
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+  padding: 2px 4px 4px 2px;
+}
+.legal-policy-navigation,
+.legal-contents {
+  padding: 14px 10px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  margin: 0;
+}
+.legal-navigation-label {
+  margin: 0 10px 8px;
+  font-size: 11px;
+  line-height: 18px;
+  font-weight: 650;
+  color: var(--muted);
+}
+.legal-nav a {
+  align-items: flex-start;
+  line-height: 1.6;
+  padding: 10px;
+  min-height: 44px;
+}
+.legal-nav a svg {
+  margin-top: 3px;
+}
+.legal-section-select {
+  display: none;
+}
+.legal-section-links a[aria-current="location"],
+html[data-theme="light"] .legal-section-links a[aria-current="location"] {
+  color: var(--blue);
+  background: var(--accent-soft);
+  border-color: var(--line);
+}
+.legal-section-number {
+  color: var(--muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  min-width: 18px;
+  padding-top: 2px;
+}
+.legal-document [id] {
+  scroll-margin-top: 28px;
+}
+@media (max-width: 800px) {
+  .legal-header {
+    padding: calc(16px + env(safe-area-inset-top, 0px)) 20px 12px;
+    gap: 12px;
+  }
+  .legal-header-nav {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    order: 3;
+    width: 100%;
+    margin: 0;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+  }
+  .legal-main-link {
+    flex-direction: column;
+    gap: 5px;
+    padding: 8px 4px;
+    font-size: 11px;
+  }
+  .legal-nav {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 12;
+    flex-direction: column;
+    gap: 0;
+    padding: 12px;
+    max-height: none;
+    overflow: visible;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: var(--panel);
+  }
+  .legal-policy-navigation,
+  .legal-contents {
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+  .legal-contents {
+    margin-top: 12px;
+  }
+  .legal-navigation-label {
+    margin: 0 0 5px;
+    font-size: 10px;
+  }
+  .legal-section-select {
+    display: block;
+  }
+  .legal-section-links {
+    display: none;
+  }
+  .legal-nav .custom-select-trigger {
+    width: 100%;
+    min-height: 44px;
+  }
+  .legal-nav .custom-select-trigger > span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .legal-document [id] {
+    scroll-margin-top: calc(202px + env(safe-area-inset-top, 0px));
+  }
+}
 .auth-intro p {
   margin: 0;
   font-size: 14px;
@@ -2419,6 +2617,10 @@ html[data-theme="light"] .app :is(.desktop-nav, .mobile-nav) {
   .app[data-view="map"] .map-results.map-box-minimized {
     height: auto;
     max-height: 84px;
+  }
+  .app[data-view="map"]
+    .map-results:not(.map-results-compact):not(.map-box-minimized):has(> .empty) {
+    height: auto;
   }
   .app[data-view="map"] .atlas {
     bottom: 0;

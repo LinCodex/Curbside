@@ -37,3 +37,14 @@ Sign-in, emails, SMS, billing, private evidence, and partner filing need configu
 - TypeScript, all 27 tests, and the Vercel production build pass. Account language changes no longer reset the saved garage.
 - Live Supabase transaction checks pass for consent gating, owner isolation, rename, duplicate prevention, anonymous denial, immutable ownership, and protected consent timestamps. Temporary fixtures were rolled back. Security and performance advisors report no findings after the hardening migration.
 - Public signup/confirmation and password-reset email delivery remain unverified pending custom SMTP and production redirect/environment configuration. See `SUPABASE_SETUP.md`. Supabase accounts currently support saving cars only; notification, billing, and partner workflows remain outside this release.
+
+## October 1 interface and email follow-up
+
+- Registration and recovery show and validate an eight-character minimum with ASCII lowercase, uppercase, and a digit. Symbols remain optional. Existing-password sign-in is unchanged; hosted Supabase password settings were not modified.
+- Settings changes preview across the app without writing the draft to browser preferences. Cancel restores the previous appearance/language; Apply persists them after reload. Closing the popup clears preview and restores the dock.
+- Legal pages have app destination links, policy navigation, and separate section navigation. Desktop uses a sticky sidebar; mobile uses custom policy/section menus. Anchors clear the mobile controls and the section selection follows scroll position. Contact and source references are included.
+- Dock checks at 390 × 844: visible after 42px and 84px downward scroll, hidden after 127px, visible after upward scrolling. The configured hide threshold is 96px; motion uses only opacity and scale/translation and respects reduced motion.
+- Static map overlays are lighter in both themes; light-map brightness is reduced before contrast so its roads are not clipped to white. The interactive map styling is unchanged.
+- All 22 English/Chinese email HTML files pass variable/dependency/table checks. Browser previews cover signup and Chinese reauthentication at phone width. These files are ready to paste into Supabase, but have not been installed or sent; real inbox compatibility and delivery still require provider tests.
+- The hero eyebrow, two-line heading, and subtitle share centered alignment. Chinese interfaces use the short wordmark “泊查.”, while English retains “curbside.”. Chinese email copy uses the same name and identifies Curbside in the footer.
+- Empty mobile map panels fit their content instead of reserving a full ticket-list height. The footer-to-container gap measures 15px on a 390px phone and 21px on desktop, including the border; populated lists retain their scroll area. The final Vercel build and public credential audit pass.

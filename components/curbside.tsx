@@ -136,7 +136,6 @@ export default function Curbside() {
   const currentAuthId = useRef<string | undefined>(undefined);
   currentAuthId.current = auth.user?.id;
   const [dockHidden, setDockHidden] = useState(false);
-  const lastScrollY = useRef(0);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const challenge = useRef("");
   const challengeEl = useRef<HTMLDivElement>(null);
@@ -242,41 +241,69 @@ export default function Curbside() {
     } else if (view === "account") {
       sub = "Settings";
     }
-    document.title = `Curbside | ${tr(sub)}`;
-  }, [plate, results?.query?.plate, view, tr]);
+    document.title = `${locale === "zh" ? "泊查" : "Curbside"} | ${tr(sub)}`;
+  }, [plate, results?.query?.plate, view, tr, locale]);
   useEffect(() => {
-    let ticking = false;
-    const onScroll = () => {
-      if (ticking) return;
-      ticking = true;
-      requestAnimationFrame(() => {
-        const y = window.scrollY || document.documentElement.scrollTop || 0;
-        const delta = y - lastScrollY.current;
-        const pageHeight = document.documentElement.scrollHeight;
-        const viewportHeight = window.innerHeight;
-        const nearBottom = y + viewportHeight >= pageHeight - 60;
-        const nearTop = y <= 45;
-
-        if (
-          window.innerWidth <= 800 ||
-          view === "map" ||
-          nearTop ||
-          nearBottom
-        ) {
-          setDockHidden(false);
-        } else if (delta > 8 && y > 60) {
-          setDockHidden(true);
-        } else if (delta < -8) {
-          setDockHidden(false);
-        }
-        lastScrollY.current = y;
-        ticking = false;
+    const positions = new Map<EventTarget, { y: number; travel: number }>();
+    positions.set(document, { y: Math.max(0, window.scrollY), travel: 0 });
+    document
+      .querySelectorAll<HTMLElement>(
+        ".main-view, .main-view .ticket-list, .main-view .content-page",
+      )
+      .forEach((element) => {
+        positions.set(element, {
+          y: Math.max(0, element.scrollTop),
+          travel: 0,
+        });
       });
+    setDockHidden(false);
+    let frame = 0;
+    let source: HTMLElement | null = null;
+    const update = () => {
+      frame = 0;
+      const target = source || document;
+      const y = Math.max(0, source ? source.scrollTop : window.scrollY);
+      const max = source
+        ? source.scrollHeight - source.clientHeight
+        : document.documentElement.scrollHeight - window.innerHeight;
+      const previous = positions.get(target) || { y: 0, travel: 0 };
+      const delta = y - previous.y;
+      const travel =
+        Math.sign(delta) === Math.sign(previous.travel)
+          ? previous.travel + delta
+          : delta;
+      positions.set(target, { y, travel });
+      // Keep keyboard navigation visible and ignore Safari overscroll edges.
+      if (
+        y <= 12 ||
+        y >= max - 8 ||
+        document.activeElement?.matches(
+          ".desktop-nav button:focus-visible, .mobile-nav button:focus-visible",
+        )
+      ) {
+        setDockHidden(false);
+      } else if (travel >= 96 && y > 60) {
+        setDockHidden(true);
+      } else if (travel < -12) {
+        setDockHidden(false);
+      }
     };
-
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [view]);
+    const onScroll = (event: Event) => {
+      if (sheet || authOpen || purchase) return;
+      const element = event.target instanceof HTMLElement ? event.target : null;
+      if (element && !element.closest(".main-view")) return;
+      source = element;
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    document.addEventListener("scroll", onScroll, {
+      passive: true,
+      capture: true,
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("scroll", onScroll, true);
+    };
+  }, [view, sheet, authOpen, purchase]);
   useEffect(() => {
     // View changes should never inherit a scrolled-down position from Search.
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -655,7 +682,6 @@ export default function Curbside() {
     setError("");
     setSheet(null);
     setDockHidden(false);
-    lastScrollY.current = 0;
   };
   return (
     <div
@@ -721,10 +747,12 @@ export default function Curbside() {
             <span />
             <span />
           </span>
-          curbside<span className="brand-period">.</span>
+          {locale === "zh" ? "泊查" : "curbside"}
+          <span className="brand-period">.</span>
         </button>
         <nav
-          className="desktop-nav"
+          className={`desktop-nav ${dockHidden ? "dock-hidden" : ""}`}
+          inert={dockHidden}
           data-active={Math.max(
             0,
             nav.findIndex((n) => n.id === view),
@@ -1870,6 +1898,7 @@ export default function Curbside() {
       />
       <nav
         className={`mobile-nav ${dockHidden ? "dock-hidden" : ""}`}
+        inert={dockHidden}
         data-active={Math.max(
           0,
           nav.findIndex((n) => n.id === view),
