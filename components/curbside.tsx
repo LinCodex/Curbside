@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -58,6 +59,8 @@ import { LEGAL_VERSION, OFFERS } from "@/lib/legal";
 import { FREE_ACCESS } from "@/lib/release";
 import { useSupabaseAccount } from "./use-supabase-account";
 import AuthPanel from "./auth-panel";
+import AccountDetails from "./account-details";
+import { combinedGarageHistory } from "@/lib/garage-history";
 import { savedAccountRequest } from "@/lib/supabase-account";
 import WelcomeOnboarding from "./welcome-onboarding";
 import BotChallenge from "./bot-challenge";
@@ -119,8 +122,10 @@ export default function Curbside() {
   const [purchase, setPurchase] = useState<string | null>(null);
   const [purchaseConsent, setPurchaseConsent] = useState(false);
   const [termsConsent, setTermsConsent] = useState(false);
+  const [deleteConfirmed, setDeleteConfirmed] = useState(false);
   const purchaseResolve = useRef<((accepted: boolean) => void) | null>(null);
   const [mapSelection, setMapSelection] = useState("");
+  const [mapVehicleId, setMapVehicleId] = useState("");
   const [mapFilter, setMapFilter] = useState("all");
   const [mapBoxMinimized, setMapBoxMinimized] = useState(false);
   const [correctingAddress, setCorrectingAddress] = useState(false);
@@ -130,9 +135,9 @@ export default function Curbside() {
   const [installGuideRequest, setInstallGuideRequest] = useState(0);
   const supabaseMode = !!config.supabase;
   const [authOpen, setAuthOpen] = useState(false);
-  const [authInitialMode, setAuthInitialMode] = useState<"login" | "register">(
-    "login",
-  );
+  const [authInitialMode, setAuthInitialMode] = useState<
+    "login" | "register" | "reset"
+  >("login");
   const [onboardingOpen, setOnboardingOpen] = useState<boolean | null>(null);
   const currentAuthId = useRef<string | undefined>(undefined);
   useLayoutEffect(() => {
@@ -142,8 +147,13 @@ export default function Curbside() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const challenge = useRef("");
   const [captchaReset, setCaptchaReset] = useState(0);
+  const [captchaRequired, setCaptchaRequired] = useState(false);
   const receiveChallenge = useCallback((token: string) => {
     challenge.current = token;
+    if (token) {
+      setCaptchaRequired(false);
+      setError("");
+    }
   }, []);
   const challengeEl = useRef<HTMLDivElement>(null);
   const notify = useCallback((s: string) => {
@@ -492,7 +502,10 @@ export default function Curbside() {
           vehicle.plate_type === p.plateType,
       )?.snapshot as SearchResult | undefined;
       if (saved) {
+        setError("");
+        setCaptchaRequired(false);
         setResults(saved);
+        setMapVehicleId("");
         setPlate(p.plate);
         setState(p.state);
         setPlateType(p.plateType);
@@ -503,6 +516,14 @@ export default function Curbside() {
           complete: saved.complete,
           unavailable: saved.unavailable,
         };
+      }
+      if (config.hcaptchaKey && !challenge.current) {
+        const message = tr(
+          "Please complete the security check before searching.",
+        );
+        setError(message);
+        setCaptchaRequired(true);
+        throw new Error(message);
       }
       setBusy(true);
       setError("");
@@ -521,6 +542,7 @@ export default function Curbside() {
         if (!r.ok && !j.sources)
           throw new Error(j.error || tr("NYC sources are unavailable."));
         setResults(j);
+        setMapVehicleId("");
         setPlate(p.plate);
         setState(p.state);
         setPlateType(p.plateType);
@@ -541,7 +563,7 @@ export default function Curbside() {
         (window as any).turnstile?.reset();
       }
     },
-    [tr, account?.vehicles],
+    [tr, account?.vehicles, config.hcaptchaKey],
   );
   useEffect(() => {
     const context = (document as any).modelContext;
@@ -573,6 +595,12 @@ export default function Curbside() {
     return () => life.abort();
   }, [search]);
   const vehicles = account?.vehicles || [];
+  const allVehicles = vehicleId === "all" && vehicles.length > 0;
+  const allHistory = useMemo(
+    () =>
+      combinedGarageHistory(account?.vehicles || [], account?.tickets || []),
+    [account?.vehicles, account?.tickets],
+  );
   const activeVehicle =
     vehicles.find((v: any) => v.id === vehicleId) || vehicles[0];
   const currentVehicleResults =
@@ -581,15 +609,45 @@ export default function Curbside() {
     results?.query.plate === activeVehicle.plate &&
     results?.query.state === activeVehicle.state &&
     results?.query.plateType === activeVehicle.plate_type;
-  const garageTickets = currentVehicleResults
-    ? results?.tickets || []
-    : activeVehicle?.snapshot?.tickets ||
-      (account?.tickets || []).filter(
-        (t: any) => !activeVehicle || t.vehicleId === activeVehicle.id,
-      );
+  const garageTickets = allVehicles
+    ? allHistory.tickets
+    : currentVehicleResults
+      ? results?.tickets || []
+      : activeVehicle?.snapshot?.tickets ||
+        (account?.tickets || []).filter(
+          (t: any) => !activeVehicle || t.vehicleId === activeVehicle.id,
+        );
   const tickets: Violation[] = results?.tickets || garageTickets;
+  const searchedVehicle =
+    results &&
+    vehicles.find(
+      (v: any) =>
+        v.plate === results.query.plate &&
+        v.state === results.query.state &&
+        v.plate_type === results.query.plateType,
+    );
+  const mapScope =
+    mapVehicleId === "all" || vehicles.some((v: any) => v.id === mapVehicleId)
+      ? mapVehicleId
+      : results
+        ? searchedVehicle?.id || "search"
+        : allVehicles
+          ? "all"
+          : activeVehicle?.id || "search";
+  const mapVehicle = vehicles.find((v: any) => v.id === mapScope);
+  const scopedMapTickets =
+    mapScope === "all"
+      ? allHistory.tickets
+      : mapVehicle
+        ? searchedVehicle?.id === mapScope
+          ? results!.tickets
+          : mapVehicle.snapshot?.tickets ||
+            (account?.tickets || []).filter(
+              (t: any) => t.vehicleId === mapVehicle.id,
+            )
+        : tickets;
   const locations = useMapLocations(
-    tickets,
+    scopedMapTickets,
     config.mapboxToken,
     view === "map",
   );
@@ -679,15 +737,29 @@ export default function Curbside() {
           </span>
         </button>
       </div>
-      {config.hcaptchaKey ? (
-        <BotChallenge
-          siteKey={config.hcaptchaKey}
-          onToken={receiveChallenge}
-          resetKey={captchaReset}
-        />
-      ) : (
-        <div className="challenge-container" ref={challengeEl} />
-      )}
+      {!authOpen &&
+        !auth.recovering &&
+        (config.hcaptchaKey ? (
+          <div
+            className={
+              "search-verification" +
+              (captchaRequired ? " verification-needed" : "")
+            }
+          >
+            <BotChallenge
+              siteKey={config.hcaptchaKey}
+              onToken={receiveChallenge}
+              resetKey={captchaReset}
+            />
+            {captchaRequired && (
+              <p className="error-text" role="alert">
+                {tr("Please complete the security check before searching.")}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="challenge-container" ref={challengeEl} />
+        ))}
       <button className="primary-action" disabled={busy || offline}>
         {busy ? (
           <LoaderCircle className="spin" size={19} />
@@ -697,7 +769,7 @@ export default function Curbside() {
         {busy ? tr("Checking NYC records…") : tr("Check my vehicle")}
         <ArrowRight size={18} />
       </button>
-      {error && (
+      {error && !captchaRequired && (
         <p className="error-text" role="alert">
           {tr(error)}
         </p>
@@ -957,13 +1029,28 @@ export default function Curbside() {
           <section className="vehicle-scene view-enter">
             <div className="scene-top">
               <div className="segmented">
+                <button
+                  className={allVehicles ? "active" : ""}
+                  aria-pressed={allVehicles}
+                  onClick={() => {
+                    setVehicleId("all");
+                    setResults(null);
+                    setMapVehicleId("all");
+                    setMapSelection("");
+                  }}
+                >
+                  {tr("All vehicles")}
+                </button>
                 {vehicles.map((v: any) => (
                   <button
                     key={v.id}
-                    className={activeVehicle.id === v.id ? "active" : ""}
+                    className={
+                      !allVehicles && activeVehicle.id === v.id ? "active" : ""
+                    }
                     onClick={() => {
                       setVehicleId(v.id);
                       setResults(v.snapshot || null);
+                      setMapVehicleId("");
                       setMapSelection("");
                     }}
                   >
@@ -982,29 +1069,39 @@ export default function Curbside() {
             <div className="vehicle-identity">
               <div className="garage-overview">
                 <div className="eyebrow">
-                  {activeVehicle.state} /{" "}
-                  {activeVehicle.plate_type || tr("All plate types")}
+                  {allVehicles ? (
+                    `${vehicles.length} ${tr("saved vehicles")}`
+                  ) : (
+                    <>
+                      {activeVehicle.state} /{" "}
+                      {activeVehicle.plate_type || tr("All plate types")}
+                    </>
+                  )}
                 </div>
-                <h1>{activeVehicle.plate}</h1>
+                <h1>
+                  {allVehicles ? tr("All vehicles") : activeVehicle.plate}
+                </h1>
                 <div className="vehicle-subtitle">
-                  {activeVehicle.nickname && (
+                  {!allVehicles && activeVehicle.nickname && (
                     <span className="vehicle-nickname">
                       {activeVehicle.nickname}
                     </span>
                   )}
                   <span className="vehicle-check-time">
                     <Clock3 size={12} />
-                    {activeVehicle.checked_at
-                      ? tr("Checked ") +
-                        niceDate(
-                          new Date(activeVehicle.checked_at).toISOString(),
-                          locale,
-                        )
-                      : tr(
-                          supabaseMode
-                            ? "Saved vehicle"
-                            : "Initial scan pending",
-                        )}
+                    {allVehicles
+                      ? tr("Combined saved histories")
+                      : activeVehicle.checked_at
+                        ? tr("Checked ") +
+                          niceDate(
+                            new Date(activeVehicle.checked_at).toISOString(),
+                            locale,
+                          )
+                        : tr(
+                            supabaseMode
+                              ? "Saved vehicle"
+                              : "Initial scan pending",
+                          )}
                   </span>
                 </div>
                 <div className="scene-summary">
@@ -1029,33 +1126,68 @@ export default function Curbside() {
                     </strong>
                     <span>{tr("Open tickets")}</span>
                   </div>
-                  <button className="pill" onClick={() => setSheet("vehicle")}>
-                    <SlidersHorizontal size={15} />
-                    {tr("Vehicle settings")}
-                  </button>
+                  {!allVehicles && (
+                    <button
+                      className="pill"
+                      onClick={() => setSheet("vehicle")}
+                    >
+                      <SlidersHorizontal size={15} />
+                      {tr("Vehicle settings")}
+                    </button>
+                  )}
                 </div>
-                <PlateBalance tickets={garageTickets} />
+                <PlateBalance
+                  tickets={garageTickets}
+                  complete={
+                    allVehicles
+                      ? allHistory.complete
+                      : activeVehicle.snapshot?.complete
+                  }
+                />
+                {supabaseMode &&
+                  allVehicles &&
+                  allHistory.ready < vehicles.length && (
+                    <p className="small muted">
+                      {allHistory.ready} / {vehicles.length}{" "}
+                      {tr(
+                        "saved histories ready. Remaining vehicles are still being checked.",
+                      )}
+                    </p>
+                  )}
               </div>
-              {supabaseMode && (
+              {allVehicles ? (
                 <button
                   className="primary-action garage-check-action"
-                  disabled={busy}
-                  onClick={() =>
-                    search({
-                      plate: activeVehicle.plate,
-                      state: activeVehicle.state,
-                      plateType: activeVehicle.plate_type,
-                      history,
-                    }).catch(() => {})
-                  }
+                  onClick={() => {
+                    setMapVehicleId("all");
+                    go("map");
+                  }}
                 >
-                  <Search size={17} />
-                  {tr(
-                    activeVehicle.snapshot
-                      ? "View full history"
-                      : "Check this vehicle",
-                  )}
+                  <MapPin size={17} />
+                  {tr("View all locations")}
                 </button>
+              ) : (
+                supabaseMode && (
+                  <button
+                    className="primary-action garage-check-action"
+                    disabled={busy}
+                    onClick={() =>
+                      search({
+                        plate: activeVehicle.plate,
+                        state: activeVehicle.state,
+                        plateType: activeVehicle.plate_type,
+                        history,
+                      }).catch(() => {})
+                    }
+                  >
+                    <Search size={17} />
+                    {tr(
+                      activeVehicle.snapshot
+                        ? "View full history"
+                        : "Check this vehicle",
+                    )}
+                  </button>
+                )
               )}
               {detailMode === "geek" && <VehicleData tickets={garageTickets} />}
               <div className="glass activity-dock">
@@ -1068,14 +1200,21 @@ export default function Curbside() {
                 </div>
                 {garageTickets.length ? (
                   <TicketList
-                    tickets={garageTickets.slice(0, 5)}
+                    tickets={
+                      allVehicles ? garageTickets : garageTickets.slice(0, 5)
+                    }
+                    showPlate={allVehicles}
                     onSelect={openTicket}
                   />
                 ) : (
                   <p className="small muted">
                     {tr(
                       supabaseMode
-                        ? activeVehicle.snapshot
+                        ? (
+                            allVehicles
+                              ? allHistory.ready === vehicles.length
+                              : activeVehicle.snapshot
+                          )
                           ? "No tickets found in the saved history."
                           : "Preparing your saved history. It will appear here automatically."
                         : "No records saved yet. A complete source scan establishes your baseline before new-ticket alerts begin.",
@@ -1290,6 +1429,35 @@ export default function Curbside() {
                   {tr("with an address")}
                 </span>
               </div>
+              {vehicles.length > 1 && (
+                <div className="map-vehicle-picker">
+                  <CustomSelect
+                    label="Map vehicle"
+                    value={mapScope}
+                    onChange={(id) => {
+                      setMapVehicleId(id);
+                      setMapSelection("");
+                      setMapBoxMinimized(false);
+                      setCorrectingAddress(false);
+                    }}
+                    options={[
+                      { value: "all", label: tr("All vehicles") },
+                      ...vehicles.map((v: any) => ({
+                        value: v.id,
+                        label: `${v.nickname || v.plate} · ${v.plate} (${v.state})`,
+                      })),
+                      ...(results && !searchedVehicle
+                        ? [
+                            {
+                              value: "search",
+                              label: `${tr("Current search")} · ${results.query.plate}`,
+                            },
+                          ]
+                        : []),
+                    ]}
+                  />
+                </div>
+              )}
             </div>
             <div
               className={
@@ -1381,7 +1549,7 @@ export default function Curbside() {
                       "Addresses work too. Select a ticket to explore its location.",
                     )}
                   </p>
-                  {!!tickets.length && (
+                  {!!scopedMapTickets.length && (
                     <div className="tabs" aria-label={tr("Map ticket filters")}>
                       {[
                         ["all", tr("All tickets")],
@@ -1410,16 +1578,27 @@ export default function Curbside() {
                       {tr(locations.error)}
                     </p>
                   )}
+                  {locations.hasMore && (
+                    <button
+                      className="text-link"
+                      disabled={locations.resolving}
+                      onClick={locations.resolveMore}
+                    >
+                      {tr("Locate more addresses")}
+                      <MapPin size={13} />
+                    </button>
+                  )}
                   {mapTickets.length ? (
                     <TicketList
                       tickets={mapTickets}
                       onSelect={selectMapTicket}
+                      showPlate={mapScope === "all"}
                     />
                   ) : (
                     <div className="empty">
                       <MapPin size={27} />
                       <h2>
-                        {tickets.length
+                        {scopedMapTickets.length
                           ? tr("No tickets match this filter.")
                           : tr("No ticket locations yet.")}
                       </h2>
@@ -1434,19 +1613,6 @@ export default function Curbside() {
                       </button>
                     </div>
                   )}
-                  {locations.hasMore && (
-                    <button
-                      className="text-link"
-                      disabled={locations.resolving}
-                      onClick={locations.resolveMore}
-                    >
-                      {tr("Locate more addresses")}
-                      <MapPin size={13} />
-                    </button>
-                  )}
-                  <div className="dock-footer">
-                    {tr("Only matched addresses appear on the map.")}
-                  </div>
                 </>
               )}
               {mapTicket && mapBoxMinimized && (
@@ -1782,6 +1948,23 @@ export default function Curbside() {
                         services={config.services}
                       />
                     )}
+                    {supabaseMode && (
+                      <button
+                        className="account-tool"
+                        onClick={() => setSheet("account-details")}
+                      >
+                        <span className="account-tool-icon">
+                          <UserRound size={19} />
+                        </span>
+                        <span>
+                          <strong>{tr("Account details")}</strong>
+                          <small>
+                            {tr("Email, password, and phone number")}
+                          </small>
+                        </span>
+                        <ChevronRight size={16} />
+                      </button>
+                    )}
                     <button
                       className="button ghost"
                       onClick={() => void signOut()}
@@ -2047,6 +2230,9 @@ export default function Curbside() {
               client={auth.client}
               recovering={auth.recovering}
               initialMode={authInitialMode}
+              initialEmail={
+                authInitialMode === "reset" ? auth.user?.email : undefined
+              }
               onComplete={() => {
                 setAuthOpen(false);
                 auth.setRecovering(false);
@@ -2227,22 +2413,41 @@ export default function Curbside() {
           title={
             sheet === "preferences"
               ? tr("Display settings")
-              : sheet === "ticket"
-                ? tr("Violation details")
-                : sheet === "save"
-                  ? tr("Add to your garage")
-                  : sheet === "dispute"
-                    ? tr("Your dispute workspace")
-                    : sheet === "vehicle"
-                      ? tr("Vehicle settings")
-                      : sheet === "privacy"
-                        ? tr("Your data. Your control.")
-                        : sheet === "delete"
-                          ? tr("Delete saved data?")
-                          : tr("Account activation")
+              : sheet === "account-details"
+                ? tr("Account details")
+                : sheet === "ticket"
+                  ? tr("Violation details")
+                  : sheet === "save"
+                    ? tr("Add to your garage")
+                    : sheet === "dispute"
+                      ? tr("Your dispute workspace")
+                      : sheet === "vehicle"
+                        ? tr("Vehicle settings")
+                        : sheet === "privacy"
+                          ? tr("Your data. Your control.")
+                          : sheet === "delete"
+                            ? tr("Delete saved data?")
+                            : sheet === "delete-account"
+                              ? tr("Delete account?")
+                              : tr("Account activation")
           }
           close={() => setSheet(null)}
         >
+          {sheet === "account-details" && auth.user && (
+            <AccountDetails
+              key={auth.user.id}
+              onDeleteAccount={() => {
+                setDeleteConfirmed(false);
+                setError("");
+                setSheet("delete-account");
+              }}
+              onResetPassword={() => {
+                setSheet(null);
+                setAuthInitialMode("reset");
+                setAuthOpen(true);
+              }}
+            />
+          )}
           {sheet === "preferences" && (
             <PreferencesPanel
               onCancel={() => setSheet(null)}
@@ -2707,7 +2912,7 @@ export default function Curbside() {
                 className="primary-action"
                 onClick={() =>
                   perform(async () => {
-                    await api("account", "DELETE");
+                    await api(supabaseMode ? "garage" : "account", "DELETE");
                     setAccount(null);
                     setSheet(null);
                     await signOut();
@@ -2715,6 +2920,72 @@ export default function Curbside() {
                 }
               >
                 {tr("Delete my saved data")}
+              </button>
+              {supabaseMode && (
+                <button
+                  className="text-link"
+                  onClick={() => {
+                    setDeleteConfirmed(false);
+                    setError("");
+                    setSheet("delete-account");
+                  }}
+                >
+                  {tr("Delete account")}
+                </button>
+              )}
+            </div>
+          )}
+          {sheet === "delete-account" && supabaseMode && auth.user && (
+            <div className="stack">
+              <p>
+                {tr(
+                  "Permanently delete your login account, saved cars, preferences, and consent records. This cannot be undone. NYC public records and histories saved by other customers are not affected.",
+                )}
+              </p>
+              <p className="small muted">
+                {tr(
+                  "After deletion, you can sign up again with the same email. You will need to confirm a new email link.",
+                )}
+              </p>
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  checked={deleteConfirmed}
+                  onChange={(event) => setDeleteConfirmed(event.target.checked)}
+                  disabled={busy}
+                />
+                <span>
+                  {tr(
+                    "I understand that my account will be permanently deleted.",
+                  )}
+                </span>
+              </label>
+              {error && (
+                <p className="notice error" role="alert">
+                  {tr(error)}
+                </p>
+              )}
+              <button
+                className="primary-action"
+                disabled={!deleteConfirmed || busy}
+                onClick={() =>
+                  perform(async () => {
+                    await api("account", "DELETE", {
+                      confirmation: "DELETE_ACCOUNT",
+                    });
+                    setAccount(null);
+                    setResults(null);
+                    setSelected(null);
+                    setVehicleId("");
+                    setMapVehicleId("");
+                    setMapSelection("");
+                    setSheet(null);
+                    setView("garage");
+                  }, tr("Your account was deleted. You can sign up again with the same email."))
+                }
+              >
+                {busy && <LoaderCircle size={16} className="spin" />}
+                {tr("Permanently delete account")}
               </button>
             </div>
           )}
@@ -2792,10 +3063,12 @@ function TicketList({
   tickets,
   onSelect,
   activeId,
+  showPlate = false,
 }: {
   tickets: any[];
   onSelect: (t: any) => void;
   activeId?: string;
+  showPlate?: boolean;
 }) {
   const { tr, locale, detailMode } = usePreferences();
 
@@ -2813,6 +3086,11 @@ function TicketList({
           </div>
           <div className="ticket-main">
             <div className="ticket-reference">
+              {showPlate && (
+                <span className="ticket-plate-label">
+                  {t.plate} · {t.state}
+                </span>
+              )}
               {detailMode === "geek" && (
                 <>
                   <span className="mono">{t.id}</span>

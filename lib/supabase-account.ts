@@ -143,12 +143,25 @@ export async function savedAccountRequest(
     check(result.error);
     return { ok: true };
   }
-  if (path === "account" && method === "DELETE") {
+  if (path === "garage" && method === "DELETE") {
     const result = await client
       .from("curbside_vehicles")
       .delete()
       .eq("user_id", user.id);
     check(result.error);
+    return { ok: true };
+  }
+  if (path === "account" && method === "DELETE") {
+    if (input.confirmation !== "DELETE_ACCOUNT")
+      throw new Error("Confirm account deletion before continuing.");
+    const result = await client.functions.invoke("account-delete", {
+      body: { confirmation: "DELETE_ACCOUNT", userId: user.id },
+    });
+    if (result.error || result.data?.ok !== true)
+      throw new Error(
+        "Your account could not be deleted. It remains active. Please try again or contact support.",
+      );
+    await client.auth.signOut({ scope: "local" });
     return { ok: true };
   }
   throw new Error("This account currently supports saved cars only.");

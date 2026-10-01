@@ -759,6 +759,7 @@ html[lang="zh-Hans"] .wordmark {
   transition: none;
 }
 .map-scene-heading {
+  pointer-events: auto;
   display: inline-flex;
   flex-direction: column;
   align-self: flex-start;
@@ -779,7 +780,94 @@ html[lang="zh-Hans"] .wordmark {
   margin: 6px 0 0;
 }
 .map-results {
+  position: relative;
   padding: 20px;
+}
+.map-results:has(> .ticket-list)::after {
+  content: "";
+  position: absolute;
+  inset-inline: 20px;
+  bottom: 20px;
+  height: 22px;
+  pointer-events: none;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  mask-image: linear-gradient(transparent, #000);
+  -webkit-mask-image: linear-gradient(transparent, #000);
+}
+.app .view-map .map-results > .ticket-list {
+  padding-bottom: 26px;
+  scroll-padding-bottom: 26px;
+}
+.map-vehicle-picker {
+  margin-top: 10px;
+  min-width: 0;
+}
+.map-vehicle-picker .custom-select-trigger {
+  max-width: 100%;
+  min-height: 44px;
+  font-size: 12px;
+}
+.map-vehicle-picker .custom-select-trigger > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.ticket-plate-label {
+  font-weight: 650;
+  color: var(--text);
+}
+.account-details-panel {
+  display: grid;
+  gap: 20px;
+}
+.account-detail-section {
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+  border-radius: 18px;
+  padding: 18px;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.account-detail-section p,
+.account-detail-heading h3 {
+  margin: 0;
+}
+.account-detail-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.account-detail-heading h3 {
+  font-size: 14px;
+}
+.account-detail-heading .badge {
+  margin-inline-start: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.account-detail-value {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.account-detail-section .button {
+  justify-self: start;
+  min-height: 44px;
+}
+.account-detail-unavailable {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+  display: grid;
+  gap: 8px;
+}
+.account-delete-link {
+  justify-self: start;
+  color: var(--muted);
+  margin-top: 4px;
 }
 .view-map .map-results .dock-footer {
   padding-bottom: 0;
@@ -864,6 +952,7 @@ html[lang="zh-Hans"] .wordmark {
   }
   .view-map .map-results {
     width: min(420px, 42vw);
+    margin-inline-start: auto;
   }
 }
 @media (max-width: 1100px) and (min-width: 801px) {
@@ -1466,7 +1555,7 @@ html[lang="zh-Hans"] .wordmark {
 .vehicle-data {
   margin-block: 20px;
   padding: 18px;
-  background: var(--surface-soft);
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 16px;
 }
@@ -2622,15 +2711,28 @@ html[data-theme="light"] .legal-section-links a[aria-current="location"] {
     padding-bottom: calc(86px + var(--safe-bottom)) !important;
   }
   .app[data-view="map"] .map-scene {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 12px;
+    align-items: stretch;
     min-height: 0;
     flex: 1 1 0;
   }
   .app[data-view="map"] .map-scene-heading {
-    top: 8px;
+    position: static;
+    pointer-events: auto;
+    justify-self: start;
+    max-width: 100%;
   }
   .app[data-view="map"] .map-results {
+    align-self: end;
+    min-height: 0;
     margin-bottom: 0;
     max-height: 100%;
+  }
+  .app[data-view="map"] .map-results:has(> .ticket-list)::after {
+    inset-inline: 16px;
+    bottom: 16px;
   }
   .app[data-view="map"]
     .map-results:not(.map-results-compact):not(.map-box-minimized) {
@@ -2784,12 +2886,62 @@ html[data-theme="light"] .legal-section-links a[aria-current="location"] {
 }
 .bot-challenge {
   display: grid;
-  justify-content: center;
-  min-height: 78px;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+  min-width: 0;
   max-width: 100%;
 }
+.bot-challenge-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.bot-challenge-heading > span {
+  font-weight: 600;
+  color: var(--text);
+}
+.bot-challenge-heading > svg {
+  flex-shrink: 0;
+}
+.bot-challenge-heading small {
+  margin-inline-start: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+}
+.bot-challenge[data-verified="true"] .bot-challenge-heading small {
+  color: var(--green);
+}
+.bot-challenge-widget {
+  display: flex;
+  justify-content: center;
+  min-width: 0;
+  min-height: 78px;
+  width: 100%;
+}
+.bot-challenge-widget[data-size="compact"] {
+  min-height: 144px;
+}
+.bot-challenge-loading {
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+}
+.verification-needed .bot-challenge {
+  border-color: var(--amber);
+}
+.search-verification > .error-text {
+  margin: 8px 2px 0;
+}
 .bot-challenge .notice {
-  max-width: 304px;
   display: grid;
   gap: 8px;
 }

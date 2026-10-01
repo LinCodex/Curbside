@@ -22,11 +22,13 @@ export default function AuthPanel({
   recovering,
   onComplete,
   initialMode = "login",
+  initialEmail = "",
 }: {
   client: SupabaseClient;
   recovering: boolean;
   onComplete: () => void;
-  initialMode?: "login" | "register";
+  initialMode?: "login" | "register" | "reset";
+  initialEmail?: string;
 }) {
   const { tr, savedPreferences } = usePreferences();
   const captchaKey = useSupabaseAccount().configuration.hcaptchaKey;
@@ -247,6 +249,8 @@ export default function AuthPanel({
             <input
               type="email"
               name="email"
+              defaultValue={initialEmail}
+              readOnly={mode === "reset" && !!initialEmail}
               autoComplete="email"
               inputMode="email"
               required

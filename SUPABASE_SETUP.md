@@ -20,11 +20,13 @@ Local development is configured through ignored `.env.local`. Restart `npm run d
 In [Supabase URL configuration](https://supabase.com/dashboard/project/wkuvihaiacfcqctwolqu/auth/url-configuration):
 
 1. Set **Site URL** to your stable production website URL.
-2. Allow the exact production root URL and `/?auth=recovery` URL as redirects.
+2. Allow the exact production root URL, `/?view=account` and `/?auth=recovery` URLs as redirects.
 3. For local development, also allow `http://localhost:5173/`, `http://localhost:5173/?auth=recovery`, and the equivalent `5174` URLs if using the production preview.
 4. Keep email/password signup and email confirmation enabled. Disable anonymous signup unless another deliberately designed feature needs it.
 
 Signup confirmation opens the app, and password recovery opens a dedicated password form. Saving a car requires a verified email and an explicit acceptance of the displayed current terms. Passwords are handled by Supabase, not stored in vehicle records.
+
+Account → Account details uses the authenticated Supabase client to request email changes. Keep **Secure email change** enabled so both the current and replacement inboxes must confirm the change. Email cannot be removed while it is the only login method. Password changes use the existing email recovery flow, with hCaptcha on reset requests and the existing eight-character lowercase/uppercase/digit requirement on the new-password form. Phone management is visibly unavailable and makes no SMS requests.
 
 ## Email delivery is required for public signup
 
@@ -46,7 +48,9 @@ Schema definitions are in `supabase/migrations/`. The initial schema was install
 
 Use a real email you control to register, confirm the email, sign in, search your plate, and save it. Reload and confirm it remains in Garage. Rename/remove it and check from a second account that the first account's cars are inaccessible. Also test a password-reset email. These email flows need the configured SMTP provider and redirects; database isolation checks alone do not verify email delivery.
 
-Account → Account data removes saved cars. Login-account deletion and associated consent deletion are coordinated through the displayed support contact. Consent records cannot be altered through the customer API.
+Account → Account data clears the garage while retaining the login. Account → Account details → Delete account permanently deletes the Supabase login and cascades private cars, preferences, and consent records. Shared city histories remain while another customer saves the same identity. A new signup using the deleted email requires a fresh confirmation; SMTP cooldowns still apply.
+
+`account-delete` is a Supabase Edge Function with JWT verification enabled. It verifies the caller with `auth.getUser`, checks a live session through the service-only `curbside_can_delete_account` RPC, requires explicit confirmation matching the verified user, and calls the server-only Admin `deleteUser` API. No customer can choose another deletion target or call the session-check RPC. To redeploy: run `node scripts/bundle-account-function.mjs`, deploy `work/account-delete/index.js`, and keep `verify_jwt=true`. No additional Vercel secrets are required. GitHub pushes do not redeploy Supabase functions.
 
 ## Confirmed accounts and profile settings
 
