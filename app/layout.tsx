@@ -4,8 +4,7 @@ import "./atlas.css";
 import "./polish.css";
 import "./preferences.css";
 import "./design.css";
-import { PreferencesProvider } from "@/components/preferences";
-import { SupabaseAccountProvider } from "@/components/use-supabase-account";
+import AppProviders from "@/components/app-providers";
 import PrivateAnalytics from "@/components/private-analytics";
 import "mapbox-gl/dist/mapbox-gl.css";
 
@@ -55,9 +54,7 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <SupabaseAccountProvider>
-          <PreferencesProvider>{children}</PreferencesProvider>
-        </SupabaseAccountProvider>
+        <AppProviders>{children}</AppProviders>
         <PrivateAnalytics />
       </body>
     </html>

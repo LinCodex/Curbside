@@ -1,45 +1,9 @@
 export const LEGAL_VERSION = "2026-09-27.1";
+export const PRIVACY_VERSION = "2026-10-01.1";
 export const OPERATOR = {
   name: "Flushing NY Wireless",
   address: "136-78 Roosevelt Ave, Flushing, NY, United States",
   email: "ezrefillyny@gmail.com",
-};
-export const OFFERS: Record<
-  string,
-  { name: string; price: string; renewal: string; includes: string }
-> = {
-  plus: {
-    name: "Curbside Plus",
-    price: "$4.99 per month",
-    renewal:
-      "Renews monthly at $4.99, plus applicable tax, until canceled. Cancel before your next billing date in Account → Manage billing to stop the next charge.",
-    includes:
-      "Three vehicles, email alerts, and up to 10 SMS segments each month. Unused segments do not roll over. No automatic SMS overages.",
-  },
-  "plus-year": {
-    name: "Curbside Plus annual",
-    price: "$39 per year",
-    renewal:
-      "Renews annually at $39, plus applicable tax, until canceled. Cancel before your next billing date in Account → Manage billing to stop the next charge.",
-    includes:
-      "Three vehicles, email alerts, and up to 10 SMS segments each month. An annual renewal notice will be sent before the cancellation deadline.",
-  },
-  dealer: {
-    name: "Dealer sponsorship",
-    price: "$149 per month",
-    renewal:
-      "Renews monthly at $149, plus applicable tax, until canceled. Cancel before the next billing date in Account → Manage billing. This pilot is capped at 100 active sponsored customers; no automatic overage billing.",
-    includes:
-      "Up to 100 active customer sponsorships. Each sponsorship covers one vehicle for 12 months with email and up to 10 SMS segments per month. Customers opt in themselves.",
-  },
-  ai: {
-    name: "AI dispute preparation",
-    price: "$9 once per case",
-    renewal:
-      "One-time charge of $9 plus applicable tax. This does not renew and does not include ticket payment, representation, or filing fees.",
-    includes:
-      "An evidence checklist, draft preparation, export, and up to two revisions. Generation uses facts you confirm. Review every statement before submission.",
-  },
 };
 export type LegalSection = {
   title: string;
@@ -60,7 +24,7 @@ export const legalDocuments: Record<string, LegalDocument> = {
       {
         title: "1. Who we are and how you agree",
         paragraphs: [
-          "Curbside is a service of Flushing NY Wireless, at the address shown below. These terms govern Curbside accounts and services. You agree by selecting the separate agreement checkbox and continuing. Merely opening this page does not record your agreement. Keep a copy of the version you accept.",
+          "Curbside is a service of Flushing NY Wireless, at the address shown below. These terms govern Curbside accounts and services. You agree by selecting Clerk’s legal consent checkbox and completing sign-up. Merely opening this page does not record your agreement. Keep a copy of the version you accept.",
           "You must be at least 18 and able to enter a contract. If acting for a business, you must be authorized to bind it. Our Privacy Policy explains how information is handled; separate Messaging Terms apply only if you opt in to SMS.",
         ],
       },
@@ -130,49 +94,49 @@ export const legalDocuments: Record<string, LegalDocument> = {
         title: "Information we process",
         paragraphs: [
           "Flushing NY Wireless operates Curbside. When you search, we process the plate, registration state, optional plate type, search time, and returned public NYC records. A network address is processed for security and rate limiting. Search results may contain summons numbers, dates, locations, vehicle attributes, and financial/status fields reported by the city.",
-          "If you create an account, we process your verified email, authentication identifier, settings, saved vehicles, and subscription status. SMS enrollment adds your phone number, verification status, and consent history. Dispute features add facts, drafts, uploaded evidence, approval versions, partner assignment, and any filing receipt. Dealers supply business branding and enrollment information. Stripe handles card details; our app receives customer identifiers and payment/subscription events rather than full card numbers.",
+          "If you create an account, Clerk processes your sign-in details and legal agreement. Curbside processes your verified email, authentication identifier, settings, saved vehicles, and recorded terms acceptance. This release does not offer SMS enrollment, payments, evidence uploads, AI drafting, dealer sponsorships, or partner filing.",
         ],
       },
       {
         title: "How information is used",
         paragraphs: [
-          "We use this information to answer searches, refresh saved vehicle histories, deliver separately activated messages, respond to support, prevent abuse, and maintain service security. Optional features use the information necessary for subscriptions, sponsorships, drafts, and assigned cases when enabled. We do not sell vehicle data or display behavioral ads. Vercel Web Analytics counts page visits using privacy-focused, cookie-free measurement. We exclude account identifiers, plates, ticket details, evidence, authentication callbacks, and unapproved URL parameters from analytics events.",
+          "We use this information to answer searches, refresh saved vehicle histories, save your display preferences, respond to support, prevent abuse, and maintain service security. We do not sell vehicle data or display behavioral ads. Vercel Web Analytics measures public page visits without tracking cookies. Our filter excludes authentication and private account, garage and ticket views, strips plates, emails, ticket details and unapproved query parameters, and does not send custom events.",
           "Public violation history does not prove that a ticket belongs to you. We do not obtain driver identity from DMV records or use violation data to make consumer eligibility decisions.",
         ],
       },
       {
         title: "Service providers and sharing",
         paragraphs: [
-          "Vercel hosts the website. Supabase handles authentication, email confirmation, private saved-car details, profile settings, recorded agreement to the terms, and shared snapshots of public NYC violation history. Saving a car starts daily history refreshes, not email or SMS reminders. Car nicknames and user-entered details remain private to each customer, even when multiple customers save the same plate. Account emails use the configured SMTP provider. Mapbox provides configured maps; NYC Open Data receives plate queries and location providers receive address/intersection queries. Retained optional integrations operate only when separately activated.",
-          "When you request AI preparation, the configured AI provider receives the ticket fields, confirmed facts, and evidence filenames needed for that draft. The current feature does not send the uploaded files themselves. Do not put unnecessary sensitive information in your facts or filenames. Provider use and retention are subject to the provider agreement configured by the operator.",
-          "A dealer sees sponsorship/enrollment information, not your ticket history, locations, drafts, or evidence. A partner can access only explicitly assigned cases. We may disclose information when required by lawful process or reasonably necessary to protect rights or security. We will not use an ownership change to silently apply materially different privacy practices to previously collected information.",
+          "Vercel hosts the website. Clerk handles authentication, email verification, account security, and built-in legal consent. Supabase stores private saved-car details, profile settings, historical terms acceptance, and shared snapshots of public NYC violation history. Saving a car starts daily history refreshes. Car nicknames and user-entered details remain private to each customer, even when multiple customers save the same plate. Mapbox provides configured maps; NYC Open Data receives plate queries and location providers receive address/intersection queries.",
+          "AI preparation, evidence uploads, payment processing, and message delivery integrations are disabled in this release.",
+          "We may disclose information when required by lawful process or reasonably necessary to protect rights or security. We will not use an ownership change to silently apply materially different privacy practices to previously collected information.",
         ],
       },
       {
         title: "Cookies, local storage, and signals",
         paragraphs: [
-          "The application caches fonts, app icons, an offline page, and public map geometry for performance. An essential welcome cookie remembers completion of onboarding for this browser for up to one year, renewed on visits; clearing cookies lets the welcome appear again. Browser storage remembers the installation guide and guest display preferences. Verified profile settings are also stored in Supabase, with a separate local cache for each account. Supabase stores your authentication session in browser storage; signing out clears that session. Saved city histories are stored on the server, not made available offline. The app does not request precise device GPS location or use advertising cookies.",
-          "We do not operate cross-site advertising tracking, sell information, or share it for cross-context behavioral advertising. Vercel Web Analytics uses cookie-free visit measurement; hCaptcha processes device and interaction information needed to detect automated abuse under its privacy policy. Where supported, we suppress analytics when Global Privacy Control or Do Not Track is enabled. Essential authentication and abuse prevention still operate. External sites and provider-hosted pages have their own practices.",
+          "The application caches fonts, app icons, an offline page, and public map geometry for performance. An essential welcome cookie remembers completion of onboarding for this browser for up to one year, renewed on visits; clearing cookies lets the welcome appear again. Browser storage remembers the installation guide and guest display preferences. Verified profile settings are also stored in Supabase, with a separate local cache for each account. Clerk uses essential cookies and browser storage to manage authentication. Signing out ends the active Clerk session. Saved city histories are stored on the server, not made available offline. The app does not request precise device GPS location or use advertising cookies.",
+          "We do not operate cross-site advertising tracking, sell information, or share it for cross-context behavioral advertising. Vercel Web Analytics uses cookie-free visit measurement; our filter suppresses measurement when Global Privacy Control or Do Not Track is enabled. When configured, hCaptcha or Turnstile processes device and interaction information needed to detect automated abuse under its privacy policy. Essential authentication and abuse prevention still operate. External sites and provider-hosted pages have their own practices.",
         ],
       },
       {
         title: "Retention and deletion",
         paragraphs: [
           "Temporary search/source caches generally last six hours for open-ticket results, one day for the current fiscal year, seven days for older history, and up to 90 days for supported permanent geocoding. Saved vehicles share a public-city history snapshot by plate, registration state, and optional plate type. A morning scheduler starts at 13:00 UTC (8 a.m. or 9 a.m. in New York, depending on daylight saving time), processing up to 500 distinct saved identities in bounded batches. Full historical enrichment is normally rechecked weekly. Failed checks keep the last usable history and show its earlier check time; records missing from a later response are not treated as paid or dismissed. A snapshot is removed when its last saved subscription is removed. Hosting logs and provider backups follow their own retention periods.",
-          "Saved records, cases, consent history, and delivery records remain while your account needs them until removed through account deletion or an appropriate support request. Account → Account data removes application data and evidence subject to handling active partner cases or dealership ownership. It does not erase public city records or automatically delete records independently retained by authentication/payment providers. Contact us for a coordinated deletion or access request. We will explain any specific legal, fraud-prevention, unresolved-case, or financial-record exception rather than promising that all copies vanish immediately.",
+          "Saved cars, preferences, and historical consent records remain until removed through account deletion or an appropriate support request. Account deletion removes the Clerk identity and its Curbside account records; signed webhook delivery retries application cleanup if it fails. Shared public-city snapshots remain while another customer has saved the same vehicle identity. Deletion does not erase public city records, provider logs, or independently retained backups. Legacy authentication records retained for migration rollback require separate administrator cleanup. Contact us for a coordinated deletion or access request. We will explain any specific retention exception.",
         ],
       },
       {
         title: "Your choices and requests",
         paragraphs: [
-          "You can correct vehicle details and preferences, remove monitoring, stop SMS, and unsubscribe from alert emails. To request access, correction, a portable copy, deletion, or assistance exercising an applicable privacy right, email us below. We may verify your authority without requiring unnecessary identification. An authorized agent may contact us with proof of authorization. We will respond within the period required by applicable law and explain a denial and available review options.",
+          "You can correct vehicle details and preferences, remove saved cars, and manage your sign-in details through Clerk. To request access, correction, a portable copy, deletion, or assistance exercising an applicable privacy right, email us below. We may verify your authority without requiring unnecessary identification. An authorized agent may contact us with proof of authorization. We will respond within the period required by applicable law and explain a denial and available review options.",
           "State privacy rights and exemptions depend on location and whether statutory thresholds apply to this business. This notice does not claim every comprehensive state privacy law applies. We do not discriminate against users for exercising an applicable privacy right.",
         ],
       },
       {
         title: "Security, age limits, and updates",
         paragraphs: [
-          "Access controls, private evidence storage, expiring evidence links, signature checks, and rate limits help protect information. No system can guarantee absolute security. The operator must also maintain administrative safeguards, provider oversight, incident response, and legally required breach notifications.",
+          "Clerk session verification, account-scoped server queries, signed deletion webhooks, and rate limits help protect information. No system can guarantee absolute security. The operator must also maintain administrative safeguards, provider oversight, incident response, and legally required breach notifications.",
           "Curbside accounts and paid services are intended for adults 18 and older and are not directed to children. If you believe a child provided personal information, contact us for removal. This policy’s version and date appear above; material changes will be communicated before applying new practices where required.",
         ],
       },

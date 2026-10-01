@@ -10,7 +10,7 @@ import {
   applyDeadline,
   plateKey,
 } from "./domain";
-import { one, run, config } from "./runtime";
+import { config } from "./runtime";
 import {
   geoSearchLocation,
   cleanLocationLabel,
@@ -147,35 +147,15 @@ export function normalizeRow(
 const memCache = new BoundedCache<unknown>(128, 16 * 1024 * 1024);
 
 async function cached(key: string) {
-  if (!config().DB) {
-    return memCache.get(key);
-  }
-  try {
-    const v = await one<any>(
-      "SELECT payload FROM cache WHERE key=? AND expires_at>?",
-      key,
-      Date.now(),
-    );
-    return v ? JSON.parse(v.payload) : null;
-  } catch {
-    return null;
-  }
+  return memCache.get(key);
 }
-async function put(key: string, payload: any, ttl: number) {
-  if (!config().DB) {
-    memCache.set(key, payload, ttl, new TextEncoder().encode(JSON.stringify(payload)).byteLength);
-    return;
-  }
-  try {
-    await run(
-      "INSERT INTO cache (key,payload,expires_at) VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload,expires_at=excluded.expires_at",
-      key,
-      JSON.stringify(payload),
-      Date.now() + ttl,
-    );
-  } catch {
-    /* Search works without cache; mutation routes require D1. */
-  }
+async function put(key: string, payload: unknown, ttl: number) {
+  memCache.set(
+    key,
+    payload,
+    ttl,
+    new TextEncoder().encode(JSON.stringify(payload)).byteLength,
+  );
 }
 async function fetchDataset(id: string, name: string, p: Plate, force = false) {
   const key = "source:" + id + ":" + plateKey(p);
@@ -199,13 +179,15 @@ async function fetchDataset(id: string, name: string, p: Plate, force = false) {
   url.searchParams.set("$order", "summons_number");
   const headers: Record<string, string> = {};
   if (config().SOCRATA_APP_TOKEN)
-    headers["X-App-Token"] = config().SOCRATA_APP_TOKEN;
+    headers["X-App-Token"] = config().SOCRATA_APP_TOKEN!;
   try {
     const r = await fetch(url, { headers, signal: AbortSignal.timeout(12000) });
     if (!r.ok) throw new Error("Source temporarily unavailable");
     const rows: any = await r.json();
     if (!Array.isArray(rows)) throw new Error("Invalid source response");
-    let meta = await cached("meta:" + id);
+    let meta = (await cached("meta:" + id)) as {
+      updatedAt: string | null;
+    } | null;
     if (!meta) {
       try {
         const m = await fetch(
@@ -321,7 +303,7 @@ export async function geocode(t: Violation) {
       const url = new URL("https://api.nyc.gov/geo/geoclient/v2/search.json");
       url.searchParams.set("input", t.location.label);
       const r = await fetch(url, {
-        headers: { "Ocp-Apim-Subscription-Key": config().NYC_GEOCLIENT_KEY },
+        headers: { "Ocp-Apim-Subscription-Key": config().NYC_GEOCLIENT_KEY! },
         signal: AbortSignal.timeout(8000),
       });
       if (r.ok) {

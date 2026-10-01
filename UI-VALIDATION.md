@@ -1,5 +1,7 @@
 # Interface validation — September 30, 2026
 
+> Historical report from the Supabase Auth/static deployment. Authentication, deployment, email-template and analytics statements below are superseded by the Clerk migration. See [README.md](README.md) and [CLERK_MIGRATION.md](CLERK_MIGRATION.md) for the current implementation and outstanding production gates.
+
 This change retains the repository's Vercel build configuration. No production tokens or provider credentials are included. The Mapbox token used for local checks is in ignored `.env.local`; production builds were generated with Mapbox environment aliases blank.
 
 ## Automated checks

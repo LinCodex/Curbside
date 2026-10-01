@@ -1,70 +1,54 @@
 # Curbside
 
-Mobile-first NYC parking/camera violation search and monitoring for **Flushing NY Wireless**. The app uses locally bundled Manrope and IBM Plex Mono fonts, actual NYC map geometry, a neutral black theme, accessible custom selectors, and reduced-motion-aware transitions.
+NYC plate search, private saved cars, retained city ticket histories, and a map. Public search requires no account. Accounts use Clerk; Supabase stores saved cars and preferences.
 
-## Status
+## Development
 
-Real NYC plate search is available without purchased provider accounts. The UI contains no seeded vehicles, example tickets, fake balances, or invented pins. Empty states remain empty until a real search. Source freshness, partial results, unknown fields, and unlocated tickets are explicit.
+Use Node 22.13 or newer and npm:
 
-This release is free: consumer/dealer pricing is hidden and new checkout is blocked on both client and server by `FREE_ACCESS` in `lib/release.ts`, even if payment credentials are configured. Existing cancellation access is preserved. Supabase registration/login and private saved cars are implemented; see [SUPABASE_SETUP.md](SUPABASE_SETUP.md) for the two Vercel variables, confirmation email, and redirect setup. Notification jobs, dealership enrollment, and case workflows still need provider setup and end-to-end acceptance before operation.
-
-The current Vercel deployment uses `vercel.json`, `node scripts/build-vercel.mjs`, and `dist/client` with standalone `api/config.ts` and `api/search.ts` functions. It is a Vinext/Vite build, not a Next.js `.next` deployment. Supabase accounts and saved cars use the customer's session and Supabase RLS directly, without the legacy D1 API. Other handlers in `app/api` and the D1/R2 bindings are retained but are not standalone Vercel function adapters; notification/partner workflows require the corresponding backend before activation.
-
-Account contains appearance, language, and Normal/Geek controls. Normal is the default overview; Geek exposes city-reported vehicle histories, source coverage, and per-ticket provenance. These settings persist locally and do not change source queries. Historical lookup defaults on through FY2014.
-
-## Included
-
-- Direct NYC Open Data queries, fiscal-year history, summons deduplication, field provenance, caching, geocoding, and full financial details.
-- Garage, search, map/list, account, dealership sponsorship, and assigned-partner interfaces. Maps support gestures and keyboard navigation without a floating control dock.
-- Clerk adapters and server-side owner/dealer/partner authorization.
-- D1 durable notification jobs, unique event claims, initial summaries, quiet hours, reminders, consent rechecks and SMS caps.
-- Resend, Twilio and Stripe adapters; signed/replay-protected webhooks; private R2 evidence and expiring links.
-- AI preparation on request, version-bound approval, self-submission guidance, partner handoff and official-receipt gating. Current AI does not read uploaded document/image contents.
-- Separate /legal routes for terms, privacy, messaging, billing, accessibility and data/dispute disclosures. General terms and recurring purchases have separate recorded consent.
-- Installable manifest. Only public map backgrounds, geometry, fonts, icons, and the offline page are cached; ticket records are not persisted in the browser for offline use.
-
-## Appearance and language
-
-Account opens a settings popup with Light / Dark / System, English / Chinese / System, and Normal / Geek detail modes. Save applies choices together and persists them on this device; Cancel discards edits. Appearance and language default to device settings, with Normal as the detail default. The legal pages also offer appearance/language controls. Chinese uses Simplified Chinese UI and legal copy, with localized known violation descriptions. Official addresses, identifiers, brand names, and customer-entered evidence remain unchanged. External provider pages retain their own language settings. Preferences do not change stored records, API enums, or currency (USD).
-
-## Local development
-
-See [ENVIRONMENT.md](ENVIRONMENT.md) for local and production environment variables. Credentials are not included in the repository.
-
-Use Node 22.13+. Run npm ci, then copy .env.example to ignored .env.local. Add only providers being activated.
-
-```powershell
-npm run build
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_chief_silver_sable.sql
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0001_skinny_monster_badoon.sql
+```sh
+npm ci
+clerk auth login
+clerk env pull --app app_3K6yDRE97n4v0sWHxXzDuQjYXCV --file .env.local
 npm run dev
 ```
 
-Apply migrations once to a new local database. Port 5173 is the default. Sites provisions logical DB and private BUCKET bindings. The operational scheduler is a separate Worker in worker/. Never commit secrets, .wrangler, .sites-runtime or node_modules.
+Set the non-Clerk variables from [.env.example](.env.example) in an ignored local environment file. Set APP_ORIGIN to the exact development origin. Do not run init again to upgrade an already integrated checkout; use env pull and doctor instead. The linked Clerk application is TicketSafe.
 
-If the Windows npm shim is broken, use node scripts/run-framework.mjs dev or build directly; invoke npm via the installed npm-cli.js for installation.
+## Authentication and consent
 
-```powershell
-node node_modules/typescript/bin/tsc --noEmit
-node --experimental-strip-types --test tests/domain.test.mjs tests/queue.test.mjs
-node scripts/run-framework.mjs build
+The Next.js Clerk SDK supplies sign-in, sign-up, password recovery, OAuth verification, and account controls. Clerk's built-in legal checkbox collects Terms and Privacy acceptance during sign-up, including supported OAuth flows. The settings are checked into [clerk.config.json](clerk.config.json). The application does not collect a second agreement. Existing recorded acceptance timestamps are carried through the user import; the migration never fabricates consent.
+
+Email/password authentication is enabled; phone/SMS authentication and the extra username requirement are disabled. Clerk product billing is disabled. Configure production OAuth providers separately before cutover.
+
+Account APIs validate the Clerk session and verified primary email on the server. Every private query uses the resolved ownership UUID. Browser-selected ownership and user-editable metadata cannot change that identity. Account-switch responses are discarded, private responses are not cached, and the service worker caches only public assets.
+
+## Existing users and deployment
+
+**Follow [CLERK_MIGRATION.md](CLERK_MIGRATION.md) before switching production.** Existing UUIDs, cars, preferences, and acceptance timestamps are retained. Import users into the target production Clerk instance; development users cannot be promoted into production.
+
+Vercel now uses its standard Next.js build. Remove old static output/build/install overrides in the project dashboard. Production needs Clerk keys, Supabase server credentials, APP_ORIGIN, and a signed user.deleted webhook at /api/webhooks/clerk. Secrets must never be supplied through NEXT_PUBLIC_ variables.
+
+Automatic Git deployments from main are temporarily disabled in vercel.json while the existing customer migration is pending. The current production deployment continues serving existing Supabase accounts. After the cutover checks in CLERK_MIGRATION.md pass, remove that branch restriction and deploy the verified release. Other branches remain eligible for preview builds.
+
+## Cost cleanup
+
+The legacy D1/R2 backend, duplicate five-minute Cloudflare scheduler, static Vite/vinext deployment, Supabase auth email templates, and unused Stripe/Twilio/Resend/AI routes are removed. Those provider credentials no longer activate spending paths in this release. Supabase database storage and its existing daily city-history worker remain because they support saved cars; Mapbox is optional and loaded only for the map.
+
+Vercel Web Analytics remains enabled through the Next.js SDK. Its privacy filter counts only public landing/search/map and legal-page visits, strips unapproved query parameters, excludes authentication and private account/garage/ticket views, rejects custom events, and respects Global Privacy Control and Do Not Track. Keep Web Analytics enabled for the Vercel project. See [Vercel's setup guide](https://vercel.com/docs/analytics/quickstart) and [sensitive-data filtering](https://vercel.com/docs/analytics/redacting-sensitive-data).
+
+Removing code does not cancel provider subscriptions or previously deployed jobs. Disable the old Supabase account-delete function during the cutover maintenance window, then retire the Cloudflare scheduler/deployment and unused D1/R2 resources, old auth SMTP sender, and unused paid provider subscriptions after verification. Export/inspect any data before deleting a hosted resource. Keep the Supabase database, snapshot function and daily history schedule.
+
+The database and account API intentionally stay separate from Supabase Auth. Old user records remain as a rollback source; old browser grants are revoked at cutover. No new paid storage, queues, or worker services are introduced.
+
+## Verification
+
+```sh
+npm run typecheck
+npm test
+npm run build
+clerk doctor
+npm run lint
 ```
 
-## Validation and remaining limits
-
-Type checking and focused tests cover plate identities, normalization, camera dates, history backfill, DST quiet hours, reminders, SMS segments, sponsorship expiry, partner isolation, webhook rollback and a 500-vehicle duplicate-job simulation. Live NYC API checks returned matching actual summons records. Browser verification covers responsive layout, custom-select keyboard operation, map/background separation, and legal subpaths.
-
-This is not provider end-to-end or live 500-vehicle throughput proof. Sign-in isolation, messages, subscriptions, AI and filing require configured accounts and acceptance. Measure the 15-minute delivery objective before promising it.
-
-Pilot limitations: 100 active customers per dealer; no automated dealer overage billing, extra SMS purchases, self-service staff invitations, sponsorship renewals, or partner onboarding. Unknown provider responses are held for manual reconciliation. AI tracks tokens/attempts; dollar costs depend on the chosen model and provider budgets. No evidence OCR or automatic filing is implied.
-
-## Data and asset provenance
-
-- NYC Open Parking and Camera Violations nc67-uf89 plus fiscal-year datasets, queried directly. No unapproved How's My Driving website dependency or copied app source.
-- NYC DCP borough boundaries gthc-hcne and a selected 12,000-feature subset of wider NYC streets from inkn-q76z. The background is real geography, not a complete navigation map.
-- Geoclient / NYC Planning GeoSearch for real locations. Garage, Search and Account use an original local WebP background rendered from NYC public geometry; no Mapbox runtime or tiles load on those screens. Mapbox mounts only on the Map view. Ticket previews use static Mapbox images.
-- Manrope, IBM Plex Mono, and the locally subset Noto Sans SC variable font licenses included in public/fonts; Lucide icons.
-
-## Cost controls
-
-The original $25-50/month baseline is a planning target, not a guaranteed invoice. Sites-managed hosting has separate terms from a directly purchased Cloudflare plan. Verify actual pricing before launch. Controls include shared city caches, daily checks, bounded address lookups and Mapbox only on the Map view, 500 total vehicles, bounded uploads, 10 SMS segments/user/month, a global SMS ceiling and explicit-request-only AI. No ads or sale of vehicle data.
+Tests include an actual local Postgres migration with legacy data and permission checks, identity/password/consent import checks, account deletion, and existing city-data, preference, map and garage behavior. The repository has pre-existing ESLint debt; any remaining lint failures must be reported separately from type, build and test results.
