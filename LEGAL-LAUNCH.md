@@ -1,11 +1,9 @@
 # TicketSafe legal pages
 
-Updated October 1, 2026 for TicketSafe (罚单卫士), operated by Flushing NY Wireless.
+Updated October 2, 2026 for TicketSafe (罚单卫士), operated by Flushing NY Wireless.
 
-The policy routes cover terms of service, privacy, accessibility and data sources. They describe public NYC ticket searches, available map locations, private saved car details, shared city-record histories, display preferences, Clerk accounts, Vercel Web Analytics and security checks.
+Terms, privacy, accessibility and data-source pages describe currently available public searches, maps, saved cars, shared city histories, display settings, Supabase accounts, Vercel Analytics and security checks. Unsupported features and the unrelated driving service are omitted.
 
-New registrations use Clerk’s required built-in legal agreement with links to /legal/terms and /legal/privacy. Reading a policy does not record acceptance. Original acceptance dates and database consent versions remain intact during migration; the displayed policy revision is tracked separately. Updating page copy does not create new acceptance records.
+Verified customers explicitly accept the terms and age requirement before saving cars. Existing acceptance timestamps and database version 2026-09-27.1 are preserved; the displayed policy revision is separate. The database consent check and RLS gate require a coordinated migration before changing that version. Reading a page creates no agreement.
 
-Keep provider configurations and operational retention practices aligned with the privacy notice. Contact requests go to the operator’s published email. The production Clerk migration and customer-data checks in [CLERK_MIGRATION.md](CLERK_MIGRATION.md) remain necessary before the deployment gate is removed.
-
-English and Chinese pages share the same document structure and revision. Legal source links are limited to the NYC records, official ticket guidance and location services used by the application.
+English and Chinese pages share their structure and revision. Keep actual provider/email delivery and retention practices aligned with the privacy notice.

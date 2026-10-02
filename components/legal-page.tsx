@@ -144,7 +144,7 @@ export default function LegalPage({
         </div>
         <div className="legal-status">
           <ShieldCheck size={14} aria-hidden="true" />
-          {tr("Updated October 1, 2026")} · {LEGAL_DISPLAY_REVISION}
+          {tr("Updated October 2, 2026")} · {LEGAL_DISPLAY_REVISION}
         </div>
         {page ? (
           <div className="legal-layout">

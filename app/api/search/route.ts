@@ -8,10 +8,12 @@ import {
   turnstile,
   HttpError,
   config,
+  sameOrigin,
 } from "@/lib/runtime";
 import { clientIp } from "@/lib/client-ip";
 export async function POST(req: Request) {
   try {
+    sameOrigin(req);
     const body = await readJson(req);
     const plate = normalizePlate(body);
     const ip = clientIp(

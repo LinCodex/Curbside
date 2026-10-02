@@ -8,7 +8,28 @@ import {
 import { legalDocuments } from "../lib/legal.ts";
 import fs from "node:fs";
 import ts from "typescript";
-const zh = JSON.parse(fs.readFileSync(new URL("../lib/zh.json", import.meta.url), "utf8"));
+import {
+  meetsPasswordRequirement,
+  PASSWORD_REQUIREMENT,
+} from "../lib/password-policy.ts";
+const zh = JSON.parse(
+  fs.readFileSync(new URL("../lib/zh.json", import.meta.url), "utf8"),
+);
+
+test("new Supabase passwords require eight characters, lowercase, uppercase and a digit", () => {
+  for (const password of [
+    "Abc1234",
+    "abcdefgh1",
+    "ABCDEFGH1",
+    "Abcdefgh",
+    "12345678",
+    "中文中文中文A1",
+  ])
+    assert.equal(meetsPasswordRequirement(password), false);
+  for (const password of ["Abcdefg1", "Abcd1234", "Abcde 12", "Abcde!12"])
+    assert.equal(meetsPasswordRequirement(password), true);
+  assert.ok(zh[PASSWORD_REQUIREMENT]);
+});
 
 test("device defaults and invalid saved preferences safely use system", () => {
   for (const input of [

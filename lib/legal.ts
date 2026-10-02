@@ -1,7 +1,7 @@
 // Historical database consent version: never rewrite existing acceptance records.
 export const LEGAL_VERSION = "2026-09-27.1";
-export const PRIVACY_VERSION = "2026-10-01.2";
-export const LEGAL_DISPLAY_REVISION = "2026-10-01.2";
+export const PRIVACY_VERSION = "2026-10-02.1";
+export const LEGAL_DISPLAY_REVISION = "2026-10-02.1";
 export const OPERATOR = {
   name: "Flushing NY Wireless",
   address: "136-78 Roosevelt Ave, Flushing, NY, United States",
@@ -27,7 +27,7 @@ export const legalDocuments: Record<string, LegalDocument> = {
         title: "1. The service and your agreement",
         paragraphs: [
           "TicketSafe is operated by Flushing NY Wireless at the address below. It lets you search public NYC parking and camera violation records, view available ticket locations, save cars and city-record histories, and choose display preferences.",
-          "You must be at least 18 and authorized to use the account and vehicles you save. New account registration requires selecting Clerk’s built-in legal consent checkbox and completing sign-up. Opening a policy page does not record agreement. The Privacy Policy explains how information is handled.",
+          "You must be at least 18 and authorized to use the account and vehicles you save. Before saving cars, verify your email and use TicketSafe’s agreement checkbox to confirm that you meet the age requirement and accept the Terms of Service and Privacy Policy. Your acceptance is recorded with its version and time. Opening a policy page does not record agreement.",
         ],
       },
       {
@@ -40,7 +40,7 @@ export const legalDocuments: Record<string, LegalDocument> = {
       {
         title: "3. Accounts and acceptable use",
         paragraphs: [
-          "Keep your sign-in details secure and your contact information accurate. Save cars only when you own them or have permission to manage them. You can manage sign-in details through Clerk and edit or remove saved cars in TicketSafe.",
+          "Keep your sign-in details secure and your contact information accurate. Save cars only when you own them or have permission to manage them. You can change your email, request password recovery, sign out, and edit or remove saved cars through TicketSafe’s account controls.",
           "Do not use the service to stalk, harass, identify private individuals, resell personal information, make employment, credit, housing or insurance eligibility decisions, bypass limits, or disrupt the service. We may restrict abusive or compromised accounts and provide notice when practical. Contact us to contest a restriction.",
         ],
       },
@@ -74,7 +74,7 @@ export const legalDocuments: Record<string, LegalDocument> = {
         title: "Information we process",
         paragraphs: [
           "Flushing NY Wireless operates TicketSafe. A search processes the plate, registration state, optional plate type, search time and returned public NYC records. Results can include summons numbers, dates, locations, vehicle attributes, amounts and status fields. Network and device information may be processed for hosting, security and abuse prevention.",
-          "For accounts, Clerk processes sign-in details, email verification, account security and legal consent. TicketSafe processes your verified email, authentication identifier, saved car details, display preferences and recorded terms acceptance. Support requests include the information you choose to send.",
+          "For accounts, Supabase processes sign-in details, email verification and authentication sessions. TicketSafe processes your verified email, authentication identifier, saved car details, display preferences and recorded terms acceptance. Support requests include the information you choose to send.",
         ],
       },
       {
@@ -86,7 +86,7 @@ export const legalDocuments: Record<string, LegalDocument> = {
       {
         title: "Providers and sharing",
         paragraphs: [
-          "Vercel hosts TicketSafe. Clerk provides authentication and account controls. Supabase stores private car details, preferences, historical consent records and shared public-city snapshots. NYC Open Data receives plate queries. When maps or location lookup are used, Mapbox and the configured NYC location services process map requests or address and intersection queries. Car nicknames and other user-entered details are private to the account that saved them.",
+          "Vercel hosts TicketSafe. Supabase provides authentication and stores private car details, preferences, historical consent records and shared public-city snapshots. Account confirmation and password recovery emails use the configured email delivery service. NYC Open Data receives plate queries. When maps or location lookup are used, Mapbox and the configured NYC location services process map requests or address and intersection queries. Car nicknames and other user-entered details are private to the account that saved them.",
           "When hCaptcha is shown, it processes device and interaction information to detect automated abuse under the applicable provider terms. Providers may process information in the United States or other locations where they operate. Their own policies explain their processing and retention. We may disclose information when required by law or reasonably necessary to protect rights and security.",
         ],
       },
@@ -100,7 +100,7 @@ export const legalDocuments: Record<string, LegalDocument> = {
       {
         title: "Cookies and local storage",
         paragraphs: [
-          "Clerk uses essential cookies and browser storage for authentication. A welcome cookie remembers completed onboarding for up to one year and is renewed on visits. Browser storage keeps guest display preferences, account-specific preference caches and installation-guide choices. You can clear browser storage or sign out through Clerk; clearing local data does not delete server records.",
+          "Supabase stores the authentication session in browser storage so you can remain signed in. A welcome cookie remembers completed onboarding for up to one year and is renewed on visits. Browser storage also keeps guest display preferences, account-specific preference caches and installation-guide choices. Signing out clears the local authentication session. Clearing local data does not delete server records.",
           "The installable app caches public fonts, icons, an offline page and decorative map assets. It does not cache private account responses or ticket searches for offline access. TicketSafe does not request your precise device GPS location.",
         ],
       },
@@ -108,20 +108,20 @@ export const legalDocuments: Record<string, LegalDocument> = {
         title: "Retention and deletion",
         paragraphs: [
           "Temporary search caches have bounded lifetimes that depend on the source; supported permanent geocoding may be cached for up to 90 days. Saved cars share city-history snapshots by plate, registration state and plate type. The morning worker normally refreshes saved histories daily, with full historical enrichment normally checked weekly. Failed checks keep the last usable history and its earlier check time. A shared snapshot is removed when no account has that vehicle saved.",
-          "Account deletion removes your Clerk identity and TicketSafe account records; signed webhook delivery retries failed application cleanup. Another account’s saved details and shared city history remain. We retain only the opaque deleted Clerk identifier and deletion time to prevent an in-flight request from recreating an account. Deletion does not erase public city records, provider logs or independently retained backups. Historical authentication records held temporarily for migration rollback need separate administrator cleanup. Contact us for coordinated deletion and an explanation of any retention exception.",
+          "After you explicitly confirm account deletion, the account-deletion service verifies your signed-in identity and active session, then deletes the Supabase user and related saved cars, preferences and acceptance records. Another account’s saved details and shared city history remain. If deletion cannot be completed, the app reports the failure so you can retry or contact support. Deletion does not erase public city records, provider logs or independently retained backups. Contact us for coordinated deletion and an explanation of any retention exception.",
         ],
       },
       {
         title: "Your choices and requests",
         paragraphs: [
-          "You can edit or remove saved cars, change display preferences and manage your sign-in details through Clerk. Contact the operator below to request access, correction, a portable copy, deletion or help with an applicable privacy right. We may verify your authority without requesting unnecessary identification and will respond as required by applicable law.",
+          "You can edit or remove saved cars, change display preferences, update your email, recover your password or delete your account through TicketSafe. Contact the operator below to request access, correction, a portable copy, deletion or help with an applicable privacy right. We may verify your authority without requesting unnecessary identification and will respond as required by applicable law.",
           "Applicable privacy rights depend on your location and the laws that apply to this business. We do not discriminate against people for exercising applicable rights. We will explain a denied request and any available review process.",
         ],
       },
       {
         title: "Security and policy updates",
         paragraphs: [
-          "Session verification, account-scoped server access, signed deletion webhooks and rate limits help protect information. No system can guarantee absolute security. Accounts are intended for adults aged 18 or older. Contact us if you believe a child has provided personal information. We will communicate material policy changes before applying new practices where required.",
+          "Email verification, database row-level security, account-scoped access, active-session checks for deletion and rate limits help protect information. No system can guarantee absolute security. Accounts are intended for adults aged 18 or older. Contact us if you believe a child has provided personal information. We will communicate material policy changes before applying new practices where required.",
         ],
       },
     ],

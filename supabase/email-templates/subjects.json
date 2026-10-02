@@ -1,0 +1,67 @@
+[
+  {
+    "file": "confirm-signup.html",
+    "dashboardTemplate": "Confirm signup",
+    "subject": {
+      "en": "Confirm your email · TicketSafe",
+      "zh": "验证您的邮箱 · 罚单卫士"
+    },
+    "variables": [
+      "Email",
+      "ConfirmationURL",
+      "SiteURL"
+    ]
+  },
+  {
+    "file": "change-email-address.html",
+    "dashboardTemplate": "Change email address",
+    "subject": {
+      "en": "Confirm your email change · TicketSafe",
+      "zh": "确认更换邮箱 · 罚单卫士"
+    },
+    "variables": [
+      "Email",
+      "NewEmail",
+      "ConfirmationURL",
+      "SiteURL"
+    ]
+  },
+  {
+    "file": "reset-password.html",
+    "dashboardTemplate": "Reset password",
+    "subject": {
+      "en": "Reset your password · TicketSafe",
+      "zh": "重设您的密码 · 罚单卫士"
+    },
+    "variables": [
+      "Email",
+      "ConfirmationURL",
+      "SiteURL"
+    ]
+  },
+  {
+    "file": "password-changed.html",
+    "dashboardTemplate": "Password changed",
+    "subject": {
+      "en": "Your password was changed · TicketSafe",
+      "zh": "您的密码已更改 · 罚单卫士"
+    },
+    "variables": [
+      "Email",
+      "SiteURL"
+    ]
+  },
+  {
+    "file": "email-address-changed.html",
+    "dashboardTemplate": "Email Address changed",
+    "subject": {
+      "en": "Your email address was changed · TicketSafe",
+      "zh": "您的邮箱已更改 · 罚单卫士"
+    },
+    "variables": [
+      "OldEmail",
+      "Email",
+      "SiteURL"
+    ]
+  }
+]

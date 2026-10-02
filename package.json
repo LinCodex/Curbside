@@ -1,5 +1,5 @@
 {
-  "name": "curbside-nyc",
+  "name": "ticketsafe",
   "version": "0.1.0",
   "private": true,
   "engines": {
@@ -11,15 +11,10 @@
     "start": "next start",
     "lint": "eslint . --ignore-pattern work --ignore-pattern outputs",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
-    "typecheck": "tsc --noEmit",
-    "auth:import": "node --env-file=.env.local scripts/import-clerk-users.mjs",
-    "auth:link": "node --env-file=.env.local scripts/link-clerk-users.mjs"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
-    "@clerk/localizations": "^4.21.2",
-    "@clerk/nextjs": "^7.9.10",
-    "@clerk/ui": "^1.38.1",
     "@hookform/resolvers": "^5.7.1",
     "@shadcn/react": "^0.3.0",
     "@supabase/supabase-js": "2.117.2",

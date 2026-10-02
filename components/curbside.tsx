@@ -54,9 +54,9 @@ import {
 import { InstallGuide, PullToRefresh } from "./mobile-web-app";
 import { PLATE_TYPES } from "@/lib/plate-types";
 import { FREE_ACCESS } from "@/lib/release";
+import { LEGAL_VERSION } from "@/lib/legal";
 import { useAccount } from "./account-provider";
-import AuthPanel from "./clerk-auth-panel";
-import { UserButton } from "@clerk/nextjs";
+import AuthPanel from "./auth-panel";
 import AccountDetails from "./account-details";
 import { combinedGarageHistory } from "@/lib/garage-history";
 import WelcomeOnboarding from "./welcome-onboarding";
@@ -105,6 +105,7 @@ export default function Curbside() {
     [offline, setOffline] = useState(false),
     [vehicleId, setVehicleId] = useState("");
   const [deleteConfirmed, setDeleteConfirmed] = useState(false);
+  const [termsConsent, setTermsConsent] = useState(false);
   const [mapSelection, setMapSelection] = useState("");
   const [mapVehicleId, setMapVehicleId] = useState("");
   const [mapFilter, setMapFilter] = useState("all");
@@ -181,14 +182,14 @@ export default function Curbside() {
       !vehicle.snapshot || vehicle.snapshot_status === "checking",
   );
   useEffect(() => {
-    if (!auth.user || !pendingSnapshots) return;
+    if (!auth.user || !auth.client || !pendingSnapshots) return;
     // Resume pending initial histories on a later visit, without admitting duplicate fetches.
     account.vehicles
       .filter((vehicle: any) => !vehicle.snapshot)
       .forEach((vehicle: any) => {
-        void api("vehicles/" + vehicle.id + "/refresh", "POST", {}).catch(
-          () => {},
-        );
+        void auth.client!.functions.invoke("vehicle-snapshots", {
+          body: { mode: "refresh", vehicleId: vehicle.id },
+        });
       });
     let elapsed = 0;
     const timer = setInterval(() => {
@@ -202,7 +203,7 @@ export default function Curbside() {
     return () => clearInterval(timer);
     // Start one bounded poll per account while initial work is pending.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.user?.id, pendingSnapshots]);
+  }, [auth.client, auth.user?.id, pendingSnapshots]);
   useEffect(() => {
     if ("serviceWorker" in navigator)
       navigator.serviceWorker.register("/sw.js").catch(() => {});
@@ -320,6 +321,7 @@ export default function Curbside() {
     setVehicleId("");
     setSelected(null);
     setSheet(null);
+    setTermsConsent(false);
     if (auth.user)
       api("me")
         .then((next) => {
@@ -368,12 +370,17 @@ export default function Curbside() {
     };
   }, [config.hcaptchaKey, config.turnstileKey, view, sheet]);
   const signIn = () => {
+    if (!config.supabase) {
+      setSheet("setup");
+      return;
+    }
     setAuthInitialMode("login");
     setAuthOpen(true);
   };
   const signOut = async () => {
     try {
-      await auth.clerk.signOut();
+      const result = await auth.client?.auth.signOut();
+      if (result?.error) throw result.error;
     } catch {
       notify(tr("Could not sign out. Please try again."));
       return;
@@ -717,10 +724,14 @@ export default function Curbside() {
       </a>
       <InstallGuide
         manualRequest={installGuideRequest}
-        suppressAutomatic={onboardingOpen !== false || authOpen}
+        suppressAutomatic={
+          onboardingOpen !== false || authOpen || auth.recovering
+        }
       />
       <PullToRefresh
-        disabled={busy || !!sheet || !!onboardingOpen || authOpen}
+        disabled={
+          busy || !!sheet || !!onboardingOpen || authOpen || auth.recovering
+        }
         onRefresh={async () => {
           if (!navigator.onLine)
             throw new Error(tr("You’re offline. Connect to refresh."));
@@ -798,7 +809,6 @@ export default function Curbside() {
           ))}
         </nav>
         <div className="header-right">
-          {auth.user && <UserButton />}
           <button
             className="round-control"
             onClick={() => go("account")}
@@ -1881,7 +1891,9 @@ export default function Curbside() {
                   <div className="account-legal-item-text">
                     <strong>{tr("Terms of Service")}</strong>
                     <span>
-                      {tr("Rights, responsibilities, and cancellation terms.")}
+                      {tr(
+                        "Your rights and responsibilities when using TicketSafe.",
+                      )}
                     </span>
                   </div>
                   <ArrowUpRight
@@ -1914,7 +1926,7 @@ export default function Curbside() {
                     <strong>{tr("All Legal Policies")}</strong>
                     <span>
                       {tr(
-                        "Full directory of terms, privacy, messaging, and billing.",
+                        "Terms, privacy, accessibility, and data sources in one place.",
                       )}
                     </span>
                   </div>
@@ -1966,19 +1978,104 @@ export default function Curbside() {
           </button>
         ))}
       </nav>
-      {authOpen && (
-        <Modal title={tr("Your account")} close={() => setAuthOpen(false)}>
-          <AuthPanel initialMode={authInitialMode} />
+      {(authOpen || auth.recovering) && (
+        <Modal
+          title={tr(auth.recovering ? "Reset password" : "Your account")}
+          close={() => {
+            setAuthOpen(false);
+            if (auth.recovering) void signOut();
+          }}
+        >
+          {auth.client ? (
+            <AuthPanel
+              client={auth.client}
+              recovering={auth.recovering}
+              initialMode={authInitialMode}
+              initialEmail={
+                authInitialMode === "reset" ? auth.user?.email : undefined
+              }
+              onComplete={() => {
+                setAuthOpen(false);
+                auth.setRecovering(false);
+              }}
+            />
+          ) : (
+            <p role="status">
+              {tr(
+                auth.error
+                  ? "Sign-in is unavailable right now. Please try again later."
+                  : "Account sign-in is loading. Please try again shortly.",
+              )}
+            </p>
+          )}
         </Modal>
       )}
-      {onboardingOpen && !authOpen && (
+      {onboardingOpen && !authOpen && !auth.recovering && (
         <Modal
           title={tr("Welcome to TicketSafe")}
           close={() => finishOnboarding(false)}
         >
-          <WelcomeOnboarding canSignUp={true} finish={finishOnboarding} />
+          <WelcomeOnboarding
+            canSignUp={!!config.supabase}
+            finish={finishOnboarding}
+          />
         </Modal>
       )}
+
+      {account &&
+        !account.user.legalAccepted &&
+        !authOpen &&
+        !auth.recovering && (
+          <Modal title={tr("A clear agreement")} close={() => void signOut()}>
+            <div className="stack">
+              <p className="small muted">
+                {tr(
+                  "Before saving cars, please review our service terms and privacy policy.",
+                )}
+              </p>
+              <p className="consent-links">
+                <a href="/legal/terms" target="_blank" rel="noreferrer">
+                  {tr("Read Terms of service")}
+                </a>
+                {" · "}
+                <a href="/legal/privacy" target="_blank" rel="noreferrer">
+                  {tr("Read Privacy policy")}
+                </a>
+              </p>
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  checked={termsConsent}
+                  onChange={(event) => setTermsConsent(event.target.checked)}
+                />
+                <span>
+                  {tr(
+                    "I am at least 18 and agree to the Terms of service, version",
+                  )}{" "}
+                  {LEGAL_VERSION}
+                  {tr(". I acknowledge the Privacy Policy.")}
+                </span>
+              </label>
+              <button
+                className="primary-action"
+                disabled={!termsConsent || busy}
+                onClick={() =>
+                  perform(async () => {
+                    await api("legal", "POST", {
+                      accepted: true,
+                      adult: true,
+                      version: LEGAL_VERSION,
+                    });
+                    await refresh();
+                  })
+                }
+              >
+                {tr("Agree and continue")}
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </Modal>
+        )}
 
       {sheet && (
         <Modal
@@ -2010,6 +2107,11 @@ export default function Curbside() {
                 setDeleteConfirmed(false);
                 setError("");
                 setSheet("delete-account");
+              }}
+              onResetPassword={() => {
+                setSheet(null);
+                setAuthInitialMode("reset");
+                setAuthOpen(true);
               }}
             />
           )}
@@ -2052,7 +2154,7 @@ export default function Curbside() {
               </p>
               <p>
                 {tr(
-                  "Saved cars and display preferences are private to your account. Clerk manages sign-in and account security.",
+                  "Saved cars and display preferences are private to your account.",
                 )}
               </p>
               <p>
@@ -2436,7 +2538,7 @@ export default function Curbside() {
               </p>
               <p className="small muted">
                 {tr(
-                  "After deletion, you can sign up again with the same email through Clerk.",
+                  "After deletion, you can sign up again with the same email.",
                 )}
               </p>
               <label className="check-row">
@@ -2473,7 +2575,6 @@ export default function Curbside() {
                     setMapSelection("");
                     setSheet(null);
                     setView("garage");
-                    await auth.clerk.signOut();
                   }, tr("Your account was deleted. You can sign up again with the same email."))
                 }
               >

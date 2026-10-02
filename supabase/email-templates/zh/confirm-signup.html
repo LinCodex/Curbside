@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="supported-color-schemes" content="dark">
+  <meta name="format-detection" content="telephone=no,address=no,email=no,date=no">
+  <title>验证您的邮箱 · 罚单卫士</title>
+  <style>
+    body,table,td,a{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}
+    table,td{mso-table-lspace:0pt;mso-table-rspace:0pt}
+    table{border-collapse:collapse}
+    body{margin:0;padding:0;width:100%!important;background:#0b0d10}
+    a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important}
+    @media screen and (max-width:600px){.outer{padding:24px 12px!important}.card{padding:28px 24px!important}.headline{font-size:28px!important;line-height:34px!important}.footer{padding:22px 14px!important}}
+  </style>
+</head>
+<body style="margin:0;padding:0;background-color:#0b0d10;color:#f5f6f8;font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;">
+  <div style="display:none;font-size:1px;line-height:1px;color:#0b0d10;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">验证邮箱，即可开启您的车库。</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#0b0d10">
+    <tr><td class="outer" align="center" style="padding:48px 20px;font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;">
+      <!--[if mso]><table role="presentation" width="560" cellspacing="0" cellpadding="0" border="0"><tr><td><![endif]-->
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;border-collapse:separate;border-spacing:0;">
+        <tr><td style="padding:0 8px 24px;">
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr>
+            <td width="28" style="width:28px;padding-right:10px;vertical-align:middle;"><table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr><td width="7" valign="bottom" style="width:7px;vertical-align:bottom;"><div style="width:4px;height:22px;background:#8cbbff;border-radius:2px;font-size:1px;line-height:1px;">&nbsp;</div></td><td width="7" valign="bottom" style="width:7px;vertical-align:bottom;"><div style="width:4px;height:16px;background:#8cbbff;border-radius:2px;font-size:1px;line-height:1px;">&nbsp;</div></td><td width="7" valign="bottom" style="width:7px;vertical-align:bottom;"><div style="width:4px;height:10px;background:#8cbbff;border-radius:2px;font-size:1px;line-height:1px;">&nbsp;</div></td></tr></table></td>
+            <td style="font-size:26px;line-height:32px;font-weight:600;letter-spacing:0.5px;color:#f5f6f8;">罚单卫士<span style="color:#8cbbff;">.</span></td>
+          </tr></table>
+        </td></tr>
+        <tr><td class="card" bgcolor="#191c21" style="padding:36px;border:1px solid #30343d;border-radius:22px;font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;">
+          <p style="margin:0 0 14px;font-size:11px;line-height:18px;letter-spacing:1.5px;color:#8cbbff;font-weight:700;">账户验证</p>
+          <h1 class="headline" style="margin:0;font-size:34px;line-height:40px;letter-spacing:-0.8px;font-weight:700;color:#f5f6f8;">验证您的邮箱</h1>
+          <p style="margin:16px 0 24px;font-size:15px;line-height:25px;color:#c5cbd4;">请验证邮箱，完成罚单卫士账户注册。之后您可以保存车辆，随时回来查看。</p>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#111419" style="border:1px solid #30343d;border-radius:14px;"><tr><td style="padding:14px 18px;border-bottom:1px solid #30343d;"><div style="font-size:12px;line-height:18px;color:#a6adb8;">账户邮箱</div><div style="margin-top:4px;font-size:15px;line-height:23px;color:#f5f6f8;word-break:break-all;overflow-wrap:anywhere;">{{ .Email }}</div></td></tr></table>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top:26px;"><tr><td align="center" bgcolor="#3175e6" style="border-radius:12px;mso-padding-alt:16px 24px;"><a href="{{ .ConfirmationURL }}" style="display:block;padding:16px 24px;font-size:16px;font-weight:700;line-height:24px;text-decoration:none;color:#ffffff;border-radius:12px;">验证邮箱</a></td></tr></table><p style="margin:18px 0 0;font-size:12px;line-height:20px;color:#a6adb8;">按钮无法打开？请将以下链接复制到浏览器。请勿分享此链接。<br><a href="{{ .ConfirmationURL }}" style="color:#8cbbff;word-break:break-all;overflow-wrap:anywhere;text-decoration:underline;">{{ .ConfirmationURL }}</a></p>
+          <p style="margin:26px 0 0;padding-top:20px;border-top:1px solid #30343d;font-size:13px;line-height:22px;color:#a6adb8;">如果您没有注册这个账户，可以忽略此邮件。忽略邮件不会完成邮箱验证。</p>
+          <p style="margin:12px 0 0;font-size:13px;line-height:22px;color:#a6adb8;">需要帮助？ <a href="mailto:ezrefillyny@gmail.com" style="color:#8cbbff;text-decoration:underline;">联系罚单卫士客服</a></p>
+        </td></tr>
+        <tr><td class="footer" style="padding:24px 12px;font-size:11px;line-height:19px;color:#a6adb8;text-align:center;">
+          罚单卫士（TicketSafe）账户邮件 · 非营销邮件<br>
+          Flushing NY Wireless<br>136-78 Roosevelt Ave, Flushing, NY, United States<br>
+          <a href="{{ .SiteURL }}" style="display:inline-block;margin-top:10px;color:#8cbbff;text-decoration:underline;">打开罚单卫士</a>
+        </td></tr>
+      </table>
+      <!--[if mso]></td></tr></table><![endif]-->
+    </td></tr>
+  </table>
+</body>
+</html>

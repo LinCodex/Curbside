@@ -126,7 +126,7 @@ Deno.serve(async (request) => {
         : null;
       return reply({ result }, 200, origin);
     }
-    const target: string | null = null;
+    let target: string | null = null;
     if (body.mode === "cron") {
       const candidate = request.headers.get("x-curbside-cron") || "";
       if (candidate.length !== 64)
@@ -136,6 +136,32 @@ Deno.serve(async (request) => {
       });
       if (error || data !== true)
         return reply({ error: "Unauthorized" }, 401, origin);
+    } else if (body.mode === "refresh") {
+      const token = request.headers
+        .get("authorization")
+        ?.match(/^Bearer (.+)$/i)?.[1];
+      if (!token) return reply({ error: "Sign in required" }, 401, origin);
+      const {
+        data: { user },
+        error,
+      } = await admin.auth.getUser(token);
+      if (error || !user?.email_confirmed_at || user.is_anonymous)
+        return reply({ error: "Verified account required" }, 401, origin);
+      if (!/^[0-9a-f-]{36}$/i.test(body.vehicleId || ""))
+        return reply({ error: "Invalid vehicle" }, 400, origin);
+      const { data: car, error: carError } = await admin
+        .from("curbside_vehicles")
+        .select("plate,state,plate_type")
+        .eq("id", body.vehicleId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (carError || !car)
+        return reply({ error: "Vehicle not found" }, 404, origin);
+      target = plateKey({
+        plate: car.plate,
+        state: car.state,
+        plateType: car.plate_type,
+      });
     } else return reply({ error: "Invalid request" }, 400, origin);
     const { data: rows, error } = await admin.rpc("curbside_claim_snapshots", {
       target_key: target,

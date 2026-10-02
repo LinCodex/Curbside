@@ -1,56 +1,25 @@
 # TicketSafe · 罚单卫士
 
-NYC plate search, private saved cars, retained city ticket histories, and a map. Public search requires no account. Accounts use Clerk; Supabase stores saved cars and preferences.
+NYC plate search, private saved cars, retained city ticket histories, and a map. Public search requires no account. Supabase supplies authentication, database storage and existing account/snapshot Edge Functions. Existing customer UUIDs, cars, preferences, sessions and acceptance records remain in the same project.
 
 ## Development
 
-Use Node 22.13 or newer and npm:
+Use Node 22.13 or newer. Run npm ci, copy .env.example to an ignored .env.local, configure the existing project's URL and publishable key, and run npm run dev. APP_ORIGIN must match the exact website origin. Never expose a Supabase service-role key; privileged function credentials remain in the Supabase function runtime.
 
-```sh
-npm ci
-clerk auth login
-clerk env pull --app app_3K6yDRE97n4v0sWHxXzDuQjYXCV --file .env.local
-npm run dev
-```
+## Authentication and agreement
 
-Set the non-Clerk variables from [.env.example](.env.example) in an ignored local environment file. Set APP_ORIGIN to the exact development origin. Do not run init again to upgrade an already integrated checkout; use env pull and doctor instead. The linked Clerk application is TicketSafe.
+Email/password sign-in, email confirmation, confirmation resend, password recovery and verified email changes use the Supabase browser SDK. The verified customer session and row-level security protect saved cars and preferences. Customers explicitly accept the terms and age requirement before saving cars. Reading a legal page does not record agreement. Historical agreement version and timestamps remain intact; the displayed policy revision is separate.
 
-## Authentication and consent
+Account deletion calls the existing account-delete Edge Function, which validates identity, explicit confirmation and a live session before deleting the user. Database cascades remove that customer's private data while shared histories still used by other customers remain.
 
-The Next.js Clerk SDK supplies sign-in, sign-up, password recovery, OAuth verification, and account controls. Clerk's built-in legal checkbox collects Terms and Privacy acceptance during sign-up, including supported OAuth flows. The settings are checked into [clerk.config.json](clerk.config.json). The application does not collect a second agreement. Existing recorded acceptance timestamps are carried through the user import; the migration never fabricates consent.
+## Deployment and costs
 
-Email/password authentication is enabled; phone/SMS authentication and the extra username requirement are disabled. Clerk product billing is disabled. Configure production OAuth providers separately before cutover.
+Vercel uses the standard Next.js build. The active address remains https://curbside-eta.vercel.app. The custom domain requires DNS and authentication-origin verification before activation; no redirect to an unavailable domain is enabled.
 
-Account APIs validate the Clerk session and verified primary email on the server. Every private query uses the resolved ownership UUID. Browser-selected ownership and user-editable metadata cannot change that identity. Account-switch responses are discarded, private responses are not cached, and the service worker caches only public assets.
+Vercel Web Analytics is retained. Only explicit public search/map and current legal-page visits are counted, with queries stripped and private account/garage/recovery views excluded. Global Privacy Control and Do Not Track are respected.
 
-## Existing users and deployment
-
-**Follow [CLERK_MIGRATION.md](CLERK_MIGRATION.md) before switching production.** Existing UUIDs, cars, preferences, and acceptance timestamps are retained. Import users into the target production Clerk instance; development users cannot be promoted into production.
-
-Vercel now uses its standard Next.js build. Remove old static output/build/install overrides in the project dashboard. Production needs Clerk keys, Supabase server credentials, APP_ORIGIN, and a signed user.deleted webhook at /api/webhooks/clerk. Secrets must never be supplied through NEXT_PUBLIC_ variables.
-
-Automatic Git deployments from main are temporarily disabled in vercel.json while the existing customer migration is pending. The current production deployment continues serving existing Supabase accounts. After the cutover checks in CLERK_MIGRATION.md pass, remove that branch restriction and deploy the verified release. Other branches remain eligible for preview builds.
-
-TicketSafe’s selected canonical domain is ticketsafe.ezrefillny.net. The production Clerk instance is created and its legal/security settings are configured. DNS setup is deferred; Google/Apple production credentials, deletion webhook and customer migration remain pending. The old curbside-eta.vercel.app address will redirect after the verified cutover. See [TICKETSAFE_PRODUCTION.md](TICKETSAFE_PRODUCTION.md) for the exact DNS records and current status.
-
-## Cost cleanup
-
-The legacy D1/R2 backend, duplicate five-minute Cloudflare scheduler, static Vite/vinext deployment, Supabase auth email templates, and unused Stripe/Twilio/Resend/AI routes are removed. Those provider credentials no longer activate spending paths in this release. Supabase database storage and its existing daily city-history worker remain because they support saved cars; Mapbox is optional and loaded only for the map.
-
-Vercel Web Analytics remains enabled through the Next.js SDK. Its privacy filter counts only explicit public search/map and current legal-page visits, strips unapproved query parameters, excludes the bare root, authentication and private account/garage/ticket views, rejects custom events, and respects Global Privacy Control and Do Not Track. Keep Web Analytics enabled for the Vercel project. See [Vercel's setup guide](https://vercel.com/docs/analytics/quickstart) and [sensitive-data filtering](https://vercel.com/docs/analytics/redacting-sensitive-data).
-
-Removing code does not cancel provider subscriptions or previously deployed jobs. Disable the old Supabase account-delete function during the cutover maintenance window, then retire the Cloudflare scheduler/deployment and unused D1/R2 resources, old auth SMTP sender, and unused paid provider subscriptions after verification. Export/inspect any data before deleting a hosted resource. Keep the Supabase database, snapshot function and daily history schedule.
-
-The database and account API intentionally stay separate from Supabase Auth. Old user records remain as a rollback source; old browser grants are revoked at cutover. No new paid storage, queues, or worker services are introduced.
+The retired D1/R2 backend, duplicate Cloudflare scheduler, static Vite/vinext runtime and unused payment/messaging/AI routes remain removed. Keep the Supabase database, Auth email delivery, account-delete function, vehicle-snapshots function and existing daily history schedule. Mapbox is optional. Removing source or environment variables does not cancel external subscriptions or delete previously hosted resources.
 
 ## Verification
 
-```sh
-npm run typecheck
-npm test
-npm run build
-clerk doctor
-npm run lint
-```
-
-Tests include an actual local Postgres migration with legacy data and permission checks, identity/password/consent import checks, account deletion, and existing city-data, preference, map and garage behavior. The repository has pre-existing ESLint debt; any remaining lint failures must be reported separately from type, build and test results.
+Run npm run typecheck, npm test and npm run build. Tests cover local Postgres ownership/consent/history protections, account deletion, email editing, password requirements, city records, preferences, privacy and translations. Existing repository-wide lint debt is reported separately.

@@ -58,7 +58,10 @@ export async function readJson(req: Request, max = 16000) {
 export const publicConfig = () => {
   const e = config();
   return {
-    clerkKey: e.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || null,
+    supabase:
+      e.SUPABASE_URL && e.SUPABASE_PUBLISHABLE_KEY
+        ? { url: e.SUPABASE_URL, publishableKey: e.SUPABASE_PUBLISHABLE_KEY }
+        : null,
     mapboxToken:
       e.MAPBOX_PUBLIC_TOKEN ||
       e.NEXT_PUBLIC_MAPBOX_TOKEN ||
@@ -73,11 +76,7 @@ export const publicConfig = () => {
     turnstileKey: e.TURNSTILE_SITE_KEY || null,
     hcaptchaKey: e.HCAPTCHA_SITE_KEY || null,
     services: {
-      accounts: !!(
-        e.CLERK_SECRET_KEY &&
-        e.SUPABASE_URL &&
-        e.SUPABASE_SERVICE_ROLE_KEY
-      ),
+      accounts: !!(e.SUPABASE_URL && e.SUPABASE_PUBLISHABLE_KEY),
       email: false,
       sms: false,
       billing: false,
@@ -125,7 +124,7 @@ export async function turnstile(token: string | undefined, ip: string) {
       body: new URLSearchParams({ secret, response: token, remoteip: ip }),
     },
   );
-  const data: any = await response.json();
+  const data: { success?: boolean; hostname?: string } = await response.json();
   const appOrigin = config().APP_ORIGIN;
   let expected: string | null = null;
   try {

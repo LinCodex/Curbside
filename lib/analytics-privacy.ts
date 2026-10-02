@@ -7,8 +7,6 @@ export function publicAnalyticsURL(raw: string): string | null {
       url.hash ||
       url.searchParams.has("auth") ||
       url.searchParams.has("code") ||
-      url.searchParams.has("__clerk_ticket") ||
-      url.searchParams.has("__clerk_db_jwt") ||
       url.searchParams.has("access_token") ||
       url.searchParams.has("refresh_token")
     )

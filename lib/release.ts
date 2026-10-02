@@ -1,2 +1,2 @@
-// This release has no purchases. Existing cancellation remains available.
+// This release has no purchases.
 export const FREE_ACCESS = true;
