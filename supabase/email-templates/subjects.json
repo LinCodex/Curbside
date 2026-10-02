@@ -63,5 +63,109 @@
       "Email",
       "SiteURL"
     ]
+  },
+  {
+    "file": "invite-user.html",
+    "dashboardTemplate": "Invite user",
+    "subject": {
+      "en": "Your invitation · TicketSafe",
+      "zh": "您的邀请 · 罚单卫士"
+    },
+    "variables": [
+      "Email",
+      "ConfirmationURL",
+      "SiteURL"
+    ]
+  },
+  {
+    "file": "magic-link.html",
+    "dashboardTemplate": "Magic link",
+    "subject": {
+      "en": "Your sign-in code · TicketSafe",
+      "zh": "您的登录验证码 · 罚单卫士"
+    },
+    "variables": [
+      "Email",
+      "Token",
+      "SiteURL"
+    ]
+  },
+  {
+    "file": "reauthentication.html",
+    "dashboardTemplate": "Reauthentication",
+    "subject": {
+      "en": "Verify it’s you · TicketSafe",
+      "zh": "验证您的身份 · 罚单卫士"
+    },
+    "variables": [
+      "Email",
+      "Token",
+      "SiteURL"
+    ]
+  },
+  {
+    "file": "phone-number-changed.html",
+    "dashboardTemplate": "Phone number changed",
+    "subject": {
+      "en": "Your phone number was changed · TicketSafe",
+      "zh": "您的电话号码已更改 · 罚单卫士"
+    },
+    "variables": [
+      "OldPhone",
+      "Phone",
+      "SiteURL"
+    ]
+  },
+  {
+    "file": "verification-method-added.html",
+    "dashboardTemplate": "Verification method added",
+    "subject": {
+      "en": "Verification method added · TicketSafe",
+      "zh": "已添加验证方式 · 罚单卫士"
+    },
+    "variables": [
+      "Email",
+      "FactorType",
+      "SiteURL"
+    ]
+  },
+  {
+    "file": "verification-method-removed.html",
+    "dashboardTemplate": "Verification method removed",
+    "subject": {
+      "en": "Verification method removed · TicketSafe",
+      "zh": "已移除验证方式 · 罚单卫士"
+    },
+    "variables": [
+      "Email",
+      "FactorType",
+      "SiteURL"
+    ]
+  },
+  {
+    "file": "sign-in-method-linked.html",
+    "dashboardTemplate": "Sign-in method linked",
+    "subject": {
+      "en": "Sign-in method linked · TicketSafe",
+      "zh": "已关联登录方式 · 罚单卫士"
+    },
+    "variables": [
+      "Email",
+      "Provider",
+      "SiteURL"
+    ]
+  },
+  {
+    "file": "sign-in-method-removed.html",
+    "dashboardTemplate": "Sign-in method removed",
+    "subject": {
+      "en": "Sign-in method removed · TicketSafe",
+      "zh": "已移除登录方式 · 罚单卫士"
+    },
+    "variables": [
+      "Email",
+      "Provider",
+      "SiteURL"
+    ]
   }
 ]

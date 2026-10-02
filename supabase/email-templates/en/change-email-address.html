@@ -16,10 +16,10 @@
     @media screen and (max-width:600px){.outer{padding:24px 12px!important}.card{padding:28px 24px!important}.headline{font-size:28px!important;line-height:34px!important}.footer{padding:22px 14px!important}}
   </style>
 </head>
-<body style="margin:0;padding:0;background-color:#0b0d10;color:#f5f6f8;font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;">
+<body style="margin:0;padding:0;background-color:#0b0d10;color:#f5f6f8;font-family:Arial,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
   <div style="display:none;font-size:1px;line-height:1px;color:#0b0d10;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">Confirm the email change you requested.</div>
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#0b0d10">
-    <tr><td class="outer" align="center" style="padding:48px 20px;font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;">
+    <tr><td class="outer" align="center" style="padding:48px 20px;font-family:Arial,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
       <!--[if mso]><table role="presentation" width="560" cellspacing="0" cellpadding="0" border="0"><tr><td><![endif]-->
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;border-collapse:separate;border-spacing:0;">
         <tr><td style="padding:0 8px 24px;">
@@ -28,13 +28,13 @@
             <td style="font-size:26px;line-height:32px;font-weight:600;letter-spacing:-1.2px;color:#f5f6f8;">TicketSafe<span style="color:#8cbbff;">.</span></td>
           </tr></table>
         </td></tr>
-        <tr><td class="card" bgcolor="#191c21" style="padding:36px;border:1px solid #30343d;border-radius:22px;font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',Arial,sans-serif;">
-          <p style="margin:0 0 14px;font-size:11px;line-height:18px;letter-spacing:1.5px;color:#8cbbff;font-weight:700;">ACCOUNT ACCESS</p>
+        <tr><td class="card" bgcolor="#191c21" style="padding:36px;border:1px solid #30343d;border-radius:22px;font-family:Arial,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;">
+          <p style="margin:0 0 16px;font-size:11px;line-height:18px;letter-spacing:1.5px;color:#8cbbff;font-weight:700;">ACCOUNT ACCESS</p>
           <h1 class="headline" style="margin:0;font-size:34px;line-height:40px;letter-spacing:-0.8px;font-weight:700;color:#f5f6f8;">Confirm your email change.</h1>
           <p style="margin:16px 0 24px;font-size:15px;line-height:25px;color:#c5cbd4;">A request was made to change your TicketSafe account email. Use the button below to confirm this step. You may also need to confirm a separate email sent to the other address.</p>
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#111419" style="border:1px solid #30343d;border-radius:14px;"><tr><td style="padding:14px 18px;border-bottom:1px solid #30343d;"><div style="font-size:12px;line-height:18px;color:#a6adb8;">Current email</div><div style="margin-top:4px;font-size:15px;line-height:23px;color:#f5f6f8;word-break:break-all;overflow-wrap:anywhere;">{{ .Email }}</div></td></tr>
 <tr><td style="padding:14px 18px;border-bottom:1px solid #30343d;"><div style="font-size:12px;line-height:18px;color:#a6adb8;">Requested email</div><div style="margin-top:4px;font-size:15px;line-height:23px;color:#f5f6f8;word-break:break-all;overflow-wrap:anywhere;">{{ .NewEmail }}</div></td></tr></table>
-          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top:26px;"><tr><td align="center" bgcolor="#3175e6" style="border-radius:12px;mso-padding-alt:16px 24px;"><a href="{{ .ConfirmationURL }}" style="display:block;padding:16px 24px;font-size:16px;font-weight:700;line-height:24px;text-decoration:none;color:#ffffff;border-radius:12px;">Confirm email change</a></td></tr></table><p style="margin:18px 0 0;font-size:12px;line-height:20px;color:#a6adb8;">Button not opening? Copy this link into your browser. Keep the link private.<br><a href="{{ .ConfirmationURL }}" style="color:#8cbbff;word-break:break-all;overflow-wrap:anywhere;text-decoration:underline;">{{ .ConfirmationURL }}</a></p>
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin-top:28px;"><tr><td align="center" bgcolor="#8cbbff" style="border-radius:10px;mso-padding-alt:16px 24px;"><a href="{{ .ConfirmationURL }}" style="display:block;padding:16px 24px;font-size:16px;font-weight:700;line-height:24px;text-decoration:none;color:#101820;border-radius:10px;">Confirm email change</a></td></tr></table><p style="margin:18px 0 0;font-size:12px;line-height:20px;color:#a6adb8;">Button not opening? Copy this private link into your browser.</p><p style="margin:8px 0 0;padding:12px;background-color:#111419;border:1px solid #30343d;border-radius:8px;font-size:11px;line-height:18px;"><a href="{{ .ConfirmationURL }}" style="color:#8cbbff;word-break:break-all;overflow-wrap:anywhere;text-decoration:underline;">{{ .ConfirmationURL }}</a></p>
           <p style="margin:26px 0 0;padding-top:20px;border-top:1px solid #30343d;font-size:13px;line-height:22px;color:#a6adb8;">Didn’t request this? Do not confirm the change. Open TicketSafe directly to review your account and contact support.</p>
           <p style="margin:12px 0 0;font-size:13px;line-height:22px;color:#a6adb8;">Need a hand? <a href="mailto:ezrefillyny@gmail.com" style="color:#8cbbff;text-decoration:underline;">Contact TicketSafe support</a></p>
         </td></tr>
