@@ -43,6 +43,20 @@ const details = [
     location: { label: "Location unavailable", precision: "unknown" },
   },
 ];
+const mapPng = await sharp({
+  create: { width: 640, height: 420, channels: 4, background: "#191c21" },
+})
+  .png()
+  .toBuffer();
+const mapRequests = [];
+const mapOptions = {
+  token: "test-mapbox-token",
+  appOrigin: "https://curbside-eta.vercel.app",
+  send: async (url, input) => {
+    mapRequests.push({ url: new URL(url), input });
+    return new Response(mapPng, { headers: { "Content-Type": "image/png" } });
+  },
+};
 test("branded saved-vehicle email escapes public/user text, excludes unknown amounts and attaches a valid map with official payment links", async () => {
   for (const language of ["en", "zh"]) {
     const email = await detailedTicketEmail(
@@ -51,6 +65,7 @@ test("branded saved-vehicle email escapes public/user text, excludes unknown amo
       "https://curbside-eta.vercel.app/#garage",
       "https://database.example.invalid/unsubscribe",
       readTicketEmailDetails(details),
+      mapOptions,
     );
     assert.ok(email.html.includes("cid:ticketsafe-map"));
     assert.ok(!email.html.includes("<script>"));
@@ -72,6 +87,9 @@ test("branded saved-vehicle email escapes public/user text, excludes unknown amo
     assert.equal(metadata.format, "png");
     assert.equal(metadata.width, 640);
     assert.equal(metadata.height, 420);
+    assert.ok(email.html.includes("Mapbox / OpenStreetMap"));
+    assert.ok(!email.html.includes("test-mapbox-token"));
+    assert.ok(!email.text.includes("test-mapbox-token"));
   }
   const unavailable = await detailedTicketEmail(
     1,
@@ -86,6 +104,21 @@ test("branded saved-vehicle email escapes public/user text, excludes unknown amo
     ],
   );
   assert.equal(unavailable.attachments, undefined);
+  assert.equal(mapRequests.length, 2);
+  const request = mapRequests[0];
+  assert.equal(request.url.host, "api.mapbox.com");
+  assert.ok(
+    request.url.pathname.includes(
+      "mapbox/dark-v11/static/pin-l-1+8cbbff(-73.82840,40.75740)",
+    ),
+  );
+  assert.equal(request.url.searchParams.get("attribution"), "true");
+  assert.equal(request.url.searchParams.get("logo"), "true");
+  assert.equal(
+    request.input.headers.Referer,
+    "https://curbside-eta.vercel.app/",
+  );
+  assert.ok(!/DEMO1|1000000001|driver|script/.test(request.url.toString()));
   assert.ok(unavailable.html.includes("location map is unavailable"));
   await assert.rejects(
     detailedTicketEmail(
@@ -96,6 +129,43 @@ test("branded saved-vehicle email escapes public/user text, excludes unknown amo
       [],
     ),
   );
+});
+test("Mapbox failures, unconfigured maps and oversized images preserve the ticket email without an attachment", async () => {
+  const make = (options) =>
+    detailedTicketEmail(
+      2,
+      "en",
+      "https://tickets.example.invalid",
+      "https://database.example.invalid/unsubscribe",
+      details,
+      options,
+    );
+  let calls = 0;
+  const disabled = await make({
+    send: async () => {
+      calls++;
+      throw new Error("No token");
+    },
+  });
+  assert.equal(calls, 0);
+  assert.equal(disabled.attachments, undefined);
+  for (const send of [
+    async () => new Response("Forbidden", { status: 403 }),
+    async () => {
+      throw new Error("Mapbox timeout");
+    },
+    async () =>
+      new Response("Not PNG", { headers: { "Content-Type": "image/png" } }),
+    async () =>
+      new Response(new Uint8Array(180_001), {
+        headers: { "Content-Type": "image/png" },
+      }),
+  ]) {
+    const email = await make({ token: "test-mapbox-token", send });
+    assert.equal(email.attachments, undefined);
+    assert.ok(email.text.includes("1000000001"));
+    assert.ok(email.html.includes("location map is unavailable"));
+  }
 });
 test("location lookup sends only the location, rejects coarse matches and bounds email details to twenty", async () => {
   const source = readTicketEmailDetails([

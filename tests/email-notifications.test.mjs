@@ -18,7 +18,7 @@ const compile = async (file) => {
 };
 const { emailDeliveryAvailable, signEmailUnsubscribe, verifyEmailUnsubscribe } =
   await compile("lib/email-notifications.ts");
-const { detailedTicketEmail, readTicketEmailDetails } = await compile(
+const { detailedTicketEmail } = await compile(
   "lib/ticket-email.ts",
 );
 const { dispatchTicketEmails } = await compile(
@@ -106,7 +106,11 @@ test("delivery requires explicit enablement, verified sender and private configu
   }
 });
 
-function deliveryFixture({ current = true, due = 0 } = {}) {
+function deliveryFixture({
+  current = true,
+  due = 0,
+  emailContent = null,
+} = {}) {
   const calls = [];
   const job = {
     id: jobID,
@@ -117,6 +121,7 @@ function deliveryFixture({ current = true, due = 0 } = {}) {
     language: "en",
     ticket_count: 2,
     created_at: "2026-10-02T12:00:00Z",
+    email_content: emailContent,
     ticket_details: [
       {
         id: "1000000001",
@@ -157,6 +162,42 @@ function deliveryFixture({ current = true, due = 0 } = {}) {
     },
   };
 }
+test("retrying a frozen email reuses its Mapbox attachment without another map request", async () => {
+  const frozen = {
+    subject: "TicketSafe: new tickets for your saved vehicles",
+    text: "Frozen ticket alert",
+    html: '<img src="cid:ticketsafe-map" alt="Mapbox ticket map">',
+    attachments: [
+      {
+        filename: "ticketsafe-ticket-locations.png",
+        content: "frozen-map-content",
+        content_type: "image/png",
+        content_id: "ticketsafe-map",
+      },
+    ],
+  };
+  const fixture = deliveryFixture({ emailContent: frozen });
+  let sends = 0;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await dispatchTicketEmails(
+      fixture.admin,
+      { ...config, mapboxToken: "test-mapbox-token" },
+      async (url, input) => {
+        assert.equal(url, "https://api.resend.com/emails");
+        const body = JSON.parse(input.body);
+        assert.deepEqual(body.attachments, frozen.attachments);
+        sends++;
+        return Response.json({ id: "provider-id" });
+      },
+    );
+  }
+  assert.equal(sends, 2);
+  assert.equal(
+    fixture.calls.filter(([name]) => name === "curbside_freeze_email_content")
+      .length,
+    0,
+  );
+});
 test("worker freezes provider idempotency, retries ambiguous failures, suppresses opt-outs and makes no disabled provider calls", async () => {
   let sends = 0;
   const sent = [];

@@ -1,7 +1,7 @@
 // Historical database consent version: never rewrite existing acceptance records.
 export const LEGAL_VERSION = "2026-09-27.1";
-export const PRIVACY_VERSION = "2026-10-02.2";
-export const LEGAL_DISPLAY_REVISION = "2026-10-02.2";
+export const PRIVACY_VERSION = "2026-10-02.3";
+export const LEGAL_DISPLAY_REVISION = "2026-10-02.3";
 export const OPERATOR = {
   name: "Flushing NY Wireless",
   address: "136-78 Roosevelt Ave, Flushing, NY, United States",
@@ -88,6 +88,7 @@ export const legalDocuments: Record<string, LegalDocument> = {
         title: "Providers and sharing",
         paragraphs: [
           "Resend delivers account emails and opted-in new-ticket notifications. For ticket alerts it receives the verified recipient email, saved-vehicle and ticket details, reported balances, available location maps, and a signed unsubscribe link. Location maps are attached to the email and do not require remote map-image loading. Clicking a payment link opens NYC CityPay; TicketSafe does not collect payment details or take payments.",
+          "Mapbox generates attached ticket-location maps from ticket coordinates and numbered pins. These map requests do not include your email address, license plate, car nickname or summons number. Maps are prepared on the server; opening the email does not send a map request from your mailbox to Mapbox. If a map cannot be generated, the alert still includes the available location text.",
           "Vercel hosts TicketSafe. Supabase provides authentication and stores private car details, preferences, historical consent records and shared public-city snapshots. Account confirmation and password recovery emails use the configured email delivery service. NYC Open Data receives plate queries. When maps or location lookup are used, Mapbox and the configured NYC location services process map requests or address and intersection queries. Car nicknames and other user-entered details are private to the account that saved them.",
           "When hCaptcha is shown, it processes device and interaction information to detect automated abuse under the applicable provider terms. Providers may process information in the United States or other locations where they operate. Their own policies explain their processing and retention. We may disclose information when required by law or reasonably necessary to protect rights and security.",
         ],

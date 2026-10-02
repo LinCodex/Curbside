@@ -74,6 +74,7 @@ export async function dispatchTicketEmails(
       if (!message) {
         const details = await enrichTicketEmailDetails(
           readTicketEmailDetails(job.ticket_details),
+          send,
         );
         const prepared = await detailedTicketEmail(
           job.ticket_count,
@@ -81,6 +82,7 @@ export async function dispatchTicketEmails(
           garage.toString(),
           unsubscribe.toString(),
           details,
+          { token: config.mapboxToken, appOrigin: config.appOrigin, send },
         );
         const frozen = await admin.rpc("curbside_freeze_email_content", {
           job_id: job.id,

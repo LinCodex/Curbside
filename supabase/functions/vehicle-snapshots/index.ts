@@ -189,6 +189,7 @@ Deno.serve(async (request) => {
             signingSecret: Deno.env.get("EMAIL_UNSUBSCRIBE_SECRET"),
             appOrigin: Deno.env.get("APP_ORIGIN"),
             supabaseUrl: url,
+            mapboxToken: Deno.env.get("MAPBOX_PUBLIC_TOKEN"),
           };
           await dispatchTicketEmails(admin, config);
         },

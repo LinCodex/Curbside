@@ -8,6 +8,7 @@ export type EmailDeliveryConfig = {
   signingSecret?: string;
   appOrigin?: string;
   supabaseUrl?: string;
+  mapboxToken?: string;
 };
 
 export function emailDeliveryAvailable(config: EmailDeliveryConfig) {
