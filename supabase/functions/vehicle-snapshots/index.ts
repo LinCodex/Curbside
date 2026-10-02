@@ -6,6 +6,8 @@ import {
 } from "../../../lib/domain";
 import { searchNYC } from "../../../lib/nyc";
 import { mergeSnapshot } from "../../../lib/vehicle-snapshots";
+import { dispatchTicketEmails } from "../email-notifications/delivery";
+import type { EmailDeliveryConfig } from "../../../lib/email-notifications";
 
 // The deployed bundle uses Supabase's runtime-supplied server credential only.
 declare const Deno: {
@@ -27,11 +29,16 @@ type SnapshotRow = {
   full_checked_at: string | null;
 };
 async function refresh(row: SnapshotRow) {
+  const baseline = await admin.rpc("curbside_snapshot_needs_email_baseline", {
+    snapshot_key: row.key,
+  });
   const deep =
+    baseline.data === true ||
     !row.payload ||
     !row.full_checked_at ||
     Date.now() - Date.parse(row.full_checked_at) > 7 * 86400_000;
   let result: SearchResult | null = null;
+  let observation: SearchResult | null = null;
   let completeHistory = false;
   try {
     const current = await searchNYC(
@@ -40,17 +47,19 @@ async function refresh(row: SnapshotRow) {
       true,
     );
     if (!current.unavailable) {
+      observation = current;
       result = mergeSnapshot(row.payload, current);
       completeHistory = deep && current.complete;
     }
   } catch {
     /* Leave the last usable snapshot intact; the durable lease will retry. */
   }
-  const { error } = await admin.rpc("curbside_finish_snapshot", {
+  const { error } = await admin.rpc("curbside_finish_snapshot_with_email", {
     snapshot_key: row.key,
     lease_id: row.lease,
     result,
     full_history: completeHistory,
+    observation,
   });
   if (error) console.error("Snapshot completion failed", error.code);
 }
@@ -169,7 +178,21 @@ Deno.serve(async (request) => {
     if (error)
       return reply({ error: "History temporarily unavailable" }, 503, origin);
     EdgeRuntime.waitUntil(
-      Promise.all(((rows as SnapshotRow[]) || []).map(refresh)),
+      Promise.all(((rows as SnapshotRow[]) || []).map(refresh)).then(
+        async () => {
+          if (body.mode !== "cron") return;
+          const config: EmailDeliveryConfig = {
+            enabled: Deno.env.get("EMAIL_NOTIFICATIONS_ENABLED"),
+            apiKey: Deno.env.get("RESEND_API_KEY"),
+            from: Deno.env.get("EMAIL_FROM"),
+            senderVerified: Deno.env.get("EMAIL_SENDER_VERIFIED"),
+            signingSecret: Deno.env.get("EMAIL_UNSUBSCRIBE_SECRET"),
+            appOrigin: Deno.env.get("APP_ORIGIN"),
+            supabaseUrl: url,
+          };
+          await dispatchTicketEmails(admin, config);
+        },
+      ),
     );
     return reply({ queued: rows?.length || 0 }, 202, origin);
   } catch {

@@ -60,7 +60,8 @@ import AuthPanel from "./auth-panel";
 import AccountDetails from "./account-details";
 import { combinedGarageHistory } from "@/lib/garage-history";
 import WelcomeOnboarding from "./welcome-onboarding";
-import BotChallenge from "./bot-challenge";
+import BotChallenge, { type ChallengeHandle } from "./bot-challenge";
+import { NotificationSettings } from "./notification-settings";
 import { hasOnboarded, onboardingCookie } from "@/lib/onboarding";
 import {
   money,
@@ -121,12 +122,44 @@ export default function Curbside() {
   >("login");
   const [onboardingOpen, setOnboardingOpen] = useState<boolean | null>(null);
   const currentAuthId = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const openLinkedView = () => {
+      const linkedView = window.location.hash.slice(1);
+      if (linkedView === "garage" || linkedView === "map") setView(linkedView);
+    };
+    openLinkedView();
+    window.addEventListener("hashchange", openLinkedView);
+    return () => window.removeEventListener("hashchange", openLinkedView);
+  }, []);
   useLayoutEffect(() => {
     currentAuthId.current = auth.user?.id;
   }, [auth.user?.id]);
   const [dockHidden, setDockHidden] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const challenge = useRef("");
+  const searchChallenge = useRef<ChallengeHandle>(null);
+  const searching = useRef(false);
+  const verificationExpiry = useRef<number | null>(null);
+  const [verifiedUntil, setVerifiedUntil] = useState<number | null>(null);
+  const rememberVerification = useCallback((until: number | null) => {
+    verificationExpiry.current = until;
+    setVerifiedUntil(until);
+  }, []);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/search/verification", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : null)
+      .then((data) => {
+        if (alive && !verificationExpiry.current && Number.isFinite(data?.verifiedUntil) && data.verifiedUntil > Date.now())
+          rememberVerification(data.verifiedUntil);
+      }).catch(() => {});
+    return () => { alive = false; };
+  }, [rememberVerification]);
+  useEffect(() => {
+    if (!verifiedUntil) return;
+    const timer = setTimeout(() => rememberVerification(null), Math.max(0, verifiedUntil - Date.now()));
+    return () => clearTimeout(timer);
+  }, [verifiedUntil, rememberVerification]);
   const [captchaReset, setCaptchaReset] = useState(0);
   const [captchaRequired, setCaptchaRequired] = useState(false);
   const receiveChallenge = useCallback((token: string) => {
@@ -428,28 +461,38 @@ export default function Curbside() {
           unavailable: saved.unavailable,
         };
       }
-      if (config.hcaptchaKey && !challenge.current) {
-        const message = tr(
-          "Please complete the security check before searching.",
-        );
-        setError(message);
-        setCaptchaRequired(true);
-        throw new Error(message);
-      }
+      if (searching.current) throw new Error(tr("A search is already in progress."));
+      searching.current = true;
       setBusy(true);
       setError("");
       try {
-        const r = await fetch("/api/search", {
+        const freshChallenge = async () => {
+          if (!config.hcaptchaKey) return challenge.current;
+          if (!searchChallenge.current) throw new Error(tr("Security check is loading. Please try again shortly."));
+          return searchChallenge.current.execute();
+        };
+        let token = verificationExpiry.current && verificationExpiry.current > Date.now() ? "" : await freshChallenge();
+        const request = (captcha: string) => fetch("/api/search", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             ...p,
             history: input.history ?? true,
             locations: true,
-            challenge: challenge.current,
+            challenge: captcha,
           }),
         });
-        const j: any = await r.json();
+        let r = await request(token);
+        let j: any = await r.json();
+        if (!token && r.status === 403 && j.code === "captcha_required") {
+          rememberVerification(null);
+          token = await freshChallenge();
+          r = await request(token);
+          j = await r.json();
+        }
+        const until = Number(r.headers.get("X-TicketSafe-Verified-Until"));
+        if (until > Date.now()) rememberVerification(until);
+        else if (token) rememberVerification(null);
         if (!r.ok && !j.sources)
           throw new Error(j.error || tr("NYC sources are unavailable."));
         setResults(j);
@@ -468,13 +511,14 @@ export default function Curbside() {
         setError((e as Error).message);
         throw e;
       } finally {
+        searching.current = false;
         setBusy(false);
         challenge.current = "";
         setCaptchaReset((value) => value + 1);
         (window as any).turnstile?.reset();
       }
     },
-    [tr, account?.vehicles, config.hcaptchaKey],
+    [tr, account?.vehicles, config.hcaptchaKey, rememberVerification],
   );
   useEffect(() => {
     const context = (document as any).modelContext;
@@ -656,6 +700,9 @@ export default function Curbside() {
             }
           >
             <BotChallenge
+              ref={searchChallenge}
+              mode="invisible"
+              verifiedUntil={verifiedUntil}
               siteKey={config.hcaptchaKey}
               onToken={receiveChallenge}
               resetKey={captchaReset}
@@ -1815,6 +1862,9 @@ export default function Curbside() {
                   </>
                 )}
               </div>
+              {account && <div className="glass form-card account-notifications-card">
+                <NotificationSettings legalAccepted={account.user.legalAccepted === true} />
+              </div>}
               <div className="glass form-card account-tools-card">
                 <h2>{tr("Your TicketSafe")}</h2>
                 <button
@@ -2013,6 +2063,7 @@ export default function Curbside() {
       {onboardingOpen && !authOpen && !auth.recovering && (
         <Modal
           title={tr("Welcome to TicketSafe")}
+          motion="up"
           close={() => finishOnboarding(false)}
         >
           <WelcomeOnboarding
@@ -2730,10 +2781,12 @@ function Modal({
   title,
   close,
   children,
+  motion,
 }: {
   title: string;
   close: () => void;
   children: React.ReactNode;
+  motion?: "up";
 }) {
   const { tr, locale, resolvedTheme } = usePreferences();
   const ref = useRef<HTMLDivElement>(null);
@@ -2770,6 +2823,7 @@ function Modal({
     <div className="modal-backdrop" onClick={close}>
       <div
         className="sheet"
+        data-motion={motion}
         role="dialog"
         aria-modal="true"
         aria-label={title}

@@ -4,6 +4,6 @@ export function clientIp(
   platform: "vercel" | "cloudflare",
 ) {
   return platform === "vercel"
-    ? headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"
+    ? headers.get("x-vercel-forwarded-for")?.split(",")[0]?.trim() || "unknown"
     : headers.get("cf-connecting-ip")?.trim() || "unknown";
 }

@@ -2945,3 +2945,78 @@ html[data-theme="light"] .legal-section-links a[aria-current="location"] {
   display: grid;
   gap: 8px;
 }
+.bot-challenge[data-mode="invisible"] {
+  padding: 12px 14px;
+  gap: 6px;
+  background: transparent;
+  border-color: var(--line);
+}
+.bot-challenge-widget[data-size="invisible"] {
+  min-height: 0;
+  width: 0;
+}
+.security-disclosure {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+.security-disclosure span {
+  display: block;
+  margin-top: 4px;
+}
+.security-disclosure a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.sheet[data-motion="up"] {
+  animation: ticketsafe-onboarding-up 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes ticketsafe-onboarding-up {
+  from {
+    opacity: 0;
+    transform: translateY(32px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.notification-settings {
+  display: grid;
+  gap: 12px;
+}
+.notification-settings h3,
+.notification-settings p {
+  margin: 0;
+}
+.notification-settings h3 {
+  font-size: 18px;
+}
+.notification-settings p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+.notification-settings label {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  min-height: 44px;
+}
+.notification-settings input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+.notification-settings p[role="alert"] {
+  color: var(--danger, #d85e5e);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet[data-motion="up"] {
+    animation: none;
+  }
+}

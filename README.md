@@ -20,6 +20,16 @@ Vercel Web Analytics is retained. Only explicit public search/map and current le
 
 The retired D1/R2 backend, duplicate Cloudflare scheduler, static Vite/vinext runtime and unused payment/messaging/AI routes remain removed. Keep the Supabase database, Auth email delivery, account-delete function, vehicle-snapshots function and existing daily history schedule. Mapbox is optional. Removing source or environment variables does not cancel external subscriptions or delete previously hosted resources.
 
+## Saved-vehicle alerts and search protection
+
+Account email alerts are opt-in and cover saved vehicles only. A complete historical baseline sends no alert; later new summons trigger one daily email. Balance changes alone do not trigger mail. Branded English/Chinese messages show up to 20 ticket details, reported balances, an attached map for reliable locations, and official NYC CityPay links. Unknown balances and positions stay unknown. Resend sends from alert@ezrefillny.net; SMS is unavailable.
+
+The existing Supabase morning job handles discovery and delivery without adding a scheduler. Private outbox leases, frozen message bodies and provider idempotency protect retries. Delivery is capped at 10 messages per worker invocation and 100 attempts per UTC day, with at most five attempts per message within 22 hours. Unsubscribe and account/car removal suppress pending alerts.
+
+Search runs hCaptcha automatically when verification is required. A five-minute HTTP-only pass permits at most ten searches, bound to trusted ingress IP and browser identity. Every request consumes durable Supabase attempt/search limits. Configure both SEARCH_VERIFICATION_SECRET and SEARCH_VERIFICATION_LEDGER_URL only after installing the ledger. Partial configuration fails closed; neither configured requires fresh CAPTCHA for each search. Authentication always uses its own fresh CAPTCHA.
+
+See [NOTIFICATIONS.md](NOTIFICATIONS.md) for deployment order, secret names, caps and validation.
+
 ## Verification
 
 Run npm run typecheck, npm test and npm run build. Tests cover local Postgres ownership/consent/history protections, account deletion, email editing, password requirements, city records, preferences, privacy and translations. Existing repository-wide lint debt is reported separately.

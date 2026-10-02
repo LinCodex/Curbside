@@ -8,6 +8,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { PreferenceChoice, usePreferences } from "./preferences";
+import styles from "./welcome-onboarding.module.css";
 import {
   readPreferences,
   type ThemePreference,
@@ -46,14 +47,18 @@ export default function WelcomeOnboarding({
     }
   };
   return (
-    <section className="welcome-onboarding">
+    <section className={`welcome-onboarding ${styles.welcome}`}>
       <div className="onboarding-progress" aria-label={tr("Welcome progress")}>
         {[0, 1, 2].map((index) => (
           <span key={index} className={index === step ? "active" : ""} />
         ))}
         <span className="sr-only">{step + 1} / 3</span>
       </div>
-      <div className="onboarding-slide" key={step} aria-live="polite">
+      <div
+        className={`onboarding-slide ${styles.slide}`}
+        key={step}
+        aria-live="polite"
+      >
         {step === 0 ? (
           <>
             <div className="onboarding-symbol">

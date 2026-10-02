@@ -1,7 +1,7 @@
 // Historical database consent version: never rewrite existing acceptance records.
 export const LEGAL_VERSION = "2026-09-27.1";
-export const PRIVACY_VERSION = "2026-10-02.1";
-export const LEGAL_DISPLAY_REVISION = "2026-10-02.1";
+export const PRIVACY_VERSION = "2026-10-02.2";
+export const LEGAL_DISPLAY_REVISION = "2026-10-02.2";
 export const OPERATOR = {
   name: "Flushing NY Wireless",
   address: "136-78 Roosevelt Ave, Flushing, NY, United States",
@@ -47,6 +47,7 @@ export const legalDocuments: Record<string, LegalDocument> = {
       {
         title: "4. Saved history and service changes",
         paragraphs: [
+          "If you opt in to email notifications in Account, TicketSafe checks only your saved vehicles and sends a daily email when new tickets are found after a complete baseline check. Balance changes alone do not trigger emails. Messages include saved-vehicle and ticket details, reported balances, available approximate location maps, and links to official NYC payment services. Public records and email delivery can be delayed; alerts are not a guarantee of timely notice or a substitute for checking official deadlines. SMS notifications are unavailable.",
           "Saving a car stores its private details and connects it to a shared history of public city records for that plate, registration state and plate type. History refreshes depend on city data and service availability. Failed checks retain the last usable results and show an earlier check time.",
           "We may fix or change the service and will explain material changes when required. Changes requiring your agreement will be presented before applying to you. Earlier acceptance records keep their original dates; updating this page does not record new consent or retroactively replace an earlier agreement.",
         ],
@@ -86,6 +87,7 @@ export const legalDocuments: Record<string, LegalDocument> = {
       {
         title: "Providers and sharing",
         paragraphs: [
+          "Resend delivers account emails and opted-in new-ticket notifications. For ticket alerts it receives the verified recipient email, saved-vehicle and ticket details, reported balances, available location maps, and a signed unsubscribe link. Location maps are attached to the email and do not require remote map-image loading. Clicking a payment link opens NYC CityPay; TicketSafe does not collect payment details or take payments.",
           "Vercel hosts TicketSafe. Supabase provides authentication and stores private car details, preferences, historical consent records and shared public-city snapshots. Account confirmation and password recovery emails use the configured email delivery service. NYC Open Data receives plate queries. When maps or location lookup are used, Mapbox and the configured NYC location services process map requests or address and intersection queries. Car nicknames and other user-entered details are private to the account that saved them.",
           "When hCaptcha is shown, it processes device and interaction information to detect automated abuse under the applicable provider terms. Providers may process information in the United States or other locations where they operate. Their own policies explain their processing and retention. We may disclose information when required by law or reasonably necessary to protect rights and security.",
         ],
@@ -100,6 +102,7 @@ export const legalDocuments: Record<string, LegalDocument> = {
       {
         title: "Cookies and local storage",
         paragraphs: [
+          "A signed, secure, HTTP-only search-verification cookie can last up to five minutes. It is bound to network and browser information and permits a limited number of searches; server-side limits still apply to every request. The service-only security ledger stores keyed hashes and short-lived nonces rather than raw IP addresses or account information.",
           "Supabase stores the authentication session in browser storage so you can remain signed in. A welcome cookie remembers completed onboarding for up to one year and is renewed on visits. Browser storage also keeps guest display preferences, account-specific preference caches and installation-guide choices. Signing out clears the local authentication session. Clearing local data does not delete server records.",
           "The installable app caches public fonts, icons, an offline page and decorative map assets. It does not cache private account responses or ticket searches for offline access. TicketSafe does not request your precise device GPS location.",
         ],
@@ -107,6 +110,7 @@ export const legalDocuments: Record<string, LegalDocument> = {
       {
         title: "Retention and deletion",
         paragraphs: [
+          "Email preferences and new-ticket baselines are linked to your account. Unsubscribing stops future alerts, cancels pending messages and clears discovery baselines. Queued message details are private and are removed with terminal notification records after 30 days; the frozen rendered email is cleared when delivery is accepted or permanently fails. Pending jobs expire after seven days. Account deletion removes related notification data. Email already delivered to a mailbox and provider logs are subject to their own retention.",
           "Temporary search caches have bounded lifetimes that depend on the source; supported permanent geocoding may be cached for up to 90 days. Saved cars share city-history snapshots by plate, registration state and plate type. The morning worker normally refreshes saved histories daily, with full historical enrichment normally checked weekly. Failed checks keep the last usable history and its earlier check time. A shared snapshot is removed when no account has that vehicle saved.",
           "After you explicitly confirm account deletion, the account-deletion service verifies your signed-in identity and active session, then deletes the Supabase user and related saved cars, preferences and acceptance records. Another account’s saved details and shared city history remain. If deletion cannot be completed, the app reports the failure so you can retry or contact support. Deletion does not erase public city records, provider logs or independently retained backups. Contact us for coordinated deletion and an explanation of any retention exception.",
         ],
@@ -114,6 +118,7 @@ export const legalDocuments: Record<string, LegalDocument> = {
       {
         title: "Your choices and requests",
         paragraphs: [
+          "New-ticket emails are off until you explicitly enable them. You can turn them off in Account or use an email unsubscribe link. Only saved vehicles are monitored; removing a saved vehicle stops its future ticket alerts.",
           "You can edit or remove saved cars, change display preferences, update your email, recover your password or delete your account through TicketSafe. Contact the operator below to request access, correction, a portable copy, deletion or help with an applicable privacy right. We may verify your authority without requesting unnecessary identification and will respond as required by applicable law.",
           "Applicable privacy rights depend on your location and the laws that apply to this business. We do not discriminate against people for exercising applicable rights. We will explain a denied request and any available review process.",
         ],

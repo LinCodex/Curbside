@@ -11,6 +11,10 @@ import {
   sameOrigin,
 } from "@/lib/runtime";
 import { clientIp } from "@/lib/client-ip";
+import {
+  verifySearchRequest,
+  SearchVerificationError,
+} from "@/lib/search-verification";
 export async function POST(req: Request) {
   try {
     sameOrigin(req);
@@ -21,7 +25,18 @@ export async function POST(req: Request) {
       config().VERCEL === "1" ? "vercel" : "cloudflare",
     );
     await rate("search:" + (await hash(ip)), 30, 3600_000);
-    await turnstile(body.challenge, ip);
+    const verification = await verifySearchRequest(
+      req,
+      { challenge: body.challenge, ip },
+      async (challenge, address) => {
+        if (!config().HCAPTCHA_SECRET_KEY && !config().TURNSTILE_SECRET_KEY)
+          throw new HttpError(
+            503,
+            "Security verification is unavailable. Please try again later.",
+          );
+        await turnstile(challenge, address);
+      },
+    );
     const result = await searchWithSnapshot(plate, body.history === true);
     if (body.locations === true && !result.snapshot) {
       result.tickets = await Promise.all(
@@ -35,12 +50,29 @@ export async function POST(req: Request) {
       headers: {
         "Cache-Control": "private, no-store",
         "X-Robots-Tag": "noindex",
+        ...(verification.setCookie
+          ? { "Set-Cookie": verification.setCookie }
+          : {}),
+        ...(verification.verifiedUntil
+          ? {
+              "X-TicketSafe-Verified-Until": String(verification.verifiedUntil),
+            }
+          : {}),
       },
     });
   } catch (e) {
     return Response.json(
-      { error: e instanceof Error ? e.message : "Search unavailable" },
-      { status: e instanceof HttpError ? e.status : 400 },
+      {
+        error: e instanceof Error ? e.message : "Search unavailable",
+        ...(e instanceof SearchVerificationError ? { code: e.code } : {}),
+      },
+      {
+        status:
+          e instanceof HttpError || e instanceof SearchVerificationError
+            ? e.status
+            : 400,
+        headers: { "Cache-Control": "no-store" },
+      },
     );
   }
 }

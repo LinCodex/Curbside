@@ -8,13 +8,14 @@ test("Vercel ignores attacker-selected Cloudflare and real-IP headers", () => {
     const headers = new Headers({
       "cf-connecting-ip": fake,
       "x-real-ip": fake,
-      "x-forwarded-for": "203.0.113.1",
+      "x-forwarded-for": fake,
+      "x-vercel-forwarded-for": "203.0.113.1",
     });
     assert.equal(clientIp(headers, "vercel"), "203.0.113.1");
     assert.equal(clientIp(headers, "cloudflare"), fake);
   }
   assert.equal(
-    clientIp(new Headers({ "cf-connecting-ip": "1.1.1.1" }), "vercel"),
+    clientIp(new Headers({ "cf-connecting-ip": "1.1.1.1", "x-forwarded-for": "1.1.1.1" }), "vercel"),
     "unknown",
   );
 });

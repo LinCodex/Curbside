@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { useEffect, useRef, useState } from "react";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
 import {
   ArrowRight,
   Eye,
@@ -8,7 +8,10 @@ import {
   LoaderCircle,
   Mail,
   ShieldCheck,
+  Check,
+  LogIn,
 } from "lucide-react";
+import styles from "./auth-panel.module.css";
 import { usePreferences } from "./preferences";
 import { useSupabaseAccount } from "./use-supabase-account";
 import BotChallenge from "./bot-challenge";
@@ -16,6 +19,17 @@ import {
   meetsPasswordRequirement,
   PASSWORD_REQUIREMENT,
 } from "../lib/password-policy";
+
+export function signupNeedsSignIn(
+  user: { identities?: unknown[] } | null,
+  code?: string,
+) {
+  return (
+    code === "user_already_exists" ||
+    code === "email_exists" ||
+    (!!user && Array.isArray(user.identities) && user.identities.length === 0)
+  );
+}
 
 export default function AuthPanel({
   client,
@@ -40,6 +54,13 @@ export default function AuthPanel({
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [pendingEmail, setPendingEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail);
+  const [stage, setStage] = useState<"form" | "confirmation" | "existing">(
+    "form",
+  );
+  const [showResendChallenge, setShowResendChallenge] = useState(false);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const emailInput = useRef<HTMLInputElement>(null);
   const [resendAt, setResendAt] = useState(0);
   const [remaining, setRemaining] = useState(0);
   const rememberSent = (email: string) => {
@@ -55,6 +76,8 @@ export default function AuthPanel({
   };
   const pendingConfirmation = (email: string) => {
     setPendingEmail(email);
+    setStage("confirmation");
+    setShowResendChallenge(false);
     try {
       setResendAt(
         Number(
@@ -65,6 +88,10 @@ export default function AuthPanel({
       );
     } catch {}
   };
+  useEffect(() => {
+    if (stage === "form") emailInput.current?.focus();
+    else heading.current?.focus();
+  }, [stage]);
   useEffect(() => {
     if (!pendingEmail) return;
     const tick = () =>
@@ -106,6 +133,8 @@ export default function AuthPanel({
       setError(tr("Could not connect. Check your connection and try again."));
     } finally {
       setBusy(false);
+      setShowResendChallenge(false);
+      setCaptchaToken("");
       setCaptchaReset((value) => value + 1);
     }
   };
@@ -155,6 +184,11 @@ export default function AuthPanel({
               });
       if (result.error) {
         const code = result.error.code;
+        if (mode === "register" && signupNeedsSignIn(null, code)) {
+          setPendingEmail(email);
+          setStage("existing");
+          return;
+        }
         if (code === "captcha_failed") {
           setError(tr("Security check failed. Please try again."));
           return;
@@ -163,11 +197,6 @@ export default function AuthPanel({
           setError(tr("Email or password is incorrect."));
         else if (code === "email_not_confirmed") {
           pendingConfirmation(email);
-          setError(
-            tr(
-              "Verify your email before signing in. Check your inbox and spam folder.",
-            ),
-          );
         } else if (code === "weak_password") setError(tr(PASSWORD_REQUIREMENT));
         else if (
           ["over_request_rate_limit", "over_email_send_rate_limit"].includes(
@@ -190,25 +219,175 @@ export default function AuthPanel({
             "If an account exists, a password reset link will arrive by email. Check your inbox and spam folder.",
           ),
         );
-      else if (
-        mode === "register" &&
-        !("session" in result.data && result.data.session)
-      ) {
-        setPendingEmail(email);
-        rememberSent(email);
-        setMessage(
-          tr(
-            "Confirm your email to activate your account. Check your inbox and spam folder, then sign in. If you already have an account, use Sign in.",
-          ),
-        );
+      else if (mode === "register") {
+        const user =
+          "user" in result.data ? (result.data.user as User | null) : null;
+        if (signupNeedsSignIn(user)) {
+          setPendingEmail(email);
+          setStage("existing");
+        } else if (
+          !("session" in result.data && result.data.session) ||
+          !user?.email_confirmed_at
+        ) {
+          pendingConfirmation(email);
+          rememberSent(email);
+        } else onComplete();
       } else onComplete();
     } catch {
       setError(tr("Could not connect. Check your connection and try again."));
     } finally {
       setBusy(false);
+      setCaptchaToken("");
       setCaptchaReset((value) => value + 1);
     }
   };
+  const returnToForm = (next: "login" | "register" | "reset") => {
+    setEmail(pendingEmail);
+    setMode(next);
+    setStage("form");
+    setShowResendChallenge(false);
+    setCaptchaToken("");
+    setCaptchaReset((value) => value + 1);
+    setError("");
+    setMessage("");
+  };
+  if (stage !== "form" && !recovering) {
+    const existing = stage === "existing";
+    return (
+      <section className={styles.confirmation} aria-labelledby="auth-next-step">
+        <span className={styles.symbol} aria-hidden="true">
+          {existing ? <LogIn size={30} /> : <Mail size={30} />}
+          {!existing && (
+            <span className={styles.check}>
+              <Check size={13} />
+            </span>
+          )}
+        </span>
+        <div className={styles.heading}>
+          <p className="eyebrow">
+            {tr(existing ? "Account access" : "One more step")}
+          </p>
+          <h2 id="auth-next-step" ref={heading} tabIndex={-1}>
+            {tr(existing ? "Try signing in" : "Check your email")}
+          </h2>
+        </div>
+        <p className={styles.email}>{pendingEmail}</p>
+        <p className={styles.explanation}>
+          {tr(
+            existing
+              ? "We can’t complete a new signup with this email. If you already have an account, sign in or reset your password."
+              : "Open the verification link in your email, then come back and sign in. Check your spam folder too.",
+          )}
+        </p>
+        {!existing && (
+          <div className={styles.steps}>
+            <span>
+              <span>1</span>
+              {tr("Verify your email")}
+            </span>
+            <span>
+              <span>2</span>
+              {tr("Sign in to your garage")}
+            </span>
+          </div>
+        )}
+        {error && (
+          <p className="notice error" role="alert">
+            {error}
+          </p>
+        )}
+        {message && (
+          <p className="notice" role="status">
+            {message}
+          </p>
+        )}
+        <button
+          type="button"
+          className="primary-action"
+          disabled={busy}
+          onClick={() => returnToForm("login")}
+        >
+          {tr("Continue to sign in")}
+          <ArrowRight size={17} />
+        </button>
+        {existing ? (
+          <button
+            type="button"
+            className="text-link"
+            onClick={() => returnToForm("reset")}
+          >
+            {tr("Reset password")}
+          </button>
+        ) : (
+          <div className={styles.resend}>
+            {showResendChallenge && captchaKey ? (
+              <>
+                <BotChallenge
+                  siteKey={captchaKey}
+                  onToken={setCaptchaToken}
+                  resetKey={captchaReset}
+                />
+                <button
+                  type="button"
+                  className="button secondary"
+                  disabled={busy || !captchaToken}
+                  onClick={resend}
+                >
+                  {busy && <LoaderCircle className="spin" size={16} />}
+                  {tr("Send another verification email")}
+                </button>
+                <button
+                  type="button"
+                  className="text-link"
+                  disabled={busy}
+                  onClick={() => {
+                    setShowResendChallenge(false);
+                    setCaptchaToken("");
+                  }}
+                >
+                  {tr("Cancel")}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="text-link"
+                disabled={busy || remaining > 0}
+                onClick={() => {
+                  if (captchaKey) {
+                    setCaptchaToken("");
+                    setShowResendChallenge(true);
+                  } else void resend();
+                }}
+              >
+                {remaining > 0 ? (
+                  <>
+                    {tr("Resend available in")} {remaining}
+                    {tr("s")}
+                  </>
+                ) : (
+                  tr("Resend verification email")
+                )}
+              </button>
+            )}
+          </div>
+        )}
+        <button
+          type="button"
+          className="text-link"
+          disabled={busy}
+          onClick={() => returnToForm("register")}
+        >
+          {tr(existing ? "Use a different email" : "Change email")}
+        </button>
+        <p className={styles.footnote}>
+          {tr(
+            "Your garage stays private. Email verification is required to sign in.",
+          )}
+        </p>
+      </section>
+    );
+  }
   return (
     <div className="stack auth-panel">
       <div className="auth-intro">
@@ -237,7 +416,11 @@ export default function AuthPanel({
           ))}
         </div>
       )}
-      <form className="stack" onSubmit={submit}>
+      <form
+        className="stack"
+        onSubmit={submit}
+        key={recovering ? "recovery" : mode}
+      >
         {mode === "reset" && !recovering && (
           <p className="small muted">
             {tr("We’ll email you a link to reset your password.")}
@@ -249,7 +432,9 @@ export default function AuthPanel({
             <input
               type="email"
               name="email"
-              defaultValue={initialEmail}
+              ref={emailInput}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
               readOnly={mode === "reset" && !!initialEmail}
               autoComplete="email"
               inputMode="email"
@@ -332,28 +517,6 @@ export default function AuthPanel({
           )}
         </button>
       </form>
-      {!recovering && pendingEmail && mode !== "reset" && (
-        <div className="confirmation-resend">
-          <p className="small muted">
-            {tr("Your account stays inactive until your email is confirmed.")}
-          </p>
-          <button
-            type="button"
-            className="button secondary"
-            disabled={busy || remaining > 0}
-            onClick={resend}
-          >
-            <Mail size={16} /> {tr("Resend confirmation")}
-            {remaining > 0 && (
-              <span className="mono">
-                {" "}
-                ({remaining}
-                {tr("s")})
-              </span>
-            )}
-          </button>
-        </div>
-      )}
       {!recovering && (
         <button
           className="text-link"
@@ -368,9 +531,7 @@ export default function AuthPanel({
         </button>
       )}
       <p className="small muted">
-        {tr(
-          "Save your cars and view their city-reported ticket history.",
-        )}
+        {tr("Save your cars and view their city-reported ticket history.")}
       </p>
       <p className="consent-links">
         <a href="/legal/terms" target="_blank" rel="noreferrer">
