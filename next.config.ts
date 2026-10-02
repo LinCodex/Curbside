@@ -1,16 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  async redirects() {
-    return [
-      {
-        source: "/:path*",
-        has: [{ type: "host", value: "curbside-eta\\.vercel\\.app" }],
-        destination: "https://ticketsafe.ezrefillny.net/:path*",
-        permanent: true,
-      },
-    ];
-  },
   async headers() {
     return [
       {
