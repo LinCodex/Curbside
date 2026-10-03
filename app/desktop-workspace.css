@@ -157,16 +157,28 @@ html[data-theme="light"] .app .garage-add-action {
     padding-bottom: 0;
   }
 
-  .desktop-workspace .account-page {
-    display: grid;
-    grid-template-rows: auto minmax(0, 1fr);
-    gap: 16px;
-    flex: 1;
-    width: 100%;
+  .app.desktop-workspace[data-view="account"] {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+  .desktop-workspace[data-view="account"] .main-view {
+    flex: none;
+    height: auto;
     min-height: 0;
+    overflow: visible;
+  }
+  .desktop-workspace .account-page {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: none;
+    width: 100%;
+    height: auto;
+    min-height: auto;
     max-width: none;
-    padding-block: 12px 0;
-    overflow: hidden;
+    padding-block: 12px 8px;
+    overflow: visible;
   }
   .desktop-workspace .account-page .page-heading {
     margin: 0;
@@ -181,11 +193,10 @@ html[data-theme="light"] .app .garage-add-action {
     grid-auto-rows: max-content;
     align-content: start;
     align-items: start;
-    min-height: 0;
+    min-height: auto;
+    height: auto;
     gap: 16px;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
+    overflow: visible;
   }
   .desktop-workspace .account-page .account-layout {
     display: contents;
@@ -260,10 +271,9 @@ html[data-theme="light"] .app .garage-add-action {
     display: flex;
     flex-direction: column;
     gap: 16px;
-    min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
+    min-height: auto;
+    height: auto;
+    overflow: visible;
   }
   .desktop-workspace .account-page .account-layout {
     display: grid;
