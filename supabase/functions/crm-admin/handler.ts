@@ -1,7 +1,12 @@
 import { detailedTicketEmail } from "../../../lib/ticket-email";
-import { escapeCrmHtml } from "../../../lib/crm";
+import { meetsPasswordRequirement } from "../../../lib/password-policy";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { crmEmailHtml, uuid, validatedEmailInput } from "../../../lib/crm";
+import {
+  crmEmailHtml,
+  supportReplyEmail,
+  uuid,
+  validatedEmailInput,
+} from "../../../lib/crm";
 import {
   emailDeliveryAvailable,
   signEmailUnsubscribe,
@@ -18,6 +23,7 @@ const actions = new Set([
   "support_create",
   "support_messages",
   "support_delete",
+  "support_reply",
   "account_action",
   "ticket_test",
   "me",
@@ -222,13 +228,83 @@ export function crmAdminHandler(
         }
         return data;
       };
+      if (action === "support_reply") {
+        const replyText =
+          typeof input.reply === "string" ? input.reply.trim() : "";
+        if (
+          !uuid(input.messageId) ||
+          input.confirm !== true ||
+          replyText.length < 1 ||
+          replyText.length > 4000
+        )
+          throw new RequestError("Write a reply before sending.");
+        if (!emailDeliveryAvailable(config))
+          throw new RequestError(
+            "The verified email sender is not ready.",
+            503,
+          );
+        const message = await rpc("support_reply", {
+          messageId: input.messageId,
+          confirm: true,
+        });
+        if (
+          !message ||
+          typeof message !== "object" ||
+          typeof message.email !== "string" ||
+          typeof message.subject !== "string" ||
+          typeof message.message !== "string"
+        )
+          throw new RequestError("Message not found.");
+        const content = supportReplyEmail({
+          subject: String(message.subject || ""),
+          customerMessage: String(message.message || ""),
+          reply: replyText,
+          language: String(message.language || "en"),
+          origin: config.appOrigin || "https://curbside-eta.vercel.app",
+        });
+        const digest = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(`${input.messageId}\n${replyText}`),
+        );
+        const replyKey = Array.from(new Uint8Array(digest), (b) =>
+          b.toString(16).padStart(2, "0"),
+        ).join("");
+        const response = await sendFetch("https://api.resend.com/emails", {
+          method: "POST",
+          signal: AbortSignal.timeout(12000),
+          headers: {
+            Authorization: `Bearer ${config.apiKey}`,
+            "Content-Type": "application/json",
+            "Idempotency-Key": `ticketsafe-support-reply/${replyKey}`,
+          },
+          body: JSON.stringify({
+            from: "TicketSafe Support <support@ezrefillny.net>",
+            reply_to: "support@ezrefillny.net",
+            to: [message.email],
+            subject: content.subject,
+            html: content.html,
+            text: content.text,
+          }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok || typeof payload.id !== "string")
+          throw new RequestError(
+            "The reply email was not accepted. Try again.",
+            503,
+          );
+        await rpc("support_reply_record", {
+          messageId: input.messageId,
+          reply: replyText,
+        });
+        return reply({ status: "completed", mailStatus: "accepted" });
+      }
       if (["account_action", "ticket_test"].includes(action)) {
         const kind =
           action === "ticket_test" ? "ticket_test" : String(input.kind || "");
         if (
           ![
             "change_email",
-            "reset_password",
+            "set_password",
             "delete_account",
             "ticket_test",
           ].includes(kind) ||
@@ -241,20 +317,37 @@ export function crmAdminHandler(
           typeof input.newEmail === "string"
             ? input.newEmail.trim().toLowerCase()
             : "";
+        const password =
+          typeof input.password === "string" ? input.password : "";
+        const vehicleId = uuid(input.vehicleId) ? input.vehicleId : "";
         if (
           kind === "change_email" &&
           (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail) ||
             newEmail.length > 254)
         )
           throw new RequestError("Enter a valid new email address.");
-        if (
-          (kind !== "delete_account" || input.notify === true) &&
-          !emailDeliveryAvailable(config)
-        )
+        if (kind === "set_password" && !meetsPasswordRequirement(password))
+          throw new RequestError(
+            "Use at least 8 characters, including a lowercase letter, an uppercase letter, and a digit.",
+          );
+        if (kind === "ticket_test" && !vehicleId)
+          throw new RequestError("Select a saved vehicle.");
+        if (!emailDeliveryAvailable(config))
           throw new RequestError(
             "The verified email sender is not ready.",
             503,
           );
+        const passwordDigest = password
+          ? Array.from(
+              new Uint8Array(
+                await crypto.subtle.digest(
+                  "SHA-256",
+                  new TextEncoder().encode(password),
+                ),
+              ),
+              (b) => b.toString(16).padStart(2, "0"),
+            ).join("")
+          : "";
         const digest = await crypto.subtle.digest(
           "SHA-256",
           new TextEncoder().encode(
@@ -262,7 +355,8 @@ export function crmAdminHandler(
               kind,
               userId: input.userId,
               newEmail,
-              notify: input.notify === true,
+              vehicleId,
+              passwordDigest,
             }),
           ),
         );
@@ -270,9 +364,13 @@ export function crmAdminHandler(
           b.toString(16).padStart(2, "0"),
         ).join("");
         const claimed = await rpc("account_claim", {
-          ...input,
+          userId: input.userId,
           kind,
+          confirm: true,
+          idempotencyKey: input.idempotencyKey,
           fingerprint,
+          newEmail,
+          vehicleId,
         });
         if (!claimed.claimed)
           return reply({
@@ -312,65 +410,79 @@ export function crmAdminHandler(
             throw new Error("Email delivery needs review.");
           mailStatus = "accepted";
         };
-        const linkMail = async (
-          type: "recovery" | "email_change_current" | "email_change_new",
+        const notice = async (
           recipient: string,
+          subject: string,
+          message: string,
           suffix: string,
         ) => {
-          const options = {
-            redirectTo: new URL(
-              type === "recovery" ? "/?auth=recovery" : "/?view=account",
-              config.appOrigin,
-            ).toString(),
-          };
-          const generated = await admin.auth.admin.generateLink(
-            type === "recovery"
-              ? { type, email: claimed.email, options }
-              : { type, email: claimed.email, newEmail, options },
-          );
-          if (generated.error || !generated.data?.properties?.action_link)
-            throw new Error("Account verification could not be prepared.");
-          const zh = claimed.language === "zh";
-          const subject =
-            type === "recovery"
-              ? zh
-                ? "TicketSafe：重设密码"
-                : "TicketSafe: reset your password"
-              : zh
-                ? "TicketSafe：确认邮箱变更"
-                : "TicketSafe: confirm your email change";
-          const message = zh
-            ? "管理员应您的请求发起了此操作。请验证以继续；若非您本人请求，请联系支持。请检查垃圾邮件文件夹。"
-            : "An administrator started this action at your request. Verify to continue. If you did not request it, contact support. Please check your spam folder.";
-          const link = generated.data.properties.action_link;
-          const html = crmEmailHtml(
+          await mail(
+            recipient,
             subject,
+            crmEmailHtml(subject, message, config.appOrigin!),
             message,
-            config.appOrigin!,
-          ).replace(
-            "</div>",
-            `<br><br><a href="${escapeCrmHtml(link)}">${zh ? "安全确认" : "Verify securely"}</a></div>`,
+            suffix,
           );
-          await mail(recipient, subject, html, message + "\n\n" + link, suffix);
         };
         try {
-          if (kind === "reset_password")
-            await linkMail("recovery", claimed.email, "reset");
-          if (kind === "change_email") {
-            await linkMail(
-              "email_change_current",
-              claimed.email,
-              "current-email",
+          const zh = claimed.language === "zh";
+          if (kind === "set_password") {
+            const updated = await admin.auth.admin.updateUserById(
+              input.userId,
+              { password },
             );
-            await linkMail("email_change_new", newEmail, "new-email");
+            if (updated.error)
+              throw new Error("The password could not be changed.");
+            const subject = zh
+              ? "罚单卫士：您的密码已更改"
+              : "TicketSafe: your password was changed";
+            const message = zh
+              ? "管理员已为您的罚单卫士账户设置新密码。此邮件不含新密码。如非您本人请求，请联系支持并立即更改密码。"
+              : "An administrator set a new password on your TicketSafe account. This email does not include the new password. If you did not request this, contact support and change your password.";
+            await notice(claimed.email, subject, message, "password");
+          }
+          if (kind === "change_email") {
+            const updated = await admin.auth.admin.updateUserById(
+              input.userId,
+              { email: newEmail, email_confirm: true },
+            );
+            if (updated.error)
+              throw new Error("The email address could not be changed.");
+            const subject = zh
+              ? "罚单卫士：您的登录邮箱已更改"
+              : "TicketSafe: your sign-in email was changed";
+            const previous = zh
+              ? `管理员已将您的罚单卫士登录邮箱从 ${claimed.email} 更改为 ${newEmail}。如非您本人请求，请联系支持。`
+              : `An administrator changed your TicketSafe sign-in email from ${claimed.email} to ${newEmail}. If you did not request this, contact support.`;
+            const current = zh
+              ? "此邮箱现为您的罚单卫士登录邮箱。如非您本人请求，请联系支持。"
+              : "This address is now your TicketSafe sign-in email. If you did not request this, contact support.";
+            await notice(claimed.email, subject, previous, "previous-email");
+            if (newEmail !== String(claimed.email || "").toLowerCase())
+              await notice(newEmail, subject, current, "new-email");
           }
           if (kind === "delete_account") {
+            const subject = zh
+              ? "罚单卫士：您的账户已删除"
+              : "TicketSafe: your account was deleted";
+            const message = zh
+              ? "管理员已删除您的罚单卫士账户。已保存的车辆和私人账户数据已被移除。如非您本人请求，请联系支持。"
+              : "An administrator deleted your TicketSafe account. Saved cars and private account data were removed. If you did not request this, contact support.";
+            await notice(claimed.email, subject, message, "deleted");
             const deleted = await admin.auth.admin.deleteUser(input.userId);
             if (deleted.error)
               throw new Error("Account deletion could not be completed.");
           }
           if (kind === "ticket_test") {
-            const ticket = claimed.ticket;
+            const ticket = claimed.ticket || {};
+            const due =
+              typeof ticket.due === "number"
+                ? ticket.due
+                : typeof ticket.due === "string" &&
+                    ticket.due !== "" &&
+                    Number.isFinite(Number(ticket.due))
+                  ? Number(ticket.due)
+                  : null;
             const origin = config.appOrigin!;
             const content = await detailedTicketEmail(
               1,
@@ -379,8 +491,15 @@ export function crmAdminHandler(
               new URL("/?view=account", origin).toString(),
               [
                 {
-                  ...ticket,
-                  nickname: "",
+                  id: String(ticket.id || ""),
+                  plate: String(ticket.plate || ""),
+                  state: String(ticket.state || ""),
+                  nickname: String(ticket.nickname || ""),
+                  description: String(ticket.description || ""),
+                  issued: ticket.issued ?? null,
+                  time: ticket.time ?? null,
+                  due,
+                  status: String(ticket.status || ""),
                   location: ticket.location || {
                     label: "",
                     precision: "unknown",
@@ -389,52 +508,13 @@ export function crmAdminHandler(
               ],
               { token: config.mapboxToken },
             );
-            const testLabel =
-              claimed.language === "zh"
-                ? "测试邮件：以下为已保存的历史罚单，并非新发现的罚单。"
-                : "TEST EMAIL: this is a saved historical ticket, not a newly discovered ticket.";
-            const html = content.html
-              .replace(
-                "<h1",
-                `<p style="color:#f0c17d;font-size:14px">${testLabel}</p><h1`,
-              )
-              .replace(
-                /Turn off new-ticket emails/g,
-                "Manage notification preferences",
-              )
-              .replace(/关闭新罚单邮件/g, "管理通知设置");
             await mail(
               claimed.email,
-              "[TEST] " + content.subject,
-              html,
-              testLabel + "\n\n" + content.text,
+              content.subject,
+              content.html,
+              content.text,
               "ticket-test",
               content.attachments,
-            );
-          }
-          if (input.notify === true && kind !== "ticket_test") {
-            const zh = claimed.language === "zh";
-            const subject = zh
-              ? "TicketSafe：账户操作进度"
-              : "TicketSafe: account action update";
-            const message =
-              kind === "delete_account"
-                ? zh
-                  ? "您的账户已删除。如非您请求，请联系支持。"
-                  : "Your account has been deleted. If you did not request this, contact support."
-                : kind === "change_email"
-                  ? zh
-                    ? "邮箱变更验证已发送，确认完成前不会生效。请检查原邮箱和新邮箱的收件箱及垃圾邮件文件夹。"
-                    : "Email-change verification has been sent. The change takes effect only after confirmation. Check both inboxes and spam folders."
-                  : zh
-                    ? "密码重置链接已发送。密码将在您完成重置后更新。请检查收件箱及垃圾邮件文件夹。"
-                    : "A password-reset link has been sent. Your password changes only when you finish the reset. Check your inbox and spam folder.";
-            await mail(
-              claimed.email,
-              subject,
-              crmEmailHtml(subject, message, config.appOrigin!),
-              message,
-              "status",
             );
           }
           await rpc("account_result", {
@@ -445,9 +525,6 @@ export function crmAdminHandler(
           return reply({
             status: "completed",
             mailStatus,
-            verificationPending: ["change_email", "reset_password"].includes(
-              kind,
-            ),
           });
         } catch {
           await rpc("account_result", {

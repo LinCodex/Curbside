@@ -1464,6 +1464,44 @@ html[data-theme="light"] .crm-login-error {
   color: var(--muted);
   font-size: 12px;
 }
+.crm-message-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.crm-previous-reply {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--line) 55%, transparent);
+}
+.crm-previous-reply span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.crm-previous-reply p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.crm-reply {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+.crm-reply textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+.crm-reply-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
 .crm-account-actions {
   margin-top: 24px;
   padding-block: 20px;

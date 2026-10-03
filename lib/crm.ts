@@ -19,6 +19,7 @@ export type CrmAction =
   | "support_create"
   | "support_messages"
   | "support_delete"
+  | "support_reply"
   | "account_action"
   | "ticket_test"
   | "presence"
@@ -80,6 +81,28 @@ export function uuid(value: unknown): value is string {
       value,
     )
   );
+}
+export function supportReplyEmail(input: {
+  subject: string;
+  customerMessage: string;
+  reply: string;
+  language: string;
+  origin: string;
+}) {
+  const zh = input.language === "zh";
+  const subject =
+    (zh ? "回复：" : "Re: ") +
+    input.subject.replace(/[\r\n]/g, " ").trim().slice(0, 140);
+  const replyLabel = zh ? "罚单卫士客服" : "TicketSafe support";
+  const customerLabel = zh ? "您发送的消息" : "Your message";
+  const text = `${replyLabel}\n${input.reply}\n\n——\n${customerLabel}\n${input.subject}\n${input.customerMessage}`;
+  const safeOrigin = new URL(input.origin);
+  if (safeOrigin.protocol !== "https:" && safeOrigin.hostname !== "localhost")
+    throw new Error("Invalid app origin");
+  const block = (label: string, body: string) =>
+    `<p style="margin:0 0 8px;color:#245bdc;font-size:12px;font-weight:700;letter-spacing:.04em">${escapeCrmHtml(label)}</p><div style="margin:0 0 24px;font-size:16px;line-height:1.7;white-space:pre-line">${escapeCrmHtml(body).replace(/\n/g, "<br>")}</div>`;
+  const html = `<!doctype html><html lang="${zh ? "zh-CN" : "en"}"><head><meta name="viewport" content="width=device-width"></head><body style="margin:0;background:#eef3f8;font-family:Arial,sans-serif;color:#182238"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:32px 16px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:580px;background:#fff;border-radius:24px"><tr><td style="padding:32px"><p style="margin:0 0 24px;color:#245bdc;font-weight:800;font-size:24px">TicketSafe</p><h1 style="font-size:26px;line-height:1.3;margin:0 0 20px">${escapeCrmHtml(subject)}</h1>${block(replyLabel, input.reply)}${block(customerLabel, input.subject + "\n" + input.customerMessage)}<p style="color:#68758b;font-size:12px;line-height:1.6;margin:0">TicketSafe · 136-78 Roosevelt Ave, Flushing, NY 11354<br>${zh ? "此邮件来自罚单卫士客服。如需补充，请直接回复。" : "This email is from TicketSafe support. Reply to this message if you need to add anything."}</p></td></tr></table></td></tr></table></body></html>`;
+  return { subject, text, html };
 }
 export function escapeCrmHtml(value: string) {
   return value.replace(

@@ -31,7 +31,7 @@ async function database() {
 create schema auth;grant usage on schema auth,public to service_role,authenticated,anon;
 create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,is_anonymous boolean default false,banned_until timestamptz,created_at timestamptz default now(),last_sign_in_at timestamptz);
 create table auth.sessions(id uuid primary key,user_id uuid references auth.users(id),not_after timestamptz);
-create table public.curbside_vehicles(id uuid primary key default gen_random_uuid(),user_id uuid references auth.users(id),plate text,state text,plate_type text);
+create table public.curbside_vehicles(id uuid primary key default gen_random_uuid(),user_id uuid references auth.users(id),plate text,state text,plate_type text,nickname text);
 create table public.curbside_email_settings(user_id uuid primary key references auth.users(id),enabled boolean default false);
 create table public.curbside_email_outbox(user_id uuid,status text);
 create table public.curbside_vehicle_snapshots(checked_at timestamptz,plate text,state text,plate_type text,payload jsonb);
@@ -47,6 +47,18 @@ insert into auth.sessions(id,user_id) values('${session}','${master}'),('${sessi
   await db.exec(
     fs.readFileSync(
       "supabase/migrations/20261003162622_crm_support_account_actions.sql",
+      "utf8",
+    ),
+  );
+  await db.exec(
+    fs.readFileSync(
+      "supabase/migrations/20261003180000_force_account_actions.sql",
+      "utf8",
+    ),
+  );
+  await db.exec(
+    fs.readFileSync(
+      "supabase/migrations/20261003193000_support_email_reply.sql",
       "utf8",
     ),
   );
@@ -424,6 +436,83 @@ test("support messages require the current confirmed profile; CRM inbox is priva
     await db.close();
   }
 });
+test("support email replies stay with CRM staff and keep the original message", async () => {
+  const db = await database();
+  try {
+    await rpc(
+      db,
+      "support_create",
+      {
+        expectedUserId: customer,
+        kind: "feedback",
+        subject: "Suggestion",
+        message: "Improve map",
+      },
+      customer,
+      session2,
+    );
+    const inbox = await rpc(db, "support_messages");
+    const messageId = inbox.messages[0].id;
+    await assert.rejects(
+      rpc(
+        db,
+        "support_reply",
+        { messageId, confirm: true },
+        customer,
+        session2,
+      ),
+      /Administrator access/,
+    );
+    await assert.rejects(
+      rpc(db, "support_reply", { messageId }),
+      /Confirm this reply first/,
+    );
+    const prepared = await rpc(db, "support_reply", {
+      messageId,
+      confirm: true,
+    });
+    assert.equal(prepared.email, "customer@example.invalid");
+    assert.equal(prepared.subject, "Suggestion");
+    assert.equal(prepared.message, "Improve map");
+    assert.equal(
+      (
+        await db.query(
+          "select attempts from public.ticketsafe_crm_budget where day=current_date",
+        )
+      ).rows[0].attempts,
+      1,
+    );
+    await rpc(db, "role_set", { userId: customer, role: "support" });
+    await rpc(
+      db,
+      "support_reply_record",
+      { messageId, reply: "We can help." },
+      customer,
+      session2,
+    );
+    const stored = await rpc(db, "support_messages");
+    assert.equal(stored.messages[0].reply, "We can help.");
+    assert.ok(stored.messages[0].replied_at);
+    await assert.rejects(
+      rpc(
+        db,
+        "account_claim",
+        {
+          kind: "set_password",
+          userId: master,
+          confirm: true,
+          fingerprint: "blocked",
+          idempotencyKey: crypto.randomUUID(),
+        },
+        customer,
+        session2,
+      ),
+      /Support access/,
+    );
+  } finally {
+    await db.close();
+  }
+});
 test("account actions bind idempotency to content and restrict privileges; test tickets use real snapshots", async () => {
   const db = await database();
   try {
@@ -461,26 +550,45 @@ test("account actions bind idempotency to content and restrict privileges; test 
         kind: "ticket_test",
         idempotencyKey: crypto.randomUUID(),
       }),
-      /No saved ticket/,
+      /Select a saved vehicle/,
     );
-    await db.query(
-      "insert into public.curbside_vehicles(user_id,plate,state,plate_type) values($1,'BYEBYE','NY','')",
+    const selected = await db.query(
+      "insert into public.curbside_vehicles(user_id,plate,state,plate_type,nickname) values($1,'BYEBYE','NY','','Daily') returning id",
       [customer],
     );
-    const tickets = [
-      { id: "older", issued: "2025-01-01" },
-      { id: "latest", issued: "2026-10-01" },
-    ];
     await db.query(
-      "insert into public.curbside_vehicle_snapshots(plate,state,plate_type,payload) values('BYEBYE','NY','',$1)",
-      [JSON.stringify({ tickets })],
+      "insert into public.curbside_vehicles(user_id,plate,state,plate_type) values($1,'OTHER1','NY','')",
+      [customer],
+    );
+    await db.query(
+      "insert into public.curbside_vehicle_snapshots(plate,state,plate_type,payload) values('BYEBYE','NY','',$1),('OTHER1','NY','',$2)",
+      [
+        JSON.stringify({
+          tickets: [
+            { id: "1485300001", issued: "2025-01-01", description: "Older" },
+            {
+              id: "1485300002",
+              issued: "2026-10-01",
+              description: "No standing",
+              due: 65,
+            },
+          ],
+        }),
+        JSON.stringify({
+          tickets: [{ id: "1485300099", issued: "2026-12-01" }],
+        }),
+      ],
     );
     const ticket = await rpc(db, "account_claim", {
       ...input,
       kind: "ticket_test",
+      vehicleId: selected.rows[0].id,
       idempotencyKey: crypto.randomUUID(),
+      fingerprint: "selected-car",
     });
-    assert.equal(ticket.ticket.id, "latest");
+    assert.equal(ticket.ticket.id, "1485300002");
+    assert.equal(ticket.ticket.plate, "BYEBYE");
+    assert.equal(ticket.ticket.nickname, "Daily");
     assert.equal(
       (await db.query("select count(*) n from public.curbside_email_outbox"))
         .rows[0].n,
@@ -502,16 +610,227 @@ test("account actions bind idempotency to content and restrict privileges; test 
   }
 });
 
-test("account reset sends verification without exposing links or repeating a provider send",async()=>{
- const db=await database();let sends=0,generated=0;
- try {
-  const client={auth:{getUser:async()=>({data:{user:{id:master,email_confirmed_at:"2026-10-01",is_anonymous:false}},error:null}),admin:{generateLink:async input=>{generated++;assert.equal(input.type,"recovery");return {data:{properties:{action_link:"https://db.example.invalid/auth/v1/verify?token=private"}},error:null}}}},rpc:async(_name,args)=>{try{return {data:await rpc(db,args.action,args.input,args.actor_id,args.session_id),error:null}}catch(error){return {data:null,error}}}};
-  const handler=crmAdminHandler(client,{enabled:"true",senderVerified:"true",apiKey:"test-not-live",from:"service@example.invalid",signingSecret:"s".repeat(32),appOrigin:"https://app.example.invalid",supabaseUrl:"https://db.example.invalid"},["https://app.example.invalid"],async(_url,options)=>{sends++;assert.equal(JSON.parse(options.body).to[0],"customer@example.invalid");return Response.json({id:"test-provider-id"})});
-  const token="header."+Buffer.from(JSON.stringify({sub:master,session_id:session})).toString("base64url")+".signature";
-  const input={action:"account_action",kind:"reset_password",userId:customer,idempotencyKey:key,confirm:true,notify:true};
-  const request=()=>new Request("https://db.example.invalid/functions/v1/crm-admin",{method:"POST",headers:{Origin:"https://app.example.invalid",Authorization:"Bearer "+token},body:JSON.stringify(input)});
-  const response=await handler(request());assert.equal(response.status,200);const body=await response.json();assert.equal(body.status,"completed");assert.equal(body.verificationPending,true);assert.ok(!JSON.stringify(body).includes("token=private"));assert.equal(sends,2);assert.equal(generated,1);
-  assert.equal((await (await handler(request())).json()).replayed,true);assert.equal(sends,2);assert.equal(generated,1);
-  assert.equal((await db.query("select attempts from public.ticketsafe_crm_budget")).rows[0].attempts,2);
- }finally{await db.close();}
+test("account changes apply immediately and email the customer without repeating a send", async () => {
+  const db = await database();
+  const sent = [];
+  const updates = [];
+  const deleted = [];
+  try {
+    const client = {
+      auth: {
+        getUser: async () => ({
+          data: {
+            user: {
+              id: master,
+              email_confirmed_at: "2026-10-01",
+              is_anonymous: false,
+            },
+          },
+          error: null,
+        }),
+        admin: {
+          updateUserById: async (id, attrs) => {
+            updates.push({ id, attrs });
+            return { data: { user: { id } }, error: null };
+          },
+          deleteUser: async (id) => {
+            deleted.push(id);
+            return { data: {}, error: null };
+          },
+        },
+      },
+      rpc: async (_name, args) => {
+        try {
+          return {
+            data: await rpc(
+              db,
+              args.action,
+              args.input,
+              args.actor_id,
+              args.session_id,
+            ),
+            error: null,
+          };
+        } catch (error) {
+          return { data: null, error };
+        }
+      },
+    };
+    const handler = crmAdminHandler(
+      client,
+      {
+        enabled: "true",
+        senderVerified: "true",
+        apiKey: "test-not-live",
+        from: "service@example.invalid",
+        signingSecret: "s".repeat(32),
+        appOrigin: "https://app.example.invalid",
+        supabaseUrl: "https://db.example.invalid",
+      },
+      ["https://app.example.invalid"],
+      async (_url, options) => {
+        const body = JSON.parse(options.body);
+        sent.push(body);
+        assert.ok(!JSON.stringify(body).includes("NewPass1a"));
+        return Response.json({ id: "test-provider-id" });
+      },
+    );
+    const token =
+      "header." +
+      Buffer.from(JSON.stringify({ sub: master, session_id: session })).toString(
+        "base64url",
+      ) +
+      ".signature";
+    const request = (input) =>
+      new Request("https://db.example.invalid/functions/v1/crm-admin", {
+        method: "POST",
+        headers: {
+          Origin: "https://app.example.invalid",
+          Authorization: "Bearer " + token,
+        },
+        body: JSON.stringify(input),
+      });
+    const password = await handler(
+      request({
+        action: "account_action",
+        kind: "set_password",
+        userId: customer,
+        password: "NewPass1a",
+        idempotencyKey: key,
+        confirm: true,
+      }),
+    );
+    assert.equal(password.status, 200);
+    assert.equal((await password.json()).status, "completed");
+    assert.equal(updates[0].attrs.password, "NewPass1a");
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].to[0], "customer@example.invalid");
+    assert.match(sent[0].subject, /password was changed/);
+    assert.equal(
+      (await (await handler(
+        request({
+          action: "account_action",
+          kind: "set_password",
+          userId: customer,
+          password: "NewPass1a",
+          idempotencyKey: key,
+          confirm: true,
+        }),
+      )).json()).replayed,
+      true,
+    );
+    assert.equal(sent.length, 1);
+    const changed = await handler(
+      request({
+        action: "account_action",
+        kind: "change_email",
+        userId: customer,
+        newEmail: "next@example.invalid",
+        idempotencyKey: crypto.randomUUID(),
+        confirm: true,
+      }),
+    );
+    assert.equal((await changed.json()).status, "completed");
+    assert.equal(updates.at(-1).attrs.email, "next@example.invalid");
+    assert.equal(updates.at(-1).attrs.email_confirm, true);
+    assert.deepEqual(
+      sent.slice(1).map((message) => message.to[0]),
+      ["customer@example.invalid", "next@example.invalid"],
+    );
+    const removed = await handler(
+      request({
+        action: "account_action",
+        kind: "delete_account",
+        userId: customer,
+        idempotencyKey: crypto.randomUUID(),
+        confirm: true,
+      }),
+    );
+    assert.equal((await removed.json()).status, "completed");
+    assert.equal(deleted[0], customer);
+    assert.equal(sent.at(-1).to[0], "customer@example.invalid");
+    assert.match(sent.at(-1).text, /deleted your TicketSafe account/);
+    assert.ok(sent.length > deleted.length);
+    const vehicle = await db.query(
+      "insert into public.curbside_vehicles(user_id,plate,state,plate_type,nickname) values($1,'BYEBYE','NY','','Daily') returning id",
+      [customer],
+    );
+    await db.query(
+      "insert into public.curbside_vehicle_snapshots(plate,state,plate_type,payload) values('BYEBYE','NY','',$1)",
+      [
+        JSON.stringify({
+          tickets: [
+            {
+              id: "1485300002",
+              issued: "2026-10-01",
+              description: "No standing",
+              due: 65,
+            },
+          ],
+        }),
+      ],
+    );
+    const before = sent.length;
+    const ticket = await handler(
+      request({
+        action: "ticket_test",
+        userId: customer,
+        vehicleId: vehicle.rows[0].id,
+        idempotencyKey: crypto.randomUUID(),
+        confirm: true,
+      }),
+    );
+    assert.equal((await ticket.json()).status, "completed");
+    assert.equal(
+      sent[before].subject,
+      "TicketSafe: new tickets for your saved vehicles",
+    );
+    assert.match(sent[before].text, /1485300002/);
+    assert.match(sent[before].text, /BYEBYE/);
+    assert.equal(sent[before].to[0], "customer@example.invalid");
+    assert.doesNotMatch(sent[before].subject, /TEST/);
+    assert.equal(
+      (await db.query("select count(*) n from public.curbside_email_outbox"))
+        .rows[0].n,
+      0,
+    );
+    await rpc(
+      db,
+      "support_create",
+      {
+        expectedUserId: customer,
+        kind: "support",
+        subject: "Map question",
+        message: "Where is the blur?",
+      },
+      customer,
+      session2,
+    );
+    const inbox = await rpc(db, "support_messages");
+    const mailed = sent.length;
+    const supportReply = await handler(
+      request({
+        action: "support_reply",
+        messageId: inbox.messages[0].id,
+        reply: "The fade lifts at the end of the list.",
+        confirm: true,
+      }),
+    );
+    assert.equal((await supportReply.json()).mailStatus, "accepted");
+    const body = sent[mailed];
+    assert.equal(body.from, "TicketSafe Support <support@ezrefillny.net>");
+    assert.equal(body.reply_to, "support@ezrefillny.net");
+    assert.equal(body.to[0], "customer@example.invalid");
+    assert.equal(body.subject, "Re: Map question");
+    assert.match(body.text, /Where is the blur\?/);
+    assert.match(body.text, /The fade lifts at the end of the list\./);
+    assert.equal(body.from.includes("service@example.invalid"), false);
+    const stored = await rpc(db, "support_messages");
+    assert.equal(
+      stored.messages[0].reply,
+      "The fade lifts at the end of the list.",
+    );
+  } finally {
+    await db.close();
+  }
 });

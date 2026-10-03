@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { Check, LoaderCircle, Send, Trash2 } from "lucide-react";
+import { Check, LoaderCircle, Mail, Send, Trash2 } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { crmClientRequest } from "@/lib/crm-client";
+import { crmClientRequest, type CrmVehicle } from "@/lib/crm-client";
+import { meetsPasswordRequirement, PASSWORD_REQUIREMENT } from "@/lib/password-policy";
 import { usePreferences } from "./preferences";
 import CrmSelect from "./crm-select";
 import type { LanguagePreference, ThemePreference } from "@/lib/preferences";
@@ -42,6 +43,8 @@ type SupportMessage = {
   kind: string;
   subject: string;
   message: string;
+  reply: string | null;
+  replied_at: string | null;
   created_at: string;
 };
 type InboxResult = { messages: SupportMessage[]; page: number; total: number };
@@ -62,12 +65,61 @@ export function CrmInbox({
   const [revision, setRevision] = useState(0);
   const [confirm, setConfirm] = useState("");
   const [deleting, setDeleting] = useState("");
+  const [replyId, setReplyId] = useState("");
+  const [replyText, setReplyText] = useState("");
+  const [replyReady, setReplyReady] = useState(false);
+  const [replying, setReplying] = useState(false);
+  const [replyNotice, setReplyNotice] = useState("");
   const reload = () => {
     setLoading(true);
     setError("");
     setData(null);
     setConfirm("");
+    setReplyId("");
+    setReplyNotice("");
     setRevision((value) => value + 1);
+  };
+  const sendReply = async (message: SupportMessage) => {
+    const text = replyText.trim();
+    if (!text || !replyReady || replying) return;
+    setReplying(true);
+    setError("");
+    setReplyNotice("");
+    try {
+      await crmClientRequest(client, "support_reply", {
+        messageId: message.id,
+        reply: text,
+        confirm: true,
+      });
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              messages: current.messages.map((item) =>
+                item.id === message.id
+                  ? {
+                      ...item,
+                      reply: text,
+                      replied_at: new Date().toISOString(),
+                    }
+                  : item,
+              ),
+            }
+          : current,
+      );
+      setReplyText("");
+      setReplyReady(false);
+      setReplyId("");
+      setReplyNotice(message.id);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "The reply email was not accepted. Try again.",
+      );
+    } finally {
+      setReplying(false);
+    }
   };
   useEffect(() => {
     let active = true;
@@ -119,7 +171,7 @@ export function CrmInbox({
           <h1>{tr("Support inbox")}</h1>
           <p>
             {tr(
-              "Private support questions and feedback. Messages expire after 90 days.",
+              "Private support questions and feedback. Messages expire after 90 days. Replies are emailed from support@ezrefillny.net and include the customer's message.",
             )}
           </p>
         </div>
@@ -190,6 +242,27 @@ export function CrmInbox({
             <h2>{message.subject}</h2>
             <p className="crm-wrap crm-message-sender">{message.email}</p>
             <p className="crm-message-body">{message.message}</p>
+            {message.reply && (
+              <div className="crm-previous-reply">
+                <span>
+                  {tr("Previous reply")}
+                  {message.replied_at
+                    ? " · " +
+                      new Intl.DateTimeFormat(
+                        locale === "zh" ? "zh-CN" : "en-US",
+                        { dateStyle: "medium", timeStyle: "short" },
+                      ).format(new Date(message.replied_at))
+                    : ""}
+                </span>
+                <p>{message.reply}</p>
+              </div>
+            )}
+            {replyNotice === message.id && (
+              <p className="crm-success" role="status">
+                <Check size={16} />
+                {tr("Reply sent to the customer's email.")}
+              </p>
+            )}
             {confirm === message.id ? (
               <div className="crm-delete-confirm">
                 <span>{tr("Delete this message permanently?")}</span>
@@ -209,14 +282,86 @@ export function CrmInbox({
                 </button>
               </div>
             ) : (
-              <button
-                className="crm-button"
-                onClick={() => setConfirm(message.id)}
-                disabled={!!deleting}
+              <div className="crm-message-actions">
+                <button
+                  className="crm-button"
+                  onClick={() => {
+                    setConfirm("");
+                    setReplyNotice("");
+                    setReplyReady(false);
+                    setReplyText("");
+                    setReplyId(replyId === message.id ? "" : message.id);
+                  }}
+                  disabled={replying || !!deleting}
+                >
+                  <Mail size={16} />
+                  {tr("Reply by email")}
+                </button>
+                <button
+                  className="crm-button"
+                  onClick={() => {
+                    setReplyId("");
+                    setConfirm(message.id);
+                  }}
+                  disabled={!!deleting || replying}
+                >
+                  <Trash2 size={16} />
+                  {tr("Delete message")}
+                </button>
+              </div>
+            )}
+            {replyId === message.id && (
+              <form
+                className="crm-reply"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void sendReply(message);
+                }}
               >
-                <Trash2 size={16} />
-                {tr("Delete message")}
-              </button>
+                <label className="stack small">
+                  {tr("Your reply")}
+                  <textarea
+                    value={replyText}
+                    onChange={(event) => setReplyText(event.target.value)}
+                    maxLength={4000}
+                    rows={4}
+                    required
+                    disabled={replying}
+                  />
+                </label>
+                <label className="crm-reply-confirm">
+                  <input
+                    type="checkbox"
+                    checked={replyReady}
+                    onChange={(event) => setReplyReady(event.target.checked)}
+                    disabled={replying}
+                  />
+                  {tr("Send this reply to the customer's email.")}
+                </label>
+                <div className="crm-message-actions">
+                  <button
+                    className="crm-button"
+                    disabled={
+                      replying || !replyReady || !replyText.trim()
+                    }
+                  >
+                    {replying ? (
+                      <LoaderCircle size={16} className="crm-spinner" />
+                    ) : (
+                      <Send size={16} />
+                    )}
+                    {tr("Send reply")}
+                  </button>
+                  <button
+                    className="crm-button"
+                    type="button"
+                    disabled={replying}
+                    onClick={() => setReplyId("")}
+                  >
+                    {tr("Cancel")}
+                  </button>
+                </div>
+              </form>
             )}
           </article>
         ))}
@@ -301,9 +446,9 @@ export function CrmAccountActions({
   tr: Translate;
   onComplete?: () => void;
 }) {
-  const [kind, setKind] = useState("reset_password");
+  const [kind, setKind] = useState("change_email");
   const [newEmail, setNewEmail] = useState("");
-  const [notify, setNotify] = useState(false);
+  const [password, setPassword] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [typedEmail, setTypedEmail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -324,8 +469,8 @@ export function CrmAccountActions({
       const input = {
         kind,
         userId,
-        newEmail: newEmail.trim().toLowerCase(),
-        notify,
+        newEmail: kind === "change_email" ? newEmail.trim().toLowerCase() : "",
+        password: kind === "set_password" ? password : "",
       };
       key.current ||= await operationKey(client, JSON.stringify(input));
       const value = await crmClientRequest<ActionResult>(
@@ -351,7 +496,7 @@ export function CrmAccountActions({
       <h3>{tr("Account tools")}</h3>
       <p>
         {tr(
-          "Only act at the customer's request. Verification links keep email and password changes under their control.",
+          "These changes apply immediately. The customer is emailed what changed. A new password is never included in the email.",
         )}
       </p>
       <label>
@@ -365,8 +510,8 @@ export function CrmAccountActions({
             reset();
           }}
           options={[
-            { value: "reset_password", label: tr("Send password reset") },
             { value: "change_email", label: tr("Change email address") },
+            { value: "set_password", label: tr("Set a new password") },
             { value: "delete_account", label: tr("Delete account") },
           ]}
         />
@@ -386,9 +531,26 @@ export function CrmAccountActions({
           />
           <small>
             {tr(
-              "Confirmation is sent to both the current and new address. Neither changes immediately.",
+              "The new address is applied immediately. Both the current and new address receive a notice.",
             )}
           </small>
+        </label>
+      )}
+      {kind === "set_password" && (
+        <label>
+          {tr("New password")}
+          <input
+            type="password"
+            value={password}
+            maxLength={72}
+            autoComplete="new-password"
+            disabled={busy}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              reset();
+            }}
+          />
+          <small>{tr(PASSWORD_REQUIREMENT)}</small>
         </label>
       )}
       {kind === "delete_account" && (
@@ -410,23 +572,11 @@ export function CrmAccountActions({
       <label className="crm-check-label">
         <input
           type="checkbox"
-          checked={notify}
-          disabled={busy}
-          onChange={(e) => {
-            setNotify(e.target.checked);
-            reset();
-          }}
-        />
-        <span>{tr("Email the customer a status update")}</span>
-      </label>
-      <label className="crm-check-label">
-        <input
-          type="checkbox"
           checked={confirmed}
           disabled={busy || !!result}
           onChange={(e) => setConfirmed(e.target.checked)}
         />
-        <span>{tr("The customer requested this action.")}</span>
+        <span>{tr("Apply this change to the customer's account now.")}</span>
       </label>
       {error && (
         <p className="crm-error" role="alert">
@@ -443,9 +593,7 @@ export function CrmAccountActions({
           {tr(
             result.status !== "completed"
               ? "The action or delivery needs review. Check the customer and Resend before repeating."
-              : result.verificationPending
-                ? "Verification sent. Check inboxes and spam folders."
-                : "Account action completed.",
+              : "The customer was emailed about this change.",
           )}
         </p>
       )}
@@ -457,6 +605,7 @@ export function CrmAccountActions({
           !!result ||
           (kind === "change_email" &&
             !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail.trim())) ||
+          (kind === "set_password" && !meetsPasswordRequirement(password)) ||
           (kind === "delete_account" &&
             typedEmail.trim().toLowerCase() !== email.toLowerCase())
         }
@@ -476,34 +625,62 @@ export function CrmAccountActions({
 export function CrmTicketTest({
   client,
   userId,
+  vehicles,
   tr,
 }: {
   client: SupabaseClient;
   userId: string;
+  vehicles: CrmVehicle[];
   tr: Translate;
 }) {
+  const [vehicleId, setVehicleId] = useState(vehicles[0]?.id || "");
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<ActionResult | null>(null);
   const [error, setError] = useState("");
   const key = useRef<string | null>(null);
+  const clear = () => {
+    setConfirmed(false);
+    setResult(null);
+    setError("");
+    key.current = null;
+  };
   return (
     <div className="crm-panel crm-test-panel">
-      <h2>{tr("Test the latest saved ticket email")}</h2>
+      <h2>{tr("Send this car's latest ticket")}</h2>
       <p>
         {tr(
-          "Sends the selected customer's latest saved ticket, clearly marked TEST. It does not change discovery or reminder history.",
+          "Sends the selected car's most recent saved ticket to this customer, using the same email they receive when a new ticket is found. It does not change discovery or reminder history.",
         )}
       </p>
-      {!userId && <p>{tr("Select a customer above first.")}</p>}
+      {!vehicles.length ? (
+        <p>{tr("No saved vehicles.")}</p>
+      ) : (
+        <label>
+          {tr("Saved vehicle")}
+          <CrmSelect
+            label={tr("Saved vehicle")}
+            value={vehicleId}
+            disabled={busy}
+            onChange={(value) => {
+              setVehicleId(value);
+              clear();
+            }}
+            options={vehicles.map((vehicle) => ({
+              value: vehicle.id,
+              label: `${vehicle.nickname || vehicle.plate} · ${vehicle.state} ${vehicle.plate}`,
+            }))}
+          />
+        </label>
+      )}
       <label className="crm-check-label">
         <input
           type="checkbox"
           checked={confirmed}
-          disabled={!userId || busy || !!result}
+          disabled={!userId || !vehicleId || busy || !!result}
           onChange={(e) => setConfirmed(e.target.checked)}
         />
-        <span>{tr("Send one test email to this customer.")}</span>
+        <span>{tr("Send this car's latest ticket to the customer.")}</span>
       </label>
       {error && (
         <p className="crm-error" role="alert">
@@ -519,25 +696,26 @@ export function CrmTicketTest({
         >
           {tr(
             result.status === "completed"
-              ? "Test email accepted. Check Resend for delivery."
+              ? "The new-ticket email was accepted. Check the customer's inbox."
               : "The action or delivery needs review. Check the customer and Resend before repeating.",
           )}
         </p>
       )}
       <button
         className="crm-button"
-        disabled={!userId || !confirmed || busy || !!result}
+        disabled={!userId || !vehicleId || !confirmed || busy || !!result}
         onClick={async () => {
           setBusy(true);
           setError("");
           try {
             key.current ||= await operationKey(
               client,
-              JSON.stringify({ kind: "ticket_test", userId }),
+              JSON.stringify({ kind: "ticket_test", userId, vehicleId }),
             );
             setResult(
               await crmClientRequest(client, "ticket_test", {
                 userId,
+                vehicleId,
                 confirm: true,
                 idempotencyKey: key.current,
               }),
@@ -559,7 +737,7 @@ export function CrmTicketTest({
         ) : (
           <Send size={16} />
         )}{" "}
-        {tr("Send test ticket")}
+        {tr("Send latest ticket")}
       </button>
     </div>
   );

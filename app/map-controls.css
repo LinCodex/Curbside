@@ -308,15 +308,81 @@
   min-width: 0;
   flex: 1;
 }
-.support-feedback {
+.account-page .support-feedback.form-card {
   margin-top: 20px;
+  padding: 0;
+  min-width: 0;
 }
-.support-feedback > p {
-  margin-block: 12px;
+.account-page .account-legal-card {
+  min-width: 0;
+}
+.account-page .account-legal-item,
+.account-page .account-source-summary {
+  min-width: 0;
+  max-width: 100%;
+}
+.account-page .account-source-summary strong {
+  overflow-wrap: anywhere;
+}
+.support-feedback > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 64px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+.support-feedback > summary::-webkit-details-marker {
+  display: none;
+}
+.support-feedback > summary .account-identity-heading {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+.support-feedback > summary .support-disclosure-icon {
+  flex: 0 0 auto;
+  color: var(--muted);
+  transition: transform 160ms ease;
+}
+.support-feedback[open] > summary .support-disclosure-icon {
+  transform: rotate(90deg);
+}
+.support-feedback-body {
+  display: grid;
+  gap: 12px;
+  padding: 0 16px 16px;
+}
+.support-feedback-body > p {
+  margin: 0;
 }
 .support-feedback textarea {
   resize: vertical;
-  min-height: 104px;
+  min-height: 88px;
+}
+.support-sent {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  padding: 4px 0 2px;
+}
+.support-sent-mark {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--green) 16%, transparent);
+  color: var(--green);
+}
+.support-sent h3,
+.support-sent p {
+  margin: 0;
+}
+.support-sent p {
+  color: var(--muted);
+  line-height: 1.5;
 }
 @media (min-width: 801px) {
   .desktop-workspace .account-workspace-panels {
@@ -331,11 +397,11 @@
   }
   .desktop-workspace .support-feedback {
     grid-column: 1 / -1;
-    grid-row: 2;
+    grid-row: auto;
     margin-top: 0;
   }
   .desktop-workspace .account-page .account-legal-card {
-    grid-row: 3;
+    grid-row: auto;
   }
   .desktop-workspace .support-feedback form {
     display: grid;

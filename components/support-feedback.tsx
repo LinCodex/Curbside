@@ -1,6 +1,12 @@
 "use client";
 import { useRef, useState } from "react";
-import { MessageSquare, Send, LoaderCircle } from "lucide-react";
+import {
+  ChevronRight,
+  CircleCheck,
+  MessageSquare,
+  Send,
+  LoaderCircle,
+} from "lucide-react";
 import { useAccount } from "./account-provider";
 import { usePreferences } from "./preferences";
 import CustomSelect from "./custom-select";
@@ -17,29 +23,52 @@ export default function SupportFeedback({
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState("");
+  const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
   const mountedRequest = useRef(0);
   return (
-    <section className="glass form-card support-feedback">
-      <div className="account-identity-heading">
+    <details className="glass form-card support-feedback">
+      <summary>
         <span className="account-profile-mark">
           <MessageSquare size={20} />
         </span>
-        <div>
-          <h2>{tr("Support & feedback")}</h2>
-          <span>{tr("A question, an idea, or something to fix")}</span>
-        </div>
-      </div>
+        <span className="account-identity-heading">
+          <div>
+            <h2>{tr("Support & feedback")}</h2>
+            <span>{tr("A question, an idea, or something to fix")}</span>
+          </div>
+        </span>
+        <ChevronRight className="support-disclosure-icon" size={18} />
+      </summary>
+      <div className="support-feedback-body">
       <p className="small muted">
         {tr(
           "Send a message to our private support inbox. Messages are kept for up to 90 days.",
         )}
       </p>
       {!user ? (
-        <button className="button" onClick={onSignIn}>
+        <button className="button" type="button" onClick={onSignIn}>
           {tr("Sign in to contact support")}
         </button>
+      ) : sent ? (
+        <div className="support-sent" role="status">
+          <span className="support-sent-mark">
+            <CircleCheck size={22} />
+          </span>
+          <h3>{tr("Message sent")}</h3>
+          <p>
+            {tr(
+              "We received your message. If we need anything else, we will email you.",
+            )}
+          </p>
+          <button
+            className="button"
+            type="button"
+            onClick={() => setSent(false)}
+          >
+            {tr("Send another message")}
+          </button>
+        </div>
       ) : (
         <form
           className="stack"
@@ -49,7 +78,6 @@ export default function SupportFeedback({
             const request = ++mountedRequest.current;
             setBusy(true);
             setError("");
-            setNotice("");
             try {
               await crmClientRequest(client, "support_create", {
                 kind,
@@ -60,7 +88,7 @@ export default function SupportFeedback({
               if (request === mountedRequest.current) {
                 setSubject("");
                 setMessage("");
-                setNotice("Message sent to support.");
+                setSent(true);
               }
             } catch (err) {
               if (request === mountedRequest.current)
@@ -118,11 +146,6 @@ export default function SupportFeedback({
               {tr(error)}
             </p>
           )}
-          {notice && (
-            <p className="small" role="status">
-              {tr(notice)}
-            </p>
-          )}
           <button
             className="button primary"
             disabled={busy || !subject.trim() || !message.trim()}
@@ -136,6 +159,7 @@ export default function SupportFeedback({
           </button>
         </form>
       )}
-    </section>
+      </div>
+    </details>
   );
 }
