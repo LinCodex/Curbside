@@ -22,6 +22,7 @@ Deno.serve(
       signingSecret: value("EMAIL_UNSUBSCRIBE_SECRET"),
       appOrigin: origin,
       supabaseUrl: value("SUPABASE_URL"),
+      mapboxToken: value("MAPBOX_PUBLIC_TOKEN"),
       mapboxConfigured: !!value("MAPBOX_PUBLIC_TOKEN"),
       captchaConfigured: !!value("HCAPTCHA_SECRET_KEY"),
     },
@@ -29,6 +30,8 @@ Deno.serve(
       origin,
       "https://curbside-eta.vercel.app",
       "https://ticketsafe.ezrefillny.net",
+      ...(value("CRM_ALLOWED_ORIGINS") || "").split(",").filter(Boolean),
+      ...(origin.includes("localhost") ? [origin] : []),
     ],
   ),
 );

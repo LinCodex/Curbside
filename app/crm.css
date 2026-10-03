@@ -1412,3 +1412,95 @@ html[data-theme="light"] .crm-login-error {
     outline: 2px solid Highlight;
   }
 }
+
+.crm-display-settings {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.crm-display-settings .crm-select-trigger {
+  width: auto;
+  min-width: 112px;
+  font-size: 12px;
+}
+.crm-inbox-filter {
+  max-width: 260px;
+  margin-bottom: 20px;
+}
+.crm-inbox-list {
+  display: grid;
+  gap: 16px;
+}
+.crm-support-message h2 {
+  margin: 14px 0 4px;
+  overflow-wrap: anywhere;
+}
+.crm-message-meta {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 12px;
+}
+.crm-message-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin-block: 18px;
+}
+.crm-message-sender {
+  color: var(--muted);
+  font-size: 12px;
+}
+.crm-delete-confirm {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.crm-delete-confirm > span {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 12px;
+}
+.crm-account-actions {
+  margin-top: 24px;
+  padding-block: 20px;
+  border-block: 1px solid var(--line);
+}
+.crm-account-actions p,
+.crm-account-actions small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+@media (max-width: 800px) {
+  .crm-shell {
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+  .crm-header {
+    flex-wrap: wrap;
+    padding-top: calc(14px + env(safe-area-inset-top));
+  }
+  .crm-header-actions {
+    flex: 1 1 100%;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .crm-display-settings {
+    flex: 1;
+    min-width: 0;
+  }
+  .crm-display-settings .crm-select-trigger {
+    min-width: 0;
+    flex: 1;
+  }
+  .crm-entry .crm-display-settings {
+    flex-wrap: wrap;
+    margin-top: 20px;
+  }
+  .crm-header .crm-role-badge {
+    display: none;
+  }
+}

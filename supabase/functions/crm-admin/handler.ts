@@ -1,3 +1,5 @@
+import { detailedTicketEmail } from "../../../lib/ticket-email";
+import { escapeCrmHtml } from "../../../lib/crm";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { crmEmailHtml, uuid, validatedEmailInput } from "../../../lib/crm";
 import {
@@ -10,8 +12,14 @@ import {
 type Config = EmailDeliveryConfig & {
   mapboxConfigured?: boolean;
   captchaConfigured?: boolean;
+  mapboxToken?: string;
 };
 const actions = new Set([
+  "support_create",
+  "support_messages",
+  "support_delete",
+  "account_action",
+  "ticket_test",
   "me",
   "stats",
   "users",
@@ -214,6 +222,248 @@ export function crmAdminHandler(
         }
         return data;
       };
+      if (["account_action", "ticket_test"].includes(action)) {
+        const kind =
+          action === "ticket_test" ? "ticket_test" : String(input.kind || "");
+        if (
+          ![
+            "change_email",
+            "reset_password",
+            "delete_account",
+            "ticket_test",
+          ].includes(kind) ||
+          !uuid(input.userId) ||
+          !uuid(input.idempotencyKey) ||
+          input.confirm !== true
+        )
+          throw new RequestError("Confirm this action first.");
+        const newEmail =
+          typeof input.newEmail === "string"
+            ? input.newEmail.trim().toLowerCase()
+            : "";
+        if (
+          kind === "change_email" &&
+          (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail) ||
+            newEmail.length > 254)
+        )
+          throw new RequestError("Enter a valid new email address.");
+        if (
+          (kind !== "delete_account" || input.notify === true) &&
+          !emailDeliveryAvailable(config)
+        )
+          throw new RequestError(
+            "The verified email sender is not ready.",
+            503,
+          );
+        const digest = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(
+            JSON.stringify({
+              kind,
+              userId: input.userId,
+              newEmail,
+              notify: input.notify === true,
+            }),
+          ),
+        );
+        const fingerprint = Array.from(new Uint8Array(digest), (b) =>
+          b.toString(16).padStart(2, "0"),
+        ).join("");
+        const claimed = await rpc("account_claim", {
+          ...input,
+          kind,
+          fingerprint,
+        });
+        if (!claimed.claimed)
+          return reply({
+            status: claimed.status,
+            mailStatus: claimed.mailStatus,
+            replayed: true,
+          });
+        const operationId = claimed.operationId;
+        let mailStatus = "not_requested";
+        const mail = async (
+          recipient: string,
+          subject: string,
+          html: string,
+          text: string,
+          suffix: string,
+          attachments?: unknown[],
+        ) => {
+          await rpc("account_mail_claim", { operationId });
+          const response = await sendFetch("https://api.resend.com/emails", {
+            method: "POST",
+            signal: AbortSignal.timeout(12000),
+            headers: {
+              Authorization: `Bearer ${config.apiKey}`,
+              "Content-Type": "application/json",
+              "Idempotency-Key": `ticketsafe-account/${operationId}/${suffix}`,
+            },
+            body: JSON.stringify({
+              from: `TicketSafe <${config.from}>`,
+              to: [recipient],
+              subject,
+              html,
+              text,
+              ...(attachments?.length ? { attachments } : {}),
+            }),
+          });
+          if (!response.ok || typeof (await response.json()).id !== "string")
+            throw new Error("Email delivery needs review.");
+          mailStatus = "accepted";
+        };
+        const linkMail = async (
+          type: "recovery" | "email_change_current" | "email_change_new",
+          recipient: string,
+          suffix: string,
+        ) => {
+          const options = {
+            redirectTo: new URL(
+              type === "recovery" ? "/?auth=recovery" : "/?view=account",
+              config.appOrigin,
+            ).toString(),
+          };
+          const generated = await admin.auth.admin.generateLink(
+            type === "recovery"
+              ? { type, email: claimed.email, options }
+              : { type, email: claimed.email, newEmail, options },
+          );
+          if (generated.error || !generated.data?.properties?.action_link)
+            throw new Error("Account verification could not be prepared.");
+          const zh = claimed.language === "zh";
+          const subject =
+            type === "recovery"
+              ? zh
+                ? "TicketSafe：重设密码"
+                : "TicketSafe: reset your password"
+              : zh
+                ? "TicketSafe：确认邮箱变更"
+                : "TicketSafe: confirm your email change";
+          const message = zh
+            ? "管理员应您的请求发起了此操作。请验证以继续；若非您本人请求，请联系支持。请检查垃圾邮件文件夹。"
+            : "An administrator started this action at your request. Verify to continue. If you did not request it, contact support. Please check your spam folder.";
+          const link = generated.data.properties.action_link;
+          const html = crmEmailHtml(
+            subject,
+            message,
+            config.appOrigin!,
+          ).replace(
+            "</div>",
+            `<br><br><a href="${escapeCrmHtml(link)}">${zh ? "安全确认" : "Verify securely"}</a></div>`,
+          );
+          await mail(recipient, subject, html, message + "\n\n" + link, suffix);
+        };
+        try {
+          if (kind === "reset_password")
+            await linkMail("recovery", claimed.email, "reset");
+          if (kind === "change_email") {
+            await linkMail(
+              "email_change_current",
+              claimed.email,
+              "current-email",
+            );
+            await linkMail("email_change_new", newEmail, "new-email");
+          }
+          if (kind === "delete_account") {
+            const deleted = await admin.auth.admin.deleteUser(input.userId);
+            if (deleted.error)
+              throw new Error("Account deletion could not be completed.");
+          }
+          if (kind === "ticket_test") {
+            const ticket = claimed.ticket;
+            const origin = config.appOrigin!;
+            const content = await detailedTicketEmail(
+              1,
+              claimed.language,
+              new URL("/?view=garage", origin).toString(),
+              new URL("/?view=account", origin).toString(),
+              [
+                {
+                  ...ticket,
+                  nickname: "",
+                  location: ticket.location || {
+                    label: "",
+                    precision: "unknown",
+                  },
+                },
+              ],
+              { token: config.mapboxToken },
+            );
+            const testLabel =
+              claimed.language === "zh"
+                ? "测试邮件：以下为已保存的历史罚单，并非新发现的罚单。"
+                : "TEST EMAIL: this is a saved historical ticket, not a newly discovered ticket.";
+            const html = content.html
+              .replace(
+                "<h1",
+                `<p style="color:#f0c17d;font-size:14px">${testLabel}</p><h1`,
+              )
+              .replace(
+                /Turn off new-ticket emails/g,
+                "Manage notification preferences",
+              )
+              .replace(/关闭新罚单邮件/g, "管理通知设置");
+            await mail(
+              claimed.email,
+              "[TEST] " + content.subject,
+              html,
+              testLabel + "\n\n" + content.text,
+              "ticket-test",
+              content.attachments,
+            );
+          }
+          if (input.notify === true && kind !== "ticket_test") {
+            const zh = claimed.language === "zh";
+            const subject = zh
+              ? "TicketSafe：账户操作进度"
+              : "TicketSafe: account action update";
+            const message =
+              kind === "delete_account"
+                ? zh
+                  ? "您的账户已删除。如非您请求，请联系支持。"
+                  : "Your account has been deleted. If you did not request this, contact support."
+                : kind === "change_email"
+                  ? zh
+                    ? "邮箱变更验证已发送，确认完成前不会生效。请检查原邮箱和新邮箱的收件箱及垃圾邮件文件夹。"
+                    : "Email-change verification has been sent. The change takes effect only after confirmation. Check both inboxes and spam folders."
+                  : zh
+                    ? "密码重置链接已发送。密码将在您完成重置后更新。请检查收件箱及垃圾邮件文件夹。"
+                    : "A password-reset link has been sent. Your password changes only when you finish the reset. Check your inbox and spam folder.";
+            await mail(
+              claimed.email,
+              subject,
+              crmEmailHtml(subject, message, config.appOrigin!),
+              message,
+              "status",
+            );
+          }
+          await rpc("account_result", {
+            operationId,
+            status: "completed",
+            mailStatus,
+          });
+          return reply({
+            status: "completed",
+            mailStatus,
+            verificationPending: ["change_email", "reset_password"].includes(
+              kind,
+            ),
+          });
+        } catch {
+          await rpc("account_result", {
+            operationId,
+            status: "review",
+            mailStatus:
+              mailStatus === "accepted" ? "partially_accepted" : "needs_review",
+          });
+          return reply({
+            status: "review",
+            mailStatus: "needs_review",
+            message:
+              "The action or delivery needs review. Check the customer and Resend before repeating.",
+          });
+        }
+      }
       if (["email_preview", "email_send", "test_email"].includes(action)) {
         const draft =
           action === "test_email"

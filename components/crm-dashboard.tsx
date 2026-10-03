@@ -24,6 +24,7 @@ import {
   LoaderCircle,
   LogOut,
   Mail,
+  MessageSquare,
   RefreshCw,
   Search,
   Send,
@@ -36,7 +37,12 @@ import { useSupabaseAccount } from "./use-supabase-account";
 import { usePreferences } from "./preferences";
 import CrmLogin from "./crm-login";
 import CrmSelect from "./crm-select";
-import { CookieSettingsButton } from "./cookie-consent";
+import {
+  CrmAccountActions,
+  CrmDisplaySettings,
+  CrmInbox,
+  CrmTicketTest,
+} from "./crm-tools";
 import {
   crmClientRequest,
   type CrmAdmin,
@@ -52,8 +58,83 @@ import {
 } from "@/lib/crm-client";
 
 type Translate = (text: string) => string;
-type Tab = "overview" | "customers" | "email" | "access" | "status" | "debug";
+type Tab =
+  "overview" | "customers" | "email" | "access" | "status" | "debug" | "inbox";
 const chinese: Record<string, string> = {
+  "Support & feedback": "支持与反馈",
+  "A question, an idea, or something to fix": "有疑问、有建议，或遇到了问题？",
+  "Send a message to our private support inbox. Messages are kept for up to 90 days.":
+    "将消息发送至我们的专属客服收件箱。消息最多保留 90 天。",
+  "Sign in to contact support": "登录后联系客服",
+  "Message type": "消息类型",
+  "Support question": "咨询客服",
+  "Product feedback": "产品建议",
+  "Report a problem": "报告问题",
+  "Your message": "消息内容",
+  "Do not include passwords, verification codes, or payment details.":
+    "请勿填写密码、验证码或付款信息。",
+  "Message sent to support.": "消息已发送至客服。",
+  "Send message": "发送消息",
+  "Could not send your message. Please try again.": "消息发送失败，请重试。",
+  "Support inbox": "客服收件箱",
+  "Private support questions and feedback. Messages expire after 90 days.":
+    "查看用户咨询与产品反馈。消息将在 90 天后清除。",
+  "All messages": "所有消息",
+  "No messages yet.": "暂无消息。",
+  "Delete this message permanently?": "确定永久删除此消息吗？",
+  "Confirm delete": "确认删除",
+  "Delete message": "删除消息",
+  "Account tools": "账户管理",
+  "Only act at the customer's request. Verification links keep email and password changes under their control.":
+    "请仅在用户提出请求后操作。邮箱与密码变更需由用户通过验证链接完成。",
+  Action: "操作",
+  "Account action": "账户操作",
+  "Send password reset": "发送密码重置链接",
+  "Change email address": "更换邮箱",
+  "New email address": "新邮箱地址",
+  "Confirmation is sent to both the current and new address. Neither changes immediately.":
+    "原邮箱和新邮箱都会收到验证邮件。完成确认后才会生效。",
+  "Type the customer's email to confirm deletion": "输入用户邮箱以确认删除",
+  "Deletion is permanent. Saved cars and private account data are removed.":
+    "删除后无法恢复。已保存的车辆及私人账户数据将被移除。",
+  "Email the customer a status update": "通过邮件向用户发送操作进度",
+  "The customer requested this action.": "此操作由用户本人提出。",
+  "The action or delivery needs review. Check the customer and Resend before repeating.":
+    "操作或邮件发送状态待核实。请先查看用户账户及 Resend 记录，再决定是否重试。",
+  "Verification sent. Check inboxes and spam folders.":
+    "验证邮件已发送，请查看收件箱及垃圾邮件文件夹。",
+  "Account action completed.": "账户操作已完成。",
+  "Confirm action": "确认操作",
+  "Test the latest saved ticket email": "测试最新历史罚单邮件",
+  "Sends the selected customer's latest saved ticket, clearly marked TEST. It does not change discovery or reminder history.":
+    "向所选用户发送其最近保存的历史罚单，邮件明确标注为测试。不会更改罚单发现或提醒记录。",
+  "Select a customer above first.": "请先在上方选择用户。",
+  "Send one test email to this customer.": "向此用户发送一封测试邮件。",
+  "Test email accepted. Check Resend for delivery.":
+    "测试邮件已提交，请在 Resend 查看投递状态。",
+  "Send test ticket": "发送测试罚单",
+  Appearance: "外观",
+  "System theme": "跟随系统外观",
+  "System language": "跟随系统语言",
+  Light: "浅色",
+  Dark: "深色",
+  Language: "语言",
+  "Checks do not send email. Test messages require explicit confirmation.":
+    "运行检查不会发送邮件。测试邮件须明确确认后才会发送。",
+  "Saving vehicle…": "正在保存车辆…",
+  "Please wait before sending another message.": "发送过于频繁，请稍后再试。",
+  "Check the subject and message.": "请检查主题和消息内容。",
+  "Support inbox is full. Please try later.":
+    "客服收件箱暂时已满，请稍后再试。",
+  "No saved ticket is available for this customer.":
+    "此用户暂无可用的已保存罚单。",
+  "Customer not found.": "未找到已验证的用户。",
+  "Daily account-action limit reached.": "已达到今日账户操作次数上限。",
+  "Enter a valid new email address.": "请输入有效的新邮箱地址。",
+  "Confirm this action first.": "请先确认此操作。",
+  "Manage administrator accounts through their own account settings.":
+    "管理员账户需通过其自身账户设置管理。",
+
   "Admin workspace": "管理工作台",
   "Admin sign in": "管理员登录",
   "Sign in": "登录",
@@ -426,7 +507,7 @@ async function sendStorageKey(userId: string, draft: string) {
 
 export default function CrmDashboard() {
   const account = useSupabaseAccount();
-  const { locale } = usePreferences();
+  const { locale, ready: preferencesReady } = usePreferences();
   const tr: Translate = (text) =>
     locale === "zh" ? chinese[text] || text : text;
   const [tab, setTab] = useState<Tab>("overview");
@@ -465,6 +546,7 @@ export default function CrmDashboard() {
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "customers", label: "Customers", icon: Users },
     { id: "email", label: "Email", icon: Mail },
+    { id: "inbox", label: "Support inbox", icon: MessageSquare },
     { id: "access", label: "Access", icon: ShieldCheck },
     { id: "status", label: "Status", icon: Activity },
     { id: "debug", label: "Debug", icon: FlaskConical },
@@ -477,7 +559,11 @@ export default function CrmDashboard() {
       setSignOutError("CRM unavailable. Please try again.");
     }
   };
-  if (account.loading || (account.user && auth.loading && !auth.data))
+  if (
+    !preferencesReady ||
+    account.loading ||
+    (account.user && auth.loading && !auth.data)
+  )
     return (
       <main className="crm-entry">
         <div className="crm-entry-card">
@@ -533,10 +619,7 @@ export default function CrmDashboard() {
             <ArrowLeft size={16} />
             {tr("Back to TicketSafe")}
           </Link>
-          <div className="crm-footer">
-            <Link href="/legal/privacy">{tr("Privacy")}</Link>
-            <CookieSettingsButton />
-          </div>
+          <CrmDisplaySettings tr={tr} />
         </div>
       </main>
     );
@@ -548,6 +631,7 @@ export default function CrmDashboard() {
           <small>{tr("CRM")}</small>
         </Link>
         <div className="crm-header-actions">
+          <CrmDisplaySettings tr={tr} />
           <span className="crm-role-badge">{roleLabel(admin.role, tr)}</span>
           <button
             className="crm-icon-button"
@@ -602,6 +686,9 @@ export default function CrmDashboard() {
             }}
           />
         )}
+        {tab === "inbox" && (
+          <CrmInbox client={account.client!} tr={tr} locale={locale} />
+        )}
         {tab === "email" && (
           <EmailWorkspace
             client={account.client!}
@@ -627,10 +714,6 @@ export default function CrmDashboard() {
         {tab === "debug" && (
           <DebugWorkspace client={account.client!} admin={admin} tr={tr} />
         )}
-        <footer className="crm-footer">
-          <Link href="/legal/privacy">{tr("Privacy")}</Link>
-          <CookieSettingsButton />
-        </footer>
       </main>
     </div>
   );
@@ -1040,6 +1123,17 @@ function CustomerEditor({
         <Mail size={16} />
         {tr("Email this customer")}
       </button>
+      {admin.role !== "support" &&
+        !detail.user.role &&
+        detail.user.email_confirmed_at && (
+          <CrmAccountActions
+            key={detail.user.id}
+            client={client}
+            userId={detail.user.id}
+            email={detail.user.email}
+            tr={tr}
+          />
+        )}
       <h3>{tr("Saved vehicles")}</h3>
       <div className="crm-detail-vehicles">
         {detail.vehicles.map((vehicle) => (
@@ -1871,7 +1965,9 @@ function DebugWorkspace({
     <section>
       <PageHeading
         title={tr("Notification diagnostics")}
-        description={tr("Dry run only. No customer emails are sent.")}
+        description={tr(
+          "Checks do not send email. Test messages require explicit confirmation.",
+        )}
       />
       <div className="crm-panel">
         <form
@@ -1937,6 +2033,9 @@ function DebugWorkspace({
       </div>
       <Feedback error={error} tr={tr} />
       {result && <CheckList checks={result.checks} tr={tr} />}
+      {admin.role !== "support" && (
+        <CrmTicketTest key={userId} client={client} userId={userId} tr={tr} />
+      )}
       {admin.role !== "support" && (
         <div className="crm-panel crm-test-panel">
           <h2>{tr("Send a test to my email")}</h2>

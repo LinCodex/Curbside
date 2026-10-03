@@ -46,11 +46,7 @@ import { TicketLocation } from "./ticket-location";
 import { PlateBalance } from "./plate-balance";
 import CustomSelect from "./custom-select";
 import { useMapLocations } from "./use-map-locations";
-import {
-  hasPoint,
-  contextRadius,
-  cleanLocationLabel,
-} from "@/lib/map-locations";
+import { hasPoint, contextRadius } from "@/lib/map-locations";
 import { InstallGuide, PullToRefresh } from "./mobile-web-app";
 import { PLATE_TYPES } from "@/lib/plate-types";
 import { FREE_ACCESS } from "@/lib/release";
@@ -59,15 +55,24 @@ import { useAccount } from "./account-provider";
 import AuthPanel from "./auth-panel";
 import PopupPresence from "./popup-presence";
 import AccountDetails from "./account-details";
+import SupportFeedback from "./support-feedback";
 import { combinedGarageHistory } from "@/lib/garage-history";
 import WelcomeOnboarding from "./welcome-onboarding";
-import BotChallenge, { CaptchaDisclosure, type ChallengeHandle } from "./bot-challenge";
+import BotChallenge, {
+  CaptchaDisclosure,
+  type ChallengeHandle,
+} from "./bot-challenge";
 import MapPanelControls from "./map-panel-controls";
 import { CookieSettingsButton, useCookieConsent } from "./cookie-consent";
 import { NotificationSettings } from "./notification-settings";
 import AnnouncementSettings from "./announcement-settings";
 import { hasOnboarded, onboardingCookie } from "@/lib/onboarding";
-import { readSearchNavigation, readSearchResult, writeSearchNavigation, writeSearchResult } from "@/lib/search-session";
+import {
+  readSearchNavigation,
+  readSearchResult,
+  writeSearchNavigation,
+  writeSearchResult,
+} from "@/lib/search-session";
 import {
   money,
   STATES,
@@ -92,8 +97,9 @@ const niceDate = (s?: string | null, locale = "en") =>
       ? "未提供"
       : "Not provided";
 export default function Curbside() {
-  const { consent: cookieConsent, saveChoice: saveCookieChoice } = useCookieConsent();
-  const { tr, locale, detailMode } = usePreferences();
+  const { consent: cookieConsent, saveChoice: saveCookieChoice } =
+    useCookieConsent();
+  const { tr, locale, detailMode, ready: preferencesReady } = usePreferences();
   const auth = useAccount();
   const config = auth.configuration;
   const [view, setView] = useState("garage"),
@@ -117,10 +123,8 @@ export default function Curbside() {
   const [mapVehicleId, setMapVehicleId] = useState("");
   const [mapFilter, setMapFilter] = useState("all");
   const [mapBoxMinimized, setMapBoxMinimized] = useState(false);
-  const [correctingAddress, setCorrectingAddress] = useState(false);
-  const [customAddressInput, setCustomAddressInput] = useState("");
-  const [autocorrectPending, setAutocorrectPending] = useState(false);
-  const [autocorrectError, setAutocorrectError] = useState("");
+  const [accountLoading, setAccountLoading] = useState(true);
+  const [accountError, setAccountError] = useState(false);
   const [installGuideRequest, setInstallGuideRequest] = useState(0);
   const [authOpen, setAuthOpen] = useState(false);
   const [authInitialMode, setAuthInitialMode] = useState<
@@ -157,16 +161,27 @@ export default function Curbside() {
   useEffect(() => {
     let alive = true;
     fetch("/api/search/verification", { cache: "no-store" })
-      .then((response) => response.ok ? response.json() : null)
+      .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
-        if (alive && !verificationExpiry.current && Number.isFinite(data?.verifiedUntil) && data.verifiedUntil > Date.now())
+        if (
+          alive &&
+          !verificationExpiry.current &&
+          Number.isFinite(data?.verifiedUntil) &&
+          data.verifiedUntil > Date.now()
+        )
           rememberVerification(data.verifiedUntil);
-      }).catch(() => {});
-    return () => { alive = false; };
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
   }, [rememberVerification]);
   useEffect(() => {
     if (!verifiedUntil) return;
-    const timer = setTimeout(() => rememberVerification(null), Math.max(0, verifiedUntil - Date.now()));
+    const timer = setTimeout(
+      () => rememberVerification(null),
+      Math.max(0, verifiedUntil - Date.now()),
+    );
     return () => clearTimeout(timer);
   }, [verifiedUntil, rememberVerification]);
   const [captchaReset, setCaptchaReset] = useState(0);
@@ -196,7 +211,11 @@ export default function Curbside() {
     const userId = auth.user.id;
     try {
       const next = await api("me");
-      if (currentAuthId.current === userId) setAccount(next);
+      if (currentAuthId.current === userId) {
+        setAccount(next);
+        setAccountError(false);
+        setAccountLoading(false);
+      }
     } catch (e) {
       notify((e as Error).message);
     }
@@ -252,13 +271,17 @@ export default function Curbside() {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     const q = new URLSearchParams(location.search);
     const callbackHash = new URLSearchParams(location.hash.slice(1));
-    const requestedView = q.has("auth") || q.has("invite")
-      ? "account"
-      : q.get("view") || location.hash.slice(1);
-    if (nav.some(item => item.id === requestedView)) initialRouteView.current = requestedView;
+    const requestedView =
+      q.has("auth") || q.has("invite")
+        ? "account"
+        : q.get("view") || location.hash.slice(1);
+    if (nav.some((item) => item.id === requestedView))
+      initialRouteView.current = requestedView;
     if (
       ["signup", "email"].includes(callbackHash.get("type") || "") ||
-      (callbackHash.has("error_code") && q.get("auth") !== "recovery" && callbackHash.get("type") !== "recovery")
+      (callbackHash.has("error_code") &&
+        q.get("auth") !== "recovery" &&
+        callbackHash.get("type") !== "recovery")
     ) {
       location.replace("/auth/confirm" + location.search + location.hash);
       return;
@@ -285,7 +308,11 @@ export default function Curbside() {
     setAuthOpen(!auth.user);
     query.delete("auth");
     const search = query.toString();
-    window.history.replaceState(window.history.state, "", location.pathname + (search ? "?" + search : ""));
+    window.history.replaceState(
+      window.history.state,
+      "",
+      location.pathname + (search ? "?" + search : ""),
+    );
   }, [auth.loading, auth.user]);
   useEffect(() => {
     const activePlate = plate.trim() || results?.query?.plate || "";
@@ -390,14 +417,11 @@ export default function Curbside() {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, [view]);
   useEffect(() => {
-    if (mapSelection) {
-      setCorrectingAddress(false);
-      setAutocorrectError("");
-    }
-  }, [mapSelection]);
-  useEffect(() => {
+    if (auth.loading) return;
     let alive = true;
     setAccount(null);
+    setAccountLoading(!!auth.user);
+    setAccountError(false);
     setVehicleId("");
     setSelected(null);
     setSheet(null);
@@ -411,12 +435,18 @@ export default function Curbside() {
           }
         })
         .catch((error: Error) => {
-          if (alive) notify(error.message);
+          if (alive) {
+            setAccountError(true);
+            notify(error.message);
+          }
+        })
+        .finally(() => {
+          if (alive) setAccountLoading(false);
         });
     return () => {
       alive = false;
     };
-  }, [auth.user?.id, api, notify]);
+  }, [auth.user?.id, api, notify, auth.loading]);
   useEffect(() => {
     if (auth.loading || restoredOwner === searchOwner) return;
     let alive = true;
@@ -427,12 +457,20 @@ export default function Curbside() {
       try {
         restored = readSearchResult(sessionStorage, searchOwner);
         navigation = readSearchNavigation(sessionStorage, searchOwner);
-      } catch { /* Storage can be unavailable in restricted browser modes. */ }
+      } catch {
+        /* Storage can be unavailable in restricted browser modes. */
+      }
       // Carry a guest's public search through sign-in; isolate changes between profiles.
       if (restoredOwner !== "guest") setResults(restored);
       if (navigation) {
-        const linkedView = new URLSearchParams(location.search).get("view") || location.hash.slice(1);
-        if (!initialRouteView.current && !nav.some(item => item.id === linkedView)) setView(navigation.view);
+        const linkedView =
+          new URLSearchParams(location.search).get("view") ||
+          location.hash.slice(1);
+        if (
+          !initialRouteView.current &&
+          !nav.some((item) => item.id === linkedView)
+        )
+          setView(navigation.view);
         setPlate(navigation.plate);
         setState(navigation.state);
         setPlateType(navigation.plateType);
@@ -455,27 +493,65 @@ export default function Curbside() {
       }
       setRestoredOwner(searchOwner);
     });
-    return () => { alive = false; };
+    return () => {
+      alive = false;
+    };
   }, [auth.loading, restoredOwner, searchOwner]);
   useEffect(() => {
     if (auth.loading || restoredOwner !== searchOwner) return;
     try {
       if (!writeSearchResult(sessionStorage, searchOwner, results) && results)
-        queueMicrotask(() => notify(tr("Your browser could not remember this search for refresh.")));
-    } catch { /* Searching still works when browser storage is blocked. */ }
+        queueMicrotask(() =>
+          notify(
+            tr("Your browser could not remember this search for refresh."),
+          ),
+        );
+    } catch {
+      /* Searching still works when browser storage is blocked. */
+    }
   }, [auth.loading, restoredOwner, searchOwner, results, notify, tr]);
   useEffect(() => {
     if (auth.loading || restoredOwner !== searchOwner) return;
     const query = new URLSearchParams(location.search);
     query.set("view", view);
-    window.history.replaceState(window.history.state, "", location.pathname + "?" + query.toString() + location.hash);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      location.pathname + "?" + query.toString() + location.hash,
+    );
     try {
       writeSearchNavigation(sessionStorage, searchOwner, {
-        view, plate, state, plateType, history, filter, vehicleId,
-        mapVehicleId, mapFilter, mapSelection, mapBoxMinimized,
+        view,
+        plate,
+        state,
+        plateType,
+        history,
+        filter,
+        vehicleId,
+        mapVehicleId,
+        mapFilter,
+        mapSelection,
+        mapBoxMinimized,
       });
-    } catch { /* Preserve the view URL even without browser storage. */ }
-  }, [auth.loading, restoredOwner, searchOwner, view, plate, state, plateType, history, filter, vehicleId, mapVehicleId, mapFilter, mapSelection, mapBoxMinimized]);
+    } catch {
+      /* Preserve the view URL even without browser storage. */
+    }
+  }, [
+    auth.loading,
+    restoredOwner,
+    searchOwner,
+    view,
+    plate,
+    state,
+    plateType,
+    history,
+    filter,
+    vehicleId,
+    mapVehicleId,
+    mapFilter,
+    mapSelection,
+    mapBoxMinimized,
+  ]);
   useEffect(() => {
     if (config.hcaptchaKey || !config.turnstileKey || !challengeEl.current)
       return;
@@ -567,27 +643,35 @@ export default function Curbside() {
           unavailable: saved.unavailable,
         };
       }
-      if (searching.current) throw new Error(tr("A search is already in progress."));
+      if (searching.current)
+        throw new Error(tr("A search is already in progress."));
       searching.current = true;
       setBusy(true);
       setError("");
       try {
         const freshChallenge = async () => {
           if (!config.hcaptchaKey) return challenge.current;
-          if (!searchChallenge.current) throw new Error(tr("Security check is loading. Please try again shortly."));
+          if (!searchChallenge.current)
+            throw new Error(
+              tr("Security check is loading. Please try again shortly."),
+            );
           return searchChallenge.current.execute();
         };
-        let token = verificationExpiry.current && verificationExpiry.current > Date.now() ? "" : await freshChallenge();
-        const request = (captcha: string) => fetch("/api/search", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...p,
-            history: input.history ?? true,
-            locations: true,
-            challenge: captcha,
-          }),
-        });
+        let token =
+          verificationExpiry.current && verificationExpiry.current > Date.now()
+            ? ""
+            : await freshChallenge();
+        const request = (captcha: string) =>
+          fetch("/api/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...p,
+              history: input.history ?? true,
+              locations: true,
+              challenge: captcha,
+            }),
+          });
         let r = await request(token);
         let j: any = await r.json();
         if (!token && r.status === 403 && j.code === "captcha_required") {
@@ -655,12 +739,16 @@ export default function Curbside() {
     ).catch(() => {});
     return () => life.abort();
   }, [search]);
-  const vehicles = account?.vehicles || [];
+  const vehicles =
+    account?.user?.id === auth.user?.id ? account?.vehicles || [] : [];
   const allVehicles = vehicleId === "all" && vehicles.length > 0;
   const allHistory = useMemo(
     () =>
-      combinedGarageHistory(account?.vehicles || [], account?.tickets || []),
-    [account?.vehicles, account?.tickets],
+      combinedGarageHistory(
+        auth.user?.id && account?.user?.id === auth.user.id ? account?.vehicles || [] : [],
+        auth.user?.id && account?.user?.id === auth.user.id ? account?.tickets || [] : [],
+      ),
+    [account, auth.user?.id],
   );
   const activeVehicle =
     vehicles.find((v: any) => v.id === vehicleId) || vehicles[0];
@@ -671,12 +759,11 @@ export default function Curbside() {
     results?.query.plateType === activeVehicle.plate_type;
   const garageTickets = allVehicles
     ? allHistory.tickets
-    : currentVehicleResults
-      ? results?.tickets || []
-      : activeVehicle?.snapshot?.tickets ||
-        (account?.tickets || []).filter(
-          (t: any) => !activeVehicle || t.vehicleId === activeVehicle.id,
-        );
+    : activeVehicle?.snapshot?.tickets ||
+      (currentVehicleResults ? results?.tickets : null) ||
+      (account?.tickets || []).filter(
+        (t: any) => !activeVehicle || t.vehicleId === activeVehicle.id,
+      );
   const tickets: Violation[] = results?.tickets || garageTickets;
   const searchedVehicle =
     results &&
@@ -699,12 +786,11 @@ export default function Curbside() {
     mapScope === "all"
       ? allHistory.tickets
       : mapVehicle
-        ? searchedVehicle?.id === mapScope
-          ? results!.tickets
-          : mapVehicle.snapshot?.tickets ||
-            (account?.tickets || []).filter(
-              (t: any) => t.vehicleId === mapVehicle.id,
-            )
+        ? mapVehicle.snapshot?.tickets ||
+          (searchedVehicle?.id === mapScope ? results?.tickets : null) ||
+          (account?.tickets || []).filter(
+            (t: any) => t.vehicleId === mapVehicle.id,
+          )
         : tickets;
   const locations = useMapLocations(
     scopedMapTickets,
@@ -841,14 +927,20 @@ export default function Curbside() {
         <LockKeyhole size={12} />
         {tr("No account needed to search. Your plate isn’t a public profile.")}
       </p>
-      {config.hcaptchaKey && <div className="search-security-footer">
-        <span><ShieldCheck size={12} aria-hidden="true" />{tr("Automatic security check")}</span>
-        <CaptchaDisclosure />
-      </div>}
+      {config.hcaptchaKey && (
+        <div className="search-security-footer">
+          <span>
+            <ShieldCheck size={12} aria-hidden="true" />
+            {tr("Automatic security check")}
+          </span>
+          <CaptchaDisclosure />
+        </div>
+      )}
     </form>
   );
   const saveVehicle = async (e: any) => {
     e.preventDefault();
+    if (busy) return;
     if (!account) {
       signIn();
       return;
@@ -870,11 +962,28 @@ export default function Curbside() {
     setSheet(null);
     setDockHidden(false);
   };
+  const garagePending =
+    auth.loading || (!!auth.user && (accountLoading || !account));
+  if (!preferencesReady || restoredOwner !== searchOwner || (auth.user && accountLoading))
+    return (
+      <main
+        className="app-startup"
+        aria-label={tr("Loading…")}
+        aria-busy="true"
+      >
+        <div className="app-startup-brand">
+          TicketSafe<span>.</span>
+        </div>
+        <LoaderCircle className="spin" size={20} aria-hidden="true" />
+      </main>
+    );
   return (
     <div
       className={
         "app " +
-        (view === "garage" && !activeVehicle ? "onboarding " : "") +
+        (view === "garage" && !activeVehicle && !garagePending
+          ? "onboarding "
+          : "") +
         (account && (view === "account" || (view === "garage" && activeVehicle))
           ? "desktop-workspace"
           : "")
@@ -884,10 +993,7 @@ export default function Curbside() {
       <a className="skip-link" href="#main-content">
         {tr("Skip to content")}
       </a>
-      <InstallGuide
-        manualRequest={installGuideRequest}
-        suppressAutomatic
-      />
+      <InstallGuide manualRequest={installGuideRequest} suppressAutomatic />
       <PullToRefresh
         disabled={
           busy || !!sheet || !!onboardingOpen || authOpen || auth.recovering
@@ -988,7 +1094,31 @@ export default function Curbside() {
         </div>
       )}
       <main id="main-content" className={"main-view view-" + view} key={view}>
-        {view === "garage" && !activeVehicle && (
+        {view === "garage" && garagePending && (
+          <section
+            className="garage-loading glass"
+            role="status"
+            aria-live="polite"
+          >
+            <CarFront size={28} aria-hidden="true" />
+            <h1>{tr("Garage")}</h1>
+            <p>
+              {tr(
+                accountError
+                  ? "Your saved cars could not be updated. Please try again."
+                  : "Loading your saved vehicles…",
+              )}
+            </p>
+            {accountError ? (
+              <button className="button" onClick={() => void refresh()}>
+                {tr("Try again")}
+              </button>
+            ) : (
+              <LoaderCircle size={18} className="spin" aria-hidden="true" />
+            )}
+          </section>
+        )}
+        {view === "garage" && !activeVehicle && !garagePending && (
           <section className="welcome view-enter">
             <div className="welcome-context">
               <span className="location-label">
@@ -1095,7 +1225,6 @@ export default function Curbside() {
                     }
                     onClick={() => {
                       setVehicleId(v.id);
-                      setResults(v.snapshot || null);
                       setMapVehicleId("");
                       setMapSelection("");
                     }}
@@ -1107,121 +1236,123 @@ export default function Curbside() {
             </div>
             <div className="vehicle-identity">
               <div className="garage-overview-column">
-              <div className="garage-overview">
-                <div className="eyebrow">
-                  {allVehicles ? (
-                    `${vehicles.length} ${tr("saved vehicles")}`
-                  ) : (
-                    <>
-                      {activeVehicle.state} /{" "}
-                      {activeVehicle.plate_type || tr("All plate types")}
-                    </>
-                  )}
-                </div>
-                <h1>
-                  {allVehicles ? tr("All vehicles") : activeVehicle.plate}
-                </h1>
-                <div className="vehicle-subtitle">
-                  {!allVehicles && activeVehicle.nickname && (
-                    <span className="vehicle-nickname">
-                      {activeVehicle.nickname}
-                    </span>
-                  )}
-                  <span className="vehicle-check-time">
-                    <Clock3 size={12} />
-                    {allVehicles
-                      ? tr("Combined saved histories")
-                      : activeVehicle.checked_at
-                        ? tr("Checked ") +
-                          niceDate(
-                            new Date(activeVehicle.checked_at).toISOString(),
-                            locale,
-                          )
-                        : tr("Saved vehicle")}
-                  </span>
-                </div>
-                <div className="scene-summary">
-                  <div>
-                    <strong>
-                      {tr(
-                        money(
-                          garageTickets.some((t: any) => t.due != null)
-                            ? garageTickets.reduce(
-                                (s: number, t: any) => s + (t.due || 0),
-                                0,
-                              )
-                            : null,
-                        ),
-                      )}
-                    </strong>
-                    <span>{tr("Known outstanding")}</span>
-                  </div>
-                  <div>
-                    <strong>
-                      {garageTickets.filter((t: any) => t.due > 0).length}
-                    </strong>
-                    <span>{tr("Open tickets")}</span>
-                  </div>
-                  {!allVehicles && (
-                    <button
-                      className="pill"
-                      onClick={() => setSheet("vehicle")}
-                    >
-                      <SlidersHorizontal size={15} />
-                      {tr("Vehicle settings")}
-                    </button>
-                  )}
-                </div>
-                <PlateBalance
-                  tickets={garageTickets}
-                  complete={
-                    allVehicles
-                      ? allHistory.complete
-                      : activeVehicle.snapshot?.complete
-                  }
-                />
-                {allVehicles && allHistory.ready < vehicles.length && (
-                  <p className="small muted">
-                    {allHistory.ready} / {vehicles.length}{" "}
-                    {tr(
-                      "saved histories ready. Remaining vehicles are still being checked.",
+                <div className="garage-overview">
+                  <div className="eyebrow">
+                    {allVehicles ? (
+                      `${vehicles.length} ${tr("saved vehicles")}`
+                    ) : (
+                      <>
+                        {activeVehicle.state} /{" "}
+                        {activeVehicle.plate_type || tr("All plate types")}
+                      </>
                     )}
-                  </p>
-                )}
-              </div>
-              {allVehicles ? (
-                <button
-                  className="primary-action garage-check-action"
-                  onClick={() => {
-                    setMapVehicleId("all");
-                    go("map");
-                  }}
-                >
-                  <MapPin size={17} />
-                  {tr("View all locations")}
-                </button>
-              ) : (
-                <button
-                  className="primary-action garage-check-action"
-                  disabled={busy}
-                  onClick={() =>
-                    search({
-                      plate: activeVehicle.plate,
-                      state: activeVehicle.state,
-                      plateType: activeVehicle.plate_type,
-                      history,
-                    }).catch(() => {})
-                  }
-                >
-                  <Search size={17} />
-                  {tr(
-                    activeVehicle.snapshot
-                      ? "View full history"
-                      : "Check this vehicle",
+                  </div>
+                  <h1>
+                    {allVehicles ? tr("All vehicles") : activeVehicle.plate}
+                  </h1>
+                  <div className="vehicle-subtitle">
+                    {!allVehicles && activeVehicle.nickname && (
+                      <span className="vehicle-nickname">
+                        {activeVehicle.nickname}
+                      </span>
+                    )}
+                    <span className="vehicle-check-time">
+                      <Clock3 size={12} />
+                      {allVehicles
+                        ? tr("Combined saved histories")
+                        : activeVehicle.checked_at
+                          ? tr("Checked ") +
+                            niceDate(
+                              new Date(activeVehicle.checked_at).toISOString(),
+                              locale,
+                            )
+                          : tr("Saved vehicle")}
+                    </span>
+                  </div>
+                  <div className="scene-summary">
+                    <div>
+                      <strong>
+                        {tr(
+                          money(
+                            garageTickets.some((t: any) => t.due != null)
+                              ? garageTickets.reduce(
+                                  (s: number, t: any) => s + (t.due || 0),
+                                  0,
+                                )
+                              : null,
+                          ),
+                        )}
+                      </strong>
+                      <span>{tr("Known outstanding")}</span>
+                    </div>
+                    <div>
+                      <strong>
+                        {garageTickets.filter((t: any) => t.due > 0).length}
+                      </strong>
+                      <span>{tr("Open tickets")}</span>
+                    </div>
+                    {!allVehicles && (
+                      <button
+                        className="pill"
+                        onClick={() => setSheet("vehicle")}
+                      >
+                        <SlidersHorizontal size={15} />
+                        {tr("Vehicle settings")}
+                      </button>
+                    )}
+                  </div>
+                  <PlateBalance
+                    tickets={garageTickets}
+                    complete={
+                      allVehicles
+                        ? allHistory.complete
+                        : activeVehicle.snapshot?.complete
+                    }
+                  />
+                  {allVehicles && allHistory.ready < vehicles.length && (
+                    <p className="small muted">
+                      {allHistory.ready} / {vehicles.length}{" "}
+                      {tr(
+                        "saved histories ready. Remaining vehicles are still being checked.",
+                      )}
+                    </p>
                   )}
-                </button>
-              )}
-              {detailMode === "geek" && <VehicleData tickets={garageTickets} />}
+                </div>
+                {allVehicles ? (
+                  <button
+                    className="primary-action garage-check-action"
+                    onClick={() => {
+                      setMapVehicleId("all");
+                      go("map");
+                    }}
+                  >
+                    <MapPin size={17} />
+                    {tr("View all locations")}
+                  </button>
+                ) : (
+                  <button
+                    className="primary-action garage-check-action"
+                    disabled={busy}
+                    onClick={() =>
+                      search({
+                        plate: activeVehicle.plate,
+                        state: activeVehicle.state,
+                        plateType: activeVehicle.plate_type,
+                        history,
+                      }).catch(() => {})
+                    }
+                  >
+                    <Search size={17} />
+                    {tr(
+                      activeVehicle.snapshot
+                        ? "View full history"
+                        : "Check this vehicle",
+                    )}
+                  </button>
+                )}
+                {detailMode === "geek" && (
+                  <VehicleData tickets={garageTickets} />
+                )}
               </div>
               <div className="glass activity-dock">
                 <div className="section-heading">
@@ -1439,53 +1570,6 @@ export default function Curbside() {
         )}
         {view === "map" && (
           <section className="map-scene view-enter">
-            <div className="map-scene-heading">
-              <h1>{tr("Violation locations")}</h1>
-              <div className="map-coverage">
-                <span>
-                  <MapPin size={12} />
-                  <strong>
-                    {mapTickets.filter((t) => hasPoint(t.location)).length}
-                  </strong>{" "}
-                  {tr("mapped")}
-                </span>
-                <span>
-                  <strong>
-                    {mapTickets.filter((t) => !!t.location.label).length}
-                  </strong>{" "}
-                  {tr("with an address")}
-                </span>
-              </div>
-              {vehicles.length > 1 && (
-                <div className="map-vehicle-picker">
-                  <CustomSelect
-                    label="Map vehicle"
-                    value={mapScope}
-                    onChange={(id) => {
-                      setMapVehicleId(id);
-                      setMapSelection("");
-                      setMapBoxMinimized(false);
-                      setCorrectingAddress(false);
-                    }}
-                    options={[
-                      { value: "all", label: tr("All vehicles") },
-                      ...vehicles.map((v: any) => ({
-                        value: v.id,
-                        label: `${v.nickname || v.plate} · ${v.plate} (${v.state})`,
-                      })),
-                      ...(results && !searchedVehicle
-                        ? [
-                            {
-                              value: "search",
-                              label: `${tr("Current search")} · ${results.query.plate}`,
-                            },
-                          ]
-                        : []),
-                    ]}
-                  />
-                </div>
-              )}
-            </div>
             <div
               id="map-location-panel"
               className={
@@ -1505,7 +1589,6 @@ export default function Curbside() {
                 onShowAll={() => {
                   setMapSelection("");
                   setMapBoxMinimized(false);
-                  setCorrectingAddress(false);
                 }}
                 onNavigate={(index) => {
                   const nextTicket = mapTickets[index];
@@ -1513,6 +1596,34 @@ export default function Curbside() {
                 }}
                 onToggle={() => setMapBoxMinimized((current) => !current)}
               />
+              {vehicles.length > 0 && (
+                <div className="map-vehicle-picker">
+                  <CustomSelect
+                    label="Map vehicle"
+                    value={mapScope}
+                    onChange={(id) => {
+                      setMapVehicleId(id);
+                      setMapSelection("");
+                      setMapBoxMinimized(false);
+                    }}
+                    options={[
+                      { value: "all", label: tr("All vehicles") },
+                      ...vehicles.map((v: any) => ({
+                        value: v.id,
+                        label: `${v.nickname || v.plate} · ${v.plate} (${v.state})`,
+                      })),
+                      ...(results && !searchedVehicle
+                        ? [
+                            {
+                              value: "search",
+                              label: `${tr("Current search")} · ${results.query.plate}`,
+                            },
+                          ]
+                        : []),
+                    ]}
+                  />
+                </div>
+              )}
               {!mapTicket && mapBoxMinimized && (
                 <div className="map-list-minimized">
                   <div className="map-list-minimized-info">
@@ -1528,27 +1639,24 @@ export default function Curbside() {
               )}
               {!mapTicket && !mapBoxMinimized && (
                 <>
-                  {activeVehicle && (
-                    <div className="map-location-refresh">
-                        <button
-                          className="text-link"
-                          onClick={() =>
-                            perform(async () => {
-                              await api("locations", "POST", {
-                                vehicleId: activeVehicle.id,
-                              });
-                              await refresh();
-                            }, tr("Locations checked"))
-                          }
-                        >
-                          {tr("Refresh")}
-                          <RefreshCw size={13} />
-                        </button>
-                    </div>
-                  )}
-                  <p className="map-helper">
-                    {tr("Select a ticket to view its location.")}
-                  </p>
+                  <div className="map-context-row">
+                    <p className="map-helper">
+                      {tr("Select a ticket to view its location.")}
+                    </p>
+                    <button
+                      className="text-link map-refresh-action"
+                      disabled={locations.resolving || busy || offline}
+                      onClick={() =>
+                        perform(async () => {
+                          locations.retry();
+                          if (auth.user) await refresh();
+                        })
+                      }
+                    >
+                      {tr("Refresh")}
+                      <RefreshCw size={13} />
+                    </button>
+                  </div>
                   {!!scopedMapTickets.length && (
                     <div className="tabs" aria-label={tr("Map ticket filters")}>
                       {[
@@ -1685,103 +1793,6 @@ export default function Curbside() {
                     </p>
                   )}
 
-                  {!correctingAddress ? (
-                    <div style={{ marginTop: 8 }}>
-                      <button
-                        type="button"
-                        className="text-link"
-                        style={{
-                          fontSize: 11,
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 5,
-                        }}
-                        onClick={() => {
-                          setCorrectingAddress(true);
-                          setCustomAddressInput(
-                            cleanLocationLabel(mapTicket.location.label),
-                          );
-                        }}
-                      >
-                        <Edit3 size={11} />
-                        {hasPoint(mapTicket.location)
-                          ? tr("Edit or correct address")
-                          : tr("Enter correct address")}
-                      </button>
-                    </div>
-                  ) : (
-                    <form
-                      className="autocorrect-form"
-                      onSubmit={async (e) => {
-                        e.preventDefault();
-                        if (!customAddressInput.trim()) return;
-                        setAutocorrectPending(true);
-                        setAutocorrectError("");
-                        const loc = await locations.autocorrectLocation(
-                          mapTicket,
-                          customAddressInput.trim(),
-                        );
-                        setAutocorrectPending(false);
-                        if (!loc) {
-                          setAutocorrectError(
-                            tr(
-                              "No reliable map match found. Try adding a borough (e.g. Queens, Brooklyn).",
-                            ),
-                          );
-                        } else {
-                          setCorrectingAddress(false);
-                        }
-                      }}
-                    >
-                      <div className="row" style={{ gap: 6, marginTop: 8 }}>
-                        <input
-                          type="text"
-                          className="autocorrect-input"
-                          value={customAddressInput}
-                          onChange={(e) =>
-                            setCustomAddressInput(e.target.value)
-                          }
-                          placeholder={tr("Enter street & borough…")}
-                          autoFocus
-                        />
-                        <button
-                          type="submit"
-                          className="button primary"
-                          style={{
-                            minHeight: 34,
-                            height: 34,
-                            padding: "0 12px",
-                            fontSize: 12,
-                          }}
-                          disabled={
-                            autocorrectPending || !customAddressInput.trim()
-                          }
-                        >
-                          {autocorrectPending ? (
-                            <LoaderCircle size={12} className="spin" />
-                          ) : (
-                            tr("Locate")
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          className="button secondary"
-                          style={{
-                            minHeight: 34,
-                            height: 34,
-                            padding: "0 10px",
-                            fontSize: 12,
-                          }}
-                          onClick={() => setCorrectingAddress(false)}
-                        >
-                          <X size={13} />
-                        </button>
-                      </div>
-                      {autocorrectError && (
-                        <p className="autocorrect-error">{autocorrectError}</p>
-                      )}
-                    </form>
-                  )}
                   <div className="row" style={{ gap: 8, marginTop: 12 }}>
                     <button
                       className="button primary"
@@ -1806,233 +1817,241 @@ export default function Curbside() {
             </div>
 
             <div className="account-workspace-panels">
-            <div className="account-layout">
-              <div className="glass form-card stack account-signin-panel">
-                <div className="account-identity-heading">
-                  <span className="account-profile-mark">
-                    <UserRound size={20} />
-                  </span>
-                  <div>
-                    <h2>{tr("Your account")}</h2>
-                    <span>
-                      {tr(
-                        account
-                          ? "Private and secure"
-                          : "A place for your vehicles",
-                      )}
+              <div className="account-layout">
+                <div className="glass form-card stack account-signin-panel">
+                  <div className="account-identity-heading">
+                    <span className="account-profile-mark">
+                      <UserRound size={20} />
                     </span>
-                  </div>
-                </div>
-                {!account ? (
-                  <>
-                    <p className="small muted">
-                      {tr(
-                        "Create an account to save cars and access your garage on any device.",
-                      )}
-                    </p>
-                    <button className="primary-action" onClick={signIn}>
-                      <LogIn size={17} />
-                      {tr("Create account or sign in")}
-                      <ArrowRight size={17} />
-                    </button>
-                    {!config.services.accounts && (
-                      <p className="small muted">
+                    <div>
+                      <h2>{tr("Your account")}</h2>
+                      <span>
                         {tr(
-                          "Account activation is awaiting service setup. Live search remains available.",
+                          account
+                            ? "Private and secure"
+                            : "A place for your vehicles",
                         )}
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <p className="small">
-                      {account.user.email}
-                      <br />
-                      <span className="badge">
-                        {FREE_ACCESS
-                          ? tr("Free access")
-                          : tr(account.user.plan) + " " + tr("plan")}
                       </span>
-                    </p>
-
-                    {
-                      <button
-                        className="account-tool"
-                        onClick={() => setSheet("account-details")}
-                      >
-                        <span className="account-tool-icon">
-                          <UserRound size={19} />
-                        </span>
-                        <span>
-                          <strong>{tr("Account details")}</strong>
-                          <small>
-                            {tr("Email, password, and account security")}
-                          </small>
-                        </span>
-                        <ChevronRight size={16} />
-                      </button>
-                    }
-                    <button
-                      className="button ghost"
-                      onClick={() => void signOut()}
-                    >
-                      <LogOut size={15} />
-                      {tr("Sign out")}
-                    </button>
-                    <details>
-                      <summary className="small muted">
-                        {tr("Account data")}
-                      </summary>
+                    </div>
+                  </div>
+                  {!account ? (
+                    <>
                       <p className="small muted">
                         {tr(
-                          "Remove saved cars, or permanently delete your account from Account details.",
+                          "Create an account to save cars and access your garage on any device.",
                         )}
                       </p>
-                      <button
-                        className="text-link"
-                        onClick={() => setSheet("delete")}
-                      >
-                        {tr("Delete my TicketSafe data")}
+                      <button className="primary-action" onClick={signIn}>
+                        <LogIn size={17} />
+                        {tr("Create account or sign in")}
+                        <ArrowRight size={17} />
                       </button>
-                    </details>
-                  </>
-                )}
-              </div>
-              {account && <div className="glass form-card account-notifications-card">
-                <NotificationSettings legalAccepted={account.user.legalAccepted === true} />
-                <AnnouncementSettings key={auth.user?.id} />
-              </div>}
-              <div className="glass form-card account-tools-card">
-                <h2>{tr("Your TicketSafe")}</h2>
-                <button
-                  className="account-tool"
-                  onClick={() => setSheet("preferences")}
-                >
-                  <span className="account-tool-icon">
-                    <SlidersHorizontal size={19} />
-                  </span>
-                  <span>
-                    <strong>{tr("Display settings")}</strong>
-                    <small>
-                      {tr("Appearance, language, and detail level")}
-                    </small>
-                  </span>
-                  <ChevronRight size={16} />
-                </button>
-                <button
-                  className="account-tool"
-                  onClick={() => setInstallGuideRequest((n) => n + 1)}
-                >
-                  <span className="account-tool-icon">
-                    <Download size={19} />
-                  </span>
-                  <span>
-                    <strong>{tr("Add to Home Screen")}</strong>
-                    <small>{tr("Open TicketSafe with a single tap")}</small>
-                  </span>
-                  <ChevronRight size={16} />
-                </button>
+                      {!config.services.accounts && (
+                        <p className="small muted">
+                          {tr(
+                            "Account activation is awaiting service setup. Live search remains available.",
+                          )}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <p className="small">
+                        {account.user.email}
+                        <br />
+                        <span className="badge">
+                          {FREE_ACCESS
+                            ? tr("Free access")
+                            : tr(account.user.plan) + " " + tr("plan")}
+                        </span>
+                      </p>
 
-                <p className="account-free-note">
-                  <Check size={13} />
-                  {tr("Free access to searches and saved cars.")}
-                </p>
-                <CookieSettingsButton />
-              </div>
-            </div>
-
-            <div
-              className="glass form-card account-legal-card"
-              style={{ marginTop: 20 }}
-            >
-              <div className="row spread">
-                <h2>{tr("Legal & disclosures")}</h2>
-                <ShieldCheck size={20} />
-              </div>
-              <p className="small muted">
-                {tr(
-                  "Review our privacy commitments, service terms, accessibility standards, and public mapping data sources.",
-                )}
-              </p>
-              <div className="account-legal-grid">
-                <a className="account-legal-item" href="/legal/privacy">
-                  <div className="account-legal-item-icon">
-                    <ShieldCheck size={16} />
-                  </div>
-                  <div className="account-legal-item-text">
-                    <strong>{tr("Privacy Policy")}</strong>
-                    <span>
-                      {tr(
-                        "How your plate, email, and vehicle data are protected.",
-                      )}
-                    </span>
-                  </div>
-                  <ArrowUpRight
-                    size={14}
-                    className="account-legal-item-arrow"
-                  />
-                </a>
-                <a className="account-legal-item" href="/legal/terms">
-                  <div className="account-legal-item-icon">
-                    <FileText size={16} />
-                  </div>
-                  <div className="account-legal-item-text">
-                    <strong>{tr("Terms of Service")}</strong>
-                    <span>
-                      {tr(
-                        "Your rights and responsibilities when using TicketSafe.",
-                      )}
-                    </span>
-                  </div>
-                  <ArrowUpRight
-                    size={14}
-                    className="account-legal-item-arrow"
-                  />
-                </a>
-                <a className="account-legal-item" href="/legal/accessibility">
-                  <div className="account-legal-item-icon">
-                    <Accessibility size={16} />
-                  </div>
-                  <div className="account-legal-item-text">
-                    <strong>{tr("Accessibility")}</strong>
-                    <span>
-                      {tr(
-                        "WCAG 2.2 standards, screen reader, and keyboard support.",
-                      )}
-                    </span>
-                  </div>
-                  <ArrowUpRight
-                    size={14}
-                    className="account-legal-item-arrow"
-                  />
-                </a>
-                <a className="account-legal-item" href="/legal">
-                  <div className="account-legal-item-icon">
-                    <Info size={16} />
-                  </div>
-                  <div className="account-legal-item-text">
-                    <strong>{tr("All Legal Policies")}</strong>
-                    <span>
-                      {tr(
-                        "Terms, privacy, accessibility, and data sources in one place.",
-                      )}
-                    </span>
-                  </div>
-                  <ArrowUpRight
-                    size={14}
-                    className="account-legal-item-arrow"
-                  />
-                </a>
-              </div>
-              <a className="account-source-summary" href="/legal/sources">
-                <MapPin size={16} />
-                <div>
-                  <strong>{tr("Map data and geographic information")}</strong>
-                  <span>{tr("View data sources and location accuracy")}</span>
+                      {
+                        <button
+                          className="account-tool"
+                          onClick={() => setSheet("account-details")}
+                        >
+                          <span className="account-tool-icon">
+                            <UserRound size={19} />
+                          </span>
+                          <span>
+                            <strong>{tr("Account details")}</strong>
+                            <small>
+                              {tr("Email, password, and account security")}
+                            </small>
+                          </span>
+                          <ChevronRight size={16} />
+                        </button>
+                      }
+                      <button
+                        className="button ghost"
+                        onClick={() => void signOut()}
+                      >
+                        <LogOut size={15} />
+                        {tr("Sign out")}
+                      </button>
+                      <details>
+                        <summary className="small muted">
+                          {tr("Account data")}
+                        </summary>
+                        <p className="small muted">
+                          {tr(
+                            "Remove saved cars, or permanently delete your account from Account details.",
+                          )}
+                        </p>
+                        <button
+                          className="text-link"
+                          onClick={() => setSheet("delete")}
+                        >
+                          {tr("Delete my TicketSafe data")}
+                        </button>
+                      </details>
+                    </>
+                  )}
                 </div>
-                <ChevronRight size={16} aria-hidden="true" />
-              </a>
-            </div>
+                {account && (
+                  <div className="glass form-card account-notifications-card">
+                    <NotificationSettings
+                      legalAccepted={account.user.legalAccepted === true}
+                    />
+                    <AnnouncementSettings key={auth.user?.id} />
+                  </div>
+                )}
+                <div className="glass form-card account-tools-card">
+                  <h2>{tr("Your TicketSafe")}</h2>
+                  <button
+                    className="account-tool"
+                    onClick={() => setSheet("preferences")}
+                  >
+                    <span className="account-tool-icon">
+                      <SlidersHorizontal size={19} />
+                    </span>
+                    <span>
+                      <strong>{tr("Display settings")}</strong>
+                      <small>
+                        {tr("Appearance, language, and detail level")}
+                      </small>
+                    </span>
+                    <ChevronRight size={16} />
+                  </button>
+                  <button
+                    className="account-tool"
+                    onClick={() => setInstallGuideRequest((n) => n + 1)}
+                  >
+                    <span className="account-tool-icon">
+                      <Download size={19} />
+                    </span>
+                    <span>
+                      <strong>{tr("Add to Home Screen")}</strong>
+                      <small>{tr("Open TicketSafe with a single tap")}</small>
+                    </span>
+                    <ChevronRight size={16} />
+                  </button>
+
+                  <p className="account-free-note">
+                    <Check size={13} />
+                    {tr("Free access to searches and saved cars.")}
+                  </p>
+                  <CookieSettingsButton />
+                </div>
+              </div>
+
+              <SupportFeedback
+                key={auth.user?.id || "guest"}
+                onSignIn={signIn}
+              />
+              <div
+                className="glass form-card account-legal-card"
+                style={{ marginTop: 20 }}
+              >
+                <div className="row spread">
+                  <h2>{tr("Legal & disclosures")}</h2>
+                  <ShieldCheck size={20} />
+                </div>
+                <p className="small muted">
+                  {tr(
+                    "Review our privacy commitments, service terms, accessibility standards, and public mapping data sources.",
+                  )}
+                </p>
+                <div className="account-legal-grid">
+                  <a className="account-legal-item" href="/legal/privacy">
+                    <div className="account-legal-item-icon">
+                      <ShieldCheck size={16} />
+                    </div>
+                    <div className="account-legal-item-text">
+                      <strong>{tr("Privacy Policy")}</strong>
+                      <span>
+                        {tr(
+                          "How your plate, email, and vehicle data are protected.",
+                        )}
+                      </span>
+                    </div>
+                    <ArrowUpRight
+                      size={14}
+                      className="account-legal-item-arrow"
+                    />
+                  </a>
+                  <a className="account-legal-item" href="/legal/terms">
+                    <div className="account-legal-item-icon">
+                      <FileText size={16} />
+                    </div>
+                    <div className="account-legal-item-text">
+                      <strong>{tr("Terms of Service")}</strong>
+                      <span>
+                        {tr(
+                          "Your rights and responsibilities when using TicketSafe.",
+                        )}
+                      </span>
+                    </div>
+                    <ArrowUpRight
+                      size={14}
+                      className="account-legal-item-arrow"
+                    />
+                  </a>
+                  <a className="account-legal-item" href="/legal/accessibility">
+                    <div className="account-legal-item-icon">
+                      <Accessibility size={16} />
+                    </div>
+                    <div className="account-legal-item-text">
+                      <strong>{tr("Accessibility")}</strong>
+                      <span>
+                        {tr(
+                          "WCAG 2.2 standards, screen reader, and keyboard support.",
+                        )}
+                      </span>
+                    </div>
+                    <ArrowUpRight
+                      size={14}
+                      className="account-legal-item-arrow"
+                    />
+                  </a>
+                  <a className="account-legal-item" href="/legal">
+                    <div className="account-legal-item-icon">
+                      <Info size={16} />
+                    </div>
+                    <div className="account-legal-item-text">
+                      <strong>{tr("All Legal Policies")}</strong>
+                      <span>
+                        {tr(
+                          "Terms, privacy, accessibility, and data sources in one place.",
+                        )}
+                      </span>
+                    </div>
+                    <ArrowUpRight
+                      size={14}
+                      className="account-legal-item-arrow"
+                    />
+                  </a>
+                </div>
+                <a className="account-source-summary" href="/legal/sources">
+                  <MapPin size={16} />
+                  <div>
+                    <strong>{tr("Map data and geographic information")}</strong>
+                    <span>{tr("View data sources and location accuracy")}</span>
+                  </div>
+                  <ChevronRight size={16} aria-hidden="true" />
+                </a>
+              </div>
             </div>
           </section>
         )}
@@ -2069,626 +2088,645 @@ export default function Curbside() {
         ))}
       </nav>
       <PopupPresence>
-      {(authOpen || auth.recovering) && (
-        <Modal
-          title={tr(auth.recovering ? "Reset password" : "Your account")}
-          close={() => {
-            setAuthOpen(false);
-            if (auth.recovering) void signOut();
-          }}
-        >
-          {auth.client ? (
-            <AuthPanel
-              client={auth.client}
-              recovering={auth.recovering}
-              initialMode={authInitialMode}
-              initialEmail={
-                authInitialMode === "reset" ? auth.user?.email : undefined
-              }
-              onComplete={() => {
-                setAuthOpen(false);
-                auth.setRecovering(false);
-              }}
-            />
-          ) : (
-            <p role="status">
-              {tr(
-                auth.error
-                  ? "Sign-in is unavailable right now. Please try again later."
-                  : "Account sign-in is loading. Please try again shortly.",
-              )}
-            </p>
-          )}
-        </Modal>
-      )}
-      </PopupPresence>
-      <PopupPresence>
-      {onboardingOpen && !authOpen && !auth.recovering && (
-        <Modal
-          title={tr("Welcome to TicketSafe")}
-          motion="up"
-          close={() => finishOnboarding(false)}
-        >
-          <WelcomeOnboarding
-            canSignUp={!!config.supabase}
-            finish={finishOnboarding}
-          />
-        </Modal>
-      )}
-      </PopupPresence>
-
-      <PopupPresence>
-      {account &&
-        !account.user.legalAccepted &&
-        !authOpen &&
-        !auth.recovering && (
-          <Modal title={tr("A clear agreement")} close={() => void signOut()}>
-            <div className="stack">
-              <p className="small muted">
+        {(authOpen || auth.recovering) && (
+          <Modal
+            title={tr(auth.recovering ? "Reset password" : "Your account")}
+            close={() => {
+              setAuthOpen(false);
+              if (auth.recovering) void signOut();
+            }}
+          >
+            {auth.client ? (
+              <AuthPanel
+                client={auth.client}
+                recovering={auth.recovering}
+                initialMode={authInitialMode}
+                initialEmail={
+                  authInitialMode === "reset" ? auth.user?.email : undefined
+                }
+                onComplete={() => {
+                  setAuthOpen(false);
+                  auth.setRecovering(false);
+                }}
+              />
+            ) : (
+              <p role="status">
                 {tr(
-                  "Before saving cars, please review our service terms and privacy policy.",
+                  auth.error
+                    ? "Sign-in is unavailable right now. Please try again later."
+                    : "Account sign-in is loading. Please try again shortly.",
                 )}
               </p>
-              <p className="consent-links">
-                <a href="/legal/terms" target="_blank" rel="noreferrer">
-                  {tr("Read Terms of service")}
-                </a>
-                {" · "}
-                <a href="/legal/privacy" target="_blank" rel="noreferrer">
-                  {tr("Read Privacy policy")}
-                </a>
-              </p>
-              <label className="check-row">
-                <input
-                  type="checkbox"
-                  checked={termsConsent}
-                  onChange={(event) => setTermsConsent(event.target.checked)}
-                />
-                <span>
-                  {tr(
-                    "I am at least 18 and agree to the Terms of service, version",
-                  )}{" "}
-                  {LEGAL_VERSION}
-                  {tr(". I acknowledge the Privacy Policy.")}
-                </span>
-              </label>
-              <button
-                className="primary-action"
-                disabled={!termsConsent || busy}
-                onClick={() =>
-                  perform(async () => {
-                    await api("legal", "POST", {
-                      accepted: true,
-                      adult: true,
-                      version: LEGAL_VERSION,
-                    });
-                    await refresh();
-                  })
-                }
-              >
-                {tr("Agree and continue")}
-                <ArrowRight size={16} />
-              </button>
-            </div>
+            )}
+          </Modal>
+        )}
+      </PopupPresence>
+      <PopupPresence>
+        {onboardingOpen && !authOpen && !auth.recovering && (
+          <Modal
+            title={tr("Welcome to TicketSafe")}
+            motion="up"
+            close={() => finishOnboarding(false)}
+          >
+            <WelcomeOnboarding
+              canSignUp={!!config.supabase}
+              finish={finishOnboarding}
+            />
           </Modal>
         )}
       </PopupPresence>
 
       <PopupPresence>
-      {sheet && (
-        <Modal
-          title={
-            sheet === "preferences"
-              ? tr("Display settings")
-              : sheet === "account-details"
-                ? tr("Account details")
-                : sheet === "ticket"
-                  ? tr("Violation details")
-                  : sheet === "save"
-                    ? tr("Add to your garage")
-                    : sheet === "vehicle"
-                      ? tr("Vehicle settings")
-                      : sheet === "privacy"
-                        ? tr("Your data. Your control.")
-                        : sheet === "delete"
-                          ? tr("Delete saved data?")
-                          : sheet === "delete-account"
-                            ? tr("Delete account?")
-                            : tr("Account activation")
-          }
-          close={() => setSheet(null)}
-        >
-          {sheet === "account-details" && auth.user && (
-            <AccountDetails
-              key={auth.user.id}
-              onDeleteAccount={() => {
-                setDeleteConfirmed(false);
-                setError("");
-                setSheet("delete-account");
-              }}
-              onResetPassword={() => {
-                setSheet(null);
-                setAuthInitialMode("reset");
-                setAuthOpen(true);
-              }}
-            />
-          )}
-          {sheet === "preferences" && (
-            <PreferencesPanel
-              onCancel={() => setSheet(null)}
-              onSave={() => {
-                setSheet(null);
-                notify(tr("Settings saved"));
-              }}
-            />
-          )}
-          {sheet === "setup" && (
-            <div className="stack">
-              <LockKeyhole size={28} />
-              <p>{tr("Account sign-in hasn’t been activated yet.")}</p>
-              <p className="small muted">
-                {tr(
-                  "You can search NYC records now. Saving vehicles requires account sign-in to be configured.",
-                )}
-              </p>
-              <button
-                className="primary-action"
-                onClick={() => {
-                  setSheet(null);
-                  go("search");
-                }}
-              >
-                {tr("Search a plate")}
-                <ArrowRight size={17} />
-              </button>
-            </div>
-          )}
-          {sheet === "privacy" && (
-            <div className="stack small">
-              <p>
-                {tr(
-                  "Searches query public NYC Department of Finance datasets. Ticket histories may belong to previous users of a plate. City records may be delayed, incomplete, or corrected later.",
-                )}
-              </p>
-              <p>
-                {tr(
-                  "Saved cars and display preferences are private to your account.",
-                )}
-              </p>
-              <p>
-                {tr(
-                  "Deleting a saved vehicle removes it from your garage. Public city records remain available through a plate search.",
-                )}
-              </p>
-              <a
-                className="text-link"
-                href="https://data.cityofnewyork.us/City-Government/Open-Parking-and-Camera-Violations/nc67-uf89"
-                target="_blank"
-                rel="noreferrer"
-              >
-                {tr("NYC violation data")}
-                <ArrowUpRight size={14} />
-              </a>
-              <a
-                className="text-link"
-                href="https://www.nyc.gov/main/services/parking-and-camera-tickets"
-                target="_blank"
-                rel="noreferrer"
-              >
-                {tr("Official NYC ticket guidance")}
-                <ArrowUpRight size={14} />
-              </a>
-              <p className="muted">
-                {tr(
-                  "Use official NYC guidance to review ticket deadlines and available next steps.",
-                )}
-              </p>
-            </div>
-          )}
-          {sheet === "save" && (
-            <form className="stack" onSubmit={saveVehicle}>
-              <div className="eyebrow">
-                {results?.query.state} / {results?.query.plate}
-              </div>
-              <label className="field">
-                {tr("Vehicle nickname")}
-                <input
-                  name="nickname"
-                  placeholder={tr("My daily driver")}
-                  required
-                  maxLength={60}
-                />
-              </label>
-              <div className="form-grid">
-                <label className="field">
-                  {tr("Make")}
-                  <input name="make" placeholder={tr("Optional")} />
-                </label>
-                <label className="field">
-                  {tr("Model")}
-                  <input name="model" placeholder={tr("Optional")} />
-                </label>
-                <label className="field">
-                  {tr("Year")}
+        {account &&
+          !account.user.legalAccepted &&
+          !authOpen &&
+          !auth.recovering && (
+            <Modal title={tr("A clear agreement")} close={() => void signOut()}>
+              <div className="stack">
+                <p className="small muted">
+                  {tr(
+                    "Before saving cars, please review our service terms and privacy policy.",
+                  )}
+                </p>
+                <p className="consent-links">
+                  <a href="/legal/terms" target="_blank" rel="noreferrer">
+                    {tr("Read Terms of service")}
+                  </a>
+                  {" · "}
+                  <a href="/legal/privacy" target="_blank" rel="noreferrer">
+                    {tr("Read Privacy policy")}
+                  </a>
+                </p>
+                <label className="check-row">
                   <input
-                    name="year"
-                    inputMode="numeric"
-                    maxLength={4}
-                    placeholder={tr("Optional")}
+                    type="checkbox"
+                    checked={termsConsent}
+                    onChange={(event) => setTermsConsent(event.target.checked)}
                   />
+                  <span>
+                    {tr(
+                      "I am at least 18 and agree to the Terms of service, version",
+                    )}{" "}
+                    {LEGAL_VERSION}
+                    {tr(". I acknowledge the Privacy Policy.")}
+                  </span>
                 </label>
-                <label className="field">
-                  {tr("Color")}
-                  <input name="color" placeholder={tr("Optional")} />
-                </label>
-              </div>
-              <label className="check-row">
-                <input type="checkbox" required />
-                {tr("I own or am authorized to save this vehicle.")}
-              </label>
-              <p className="small muted">
-                {tr(
-                  "Saving a car keeps its ticket history ready and refreshes it every morning from city data.",
-                )}
-              </p>
-              <button className="primary-action" disabled={busy}>
-                {tr("Save vehicle")}
-                <Plus size={17} />
-              </button>
-            </form>
-          )}
-          {sheet === "vehicle" && activeVehicle && (
-            <div className="stack">
-              <h2>{activeVehicle.plate}</h2>
-              <p className="small muted">
-                {tr("Saved on")}{" "}
-                {niceDate(
-                  new Date(activeVehicle.created_at).toISOString(),
-                  locale,
-                )}
-                {tr(
-                  ". Vehicle descriptions are entered by you and do not verify ownership.",
-                )}
-              </p>
-              <form
-                className="stack"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const f = new FormData(e.currentTarget);
-                  perform(async () => {
-                    await api("vehicles/" + activeVehicle.id, "PATCH", {
-                      nickname: f.get("nickname"),
-                      ...{
-                        make: f.get("make"),
-                        model: f.get("model"),
-                        year: f.get("year"),
-                        color: f.get("color"),
-                      },
-                    });
-                    await refresh();
-                  }, tr("Vehicle updated"));
-                }}
-              >
-                <label className="field">
-                  {tr("Nickname")}
-                  <input
-                    name="nickname"
-                    defaultValue={activeVehicle.nickname}
-                  />
-                </label>
-
-                {
-                  <div className="form-grid">
-                    {(["make", "model", "year", "color"] as const).map(
-                      (field) => (
-                        <label className="field" key={field}>
-                          {tr(
-                            {
-                              make: "Make",
-                              model: "Model",
-                              year: "Year",
-                              color: "Color",
-                            }[field],
-                          )}
-                          <input
-                            name={field}
-                            defaultValue={activeVehicle[field] ?? ""}
-                            maxLength={field === "year" ? 4 : 80}
-                            inputMode={field === "year" ? "numeric" : "text"}
-                          />
-                        </label>
-                      ),
-                    )}
-                  </div>
-                }
-                <button className="button primary">
-                  {tr("Save settings")}
+                <button
+                  className="primary-action"
+                  disabled={!termsConsent || busy}
+                  onClick={() =>
+                    perform(async () => {
+                      await api("legal", "POST", {
+                        accepted: true,
+                        adult: true,
+                        version: LEGAL_VERSION,
+                      });
+                      await refresh();
+                    })
+                  }
+                >
+                  {tr("Agree and continue")}
+                  <ArrowRight size={16} />
                 </button>
-              </form>
-              <button
-                className="text-link"
-                onClick={() =>
-                  perform(async () => {
-                    await api("vehicles/" + activeVehicle.id, "DELETE");
-                    await refresh();
-                    setSheet(null);
-                  }, tr("Vehicle removed"))
-                }
-              >
-                {tr("Remove saved vehicle")}
-              </button>
-            </div>
+              </div>
+            </Modal>
           )}
-          {sheet === "ticket" && selected && (
-            <div className="stack">
-              <div className="ticket-detail-title">
-                <span className="eyebrow">
-                  {selected.plate} / {selected.state}
-                </span>
-                <h2>{tr(selected.description)}</h2>
-                <strong>{tr(money(selected.due))}</strong>
-                <span className="muted small">{tr("Reported amount due")}</span>
-              </div>
-              <div className="notice">
-                {selected.localStatus
-                  ? tr("Marked ") +
-                    tr(selected.localStatus) +
-                    tr(" by you. City confirmation may still be pending.")
-                  : selected.status === "Unknown"
-                    ? tr(
-                        "Historical issuance record. Current payment status is unknown.",
-                      )
-                    : tr(selected.status)}
-              </div>
-              <dl className="detail-grid">
-                {[
-                  [tr("Summons"), selected.id],
-                  [tr("Issue date"), niceDate(selected.issued, locale)],
-                  [
-                    tr("Time"),
-                    selected.time?.replace(
-                      /^0?(\d{1,2}):([0-5]\d)([AP])$/,
-                      "$1:$2 $3M",
-                    ),
-                  ],
-                  [tr("Location"), selected.location.label],
-                  ...(detailMode === "geek"
-                    ? [
-                        [tr("Violation code"), selected.code],
-                        [tr("Issuing agency"), selected.agency],
-                        [tr("Plate type"), selected.plateType],
-                        [
-                          tr("Notice date"),
-                          niceDate(selected.noticeDate, locale),
-                        ],
-                        [tr("Location precision"), selected.location.precision],
-                        ...(selected.location.resolvedBy
-                          ? [
-                              [
-                                tr("Location lookup"),
-                                selected.location.resolvedBy,
-                              ],
-                            ]
-                          : []),
-                        [tr("Checked"), niceDate(selected.checkedAt, locale)],
-                      ]
-                    : []),
-                  [
-                    tr("Action date"),
-                    selected.actionDate
-                      ? niceDate(selected.actionDate, locale) +
-                        " (" +
-                        tr(selected.deadlineBasis) +
-                        tr(" + 30 days)")
-                      : tr("Confirm from official notice"),
-                  ],
-                  ...(detailMode === "geek"
-                    ? Object.entries(selected.vehicle || {}).map(
-                        ([key, value]) => [
-                          tr("City-reported vehicle") + " · " + tr(key),
-                          value,
-                        ],
-                      )
-                    : []),
-                ].map(([k, v]) => (
-                  <div
-                    key={k}
-                    className={
-                      k === tr("Summons")
-                        ? "detail-field-wide detail-field-summons"
-                        : k === tr("Location")
-                          ? "detail-field-wide"
-                          : k === tr("Action date")
-                            ? "detail-field-wide detail-field-action"
-                            : undefined
-                    }
-                  >
-                    <dt>{k}</dt>
-                    <dd>{v ? tr(String(v)) : tr("Not provided")}</dd>
-                  </div>
-                ))}
-              </dl>
-              <TicketLocation
-                key={selected.id}
-                ticket={selected}
-                token={config.mapboxToken || undefined}
-                onOpen={(ticket) => {
-                  setMapSelection(ticket.id);
-                  setMapFilter("all");
+      </PopupPresence>
+
+      <PopupPresence>
+        {sheet && (
+          <Modal
+            title={
+              sheet === "preferences"
+                ? tr("Display settings")
+                : sheet === "account-details"
+                  ? tr("Account details")
+                  : sheet === "ticket"
+                    ? tr("Violation details")
+                    : sheet === "save"
+                      ? tr("Add to your garage")
+                      : sheet === "vehicle"
+                        ? tr("Vehicle settings")
+                        : sheet === "privacy"
+                          ? tr("Your data. Your control.")
+                          : sheet === "delete"
+                            ? tr("Delete saved data?")
+                            : sheet === "delete-account"
+                              ? tr("Delete account?")
+                              : tr("Account activation")
+            }
+            close={() => setSheet(null)}
+          >
+            {sheet === "account-details" && auth.user && (
+              <AccountDetails
+                key={auth.user.id}
+                onDeleteAccount={() => {
+                  setDeleteConfirmed(false);
+                  setError("");
+                  setSheet("delete-account");
+                }}
+                onResetPassword={() => {
                   setSheet(null);
-                  setView("map");
+                  setAuthInitialMode("reset");
+                  setAuthOpen(true);
                 }}
               />
-              <div className="money-table">
-                {[
-                  [tr("Fine"), selected.fine],
-                  [tr("Penalties"), selected.penalty],
-                  [tr("Interest"), selected.interest],
-                  [tr("Reductions"), selected.reduction],
-                  [tr("Payments"), selected.payments],
-                  [tr("Reported balance"), selected.due],
-                ].map(([k, v]) => (
-                  <div key={k}>
-                    <span>{k}</span>
-                    <span>{tr(money(v as number))}</span>
-                  </div>
-                ))}
+            )}
+            {sheet === "preferences" && (
+              <PreferencesPanel
+                onCancel={() => setSheet(null)}
+                onSave={() => {
+                  setSheet(null);
+                  notify(tr("Settings saved"));
+                }}
+              />
+            )}
+            {sheet === "setup" && (
+              <div className="stack">
+                <LockKeyhole size={28} />
+                <p>{tr("Account sign-in hasn’t been activated yet.")}</p>
+                <p className="small muted">
+                  {tr(
+                    "You can search NYC records now. Saving vehicles requires account sign-in to be configured.",
+                  )}
+                </p>
+                <button
+                  className="primary-action"
+                  onClick={() => {
+                    setSheet(null);
+                    go("search");
+                  }}
+                >
+                  {tr("Search a plate")}
+                  <ArrowRight size={17} />
+                </button>
               </div>
-              {selected.image && (
+            )}
+            {sheet === "privacy" && (
+              <div className="stack small">
+                <p>
+                  {tr(
+                    "Searches query public NYC Department of Finance datasets. Ticket histories may belong to previous users of a plate. City records may be delayed, incomplete, or corrected later.",
+                  )}
+                </p>
+                <p>
+                  {tr(
+                    "Saved cars and display preferences are private to your account.",
+                  )}
+                </p>
+                <p>
+                  {tr(
+                    "Deleting a saved vehicle removes it from your garage. Public city records remain available through a plate search.",
+                  )}
+                </p>
                 <a
-                  className="button"
-                  href={selected.image}
+                  className="text-link"
+                  href="https://data.cityofnewyork.us/City-Government/Open-Parking-and-Camera-Violations/nc67-uf89"
                   target="_blank"
                   rel="noreferrer"
                 >
-                  {tr("View official summons image")}
+                  {tr("NYC violation data")}
                   <ArrowUpRight size={14} />
                 </a>
-              )}
-              <a
-                className="primary-action"
-                href="https://www.nyc.gov/main/services/parking-and-camera-tickets"
-                target="_blank"
-                rel="noreferrer"
-              >
-                {tr("Official NYC ticket guidance")}
-                <ArrowUpRight size={17} />
-              </a>
-              {detailMode === "geek" && (
-                <details className="source-details">
-                  <summary>
-                    {tr("Record sources")}
-                    <ChevronDown size={13} />
-                  </summary>
-                  {selected.sources.map((s: string) => (
-                    <a
-                      key={s}
-                      className="text-link"
-                      href={"https://data.cityofnewyork.us/d/" + s}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {s}
-                      <ArrowUpRight size={12} />
-                    </a>
-                  ))}
-                  <dl className="field-provenance">
-                    {Object.entries(selected.provenance || {}).map(
-                      ([field, source]) => (
-                        <div key={field}>
-                          <dt>{tr(field)}</dt>
-                          <dd>{String(source)}</dd>
-                        </div>
-                      ),
-                    )}
-                  </dl>
-                </details>
-              )}
-              <p className="small muted">
-                {tr(
-                  "Review the official notice for deadlines. Missing a record or a balance does not establish dismissal.",
-                )}
-              </p>
-            </div>
-          )}
-
-          {sheet === "delete" && (
-            <div className="stack">
-              <p>
-                {tr(
-                  "This removes all cars from your garage. Your login account and consent history remain. NYC public records are not affected.",
-                )}
-              </p>
-
-              <button
-                className="primary-action"
-                onClick={() =>
-                  perform(async () => {
-                    await api("garage", "DELETE");
-                    setAccount(null);
-                    setSheet(null);
-                    await signOut();
-                  }, tr("Your TicketSafe data was removed"))
-                }
-              >
-                {tr("Delete my saved data")}
-              </button>
-              {
-                <button
+                <a
                   className="text-link"
-                  onClick={() => {
-                    setDeleteConfirmed(false);
-                    setError("");
-                    setSheet("delete-account");
+                  href="https://www.nyc.gov/main/services/parking-and-camera-tickets"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {tr("Official NYC ticket guidance")}
+                  <ArrowUpRight size={14} />
+                </a>
+                <p className="muted">
+                  {tr(
+                    "Use official NYC guidance to review ticket deadlines and available next steps.",
+                  )}
+                </p>
+              </div>
+            )}
+            {sheet === "save" && (
+              <form className="stack" onSubmit={saveVehicle}>
+                <div className="eyebrow">
+                  {results?.query.state} / {results?.query.plate}
+                </div>
+                <label className="field">
+                  {tr("Vehicle nickname")}
+                  <input
+                    name="nickname"
+                    placeholder={tr("My daily driver")}
+                    required
+                    maxLength={60}
+                  />
+                </label>
+                <div className="form-grid">
+                  <label className="field">
+                    {tr("Make")}
+                    <input name="make" placeholder={tr("Optional")} />
+                  </label>
+                  <label className="field">
+                    {tr("Model")}
+                    <input name="model" placeholder={tr("Optional")} />
+                  </label>
+                  <label className="field">
+                    {tr("Year")}
+                    <input
+                      name="year"
+                      inputMode="numeric"
+                      maxLength={4}
+                      placeholder={tr("Optional")}
+                    />
+                  </label>
+                  <label className="field">
+                    {tr("Color")}
+                    <input name="color" placeholder={tr("Optional")} />
+                  </label>
+                </div>
+                <label className="check-row vehicle-save-consent">
+                  <input type="checkbox" required disabled={busy} />
+                  <span>
+                    {tr("I own or am authorized to save this vehicle.")}
+                  </span>
+                </label>
+                <p className="small muted">
+                  {tr(
+                    "Saving a car keeps its ticket history ready and refreshes it every morning from city data.",
+                  )}
+                </p>
+                <button
+                  className="primary-action"
+                  disabled={busy}
+                  aria-busy={busy}
+                >
+                  {busy ? (
+                    <LoaderCircle className="spin" size={17} />
+                  ) : (
+                    <Plus size={17} />
+                  )}
+                  {tr(busy ? "Saving vehicle…" : "Save vehicle")}
+                </button>
+              </form>
+            )}
+            {sheet === "vehicle" && activeVehicle && (
+              <div className="stack">
+                <h2>{activeVehicle.plate}</h2>
+                <p className="small muted">
+                  {tr("Saved on")}{" "}
+                  {niceDate(
+                    new Date(activeVehicle.created_at).toISOString(),
+                    locale,
+                  )}
+                  {tr(
+                    ". Vehicle descriptions are entered by you and do not verify ownership.",
+                  )}
+                </p>
+                <form
+                  className="stack"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const f = new FormData(e.currentTarget);
+                    perform(async () => {
+                      await api("vehicles/" + activeVehicle.id, "PATCH", {
+                        nickname: f.get("nickname"),
+                        ...{
+                          make: f.get("make"),
+                          model: f.get("model"),
+                          year: f.get("year"),
+                          color: f.get("color"),
+                        },
+                      });
+                      await refresh();
+                    }, tr("Vehicle updated"));
                   }}
                 >
-                  {tr("Delete account")}
+                  <label className="field">
+                    {tr("Nickname")}
+                    <input
+                      name="nickname"
+                      defaultValue={activeVehicle.nickname}
+                    />
+                  </label>
+
+                  {
+                    <div className="form-grid">
+                      {(["make", "model", "year", "color"] as const).map(
+                        (field) => (
+                          <label className="field" key={field}>
+                            {tr(
+                              {
+                                make: "Make",
+                                model: "Model",
+                                year: "Year",
+                                color: "Color",
+                              }[field],
+                            )}
+                            <input
+                              name={field}
+                              defaultValue={activeVehicle[field] ?? ""}
+                              maxLength={field === "year" ? 4 : 80}
+                              inputMode={field === "year" ? "numeric" : "text"}
+                            />
+                          </label>
+                        ),
+                      )}
+                    </div>
+                  }
+                  <button className="button primary">
+                    {tr("Save settings")}
+                  </button>
+                </form>
+                <button
+                  className="text-link"
+                  onClick={() =>
+                    perform(async () => {
+                      await api("vehicles/" + activeVehicle.id, "DELETE");
+                      await refresh();
+                      setSheet(null);
+                    }, tr("Vehicle removed"))
+                  }
+                >
+                  {tr("Remove saved vehicle")}
                 </button>
-              }
-            </div>
-          )}
-          {sheet === "delete-account" && auth.user && (
-            <div className="stack">
-              <p>
-                {tr(
-                  "Permanently delete your login account, saved cars, preferences, and consent records. This cannot be undone. NYC public records and histories saved by other customers are not affected.",
-                )}
-              </p>
-              <p className="small muted">
-                {tr(
-                  "After deletion, you can sign up again with the same email.",
-                )}
-              </p>
-              <label className="check-row">
-                <input
-                  type="checkbox"
-                  checked={deleteConfirmed}
-                  onChange={(event) => setDeleteConfirmed(event.target.checked)}
-                  disabled={busy}
-                />
-                <span>
-                  {tr(
-                    "I understand that my account will be permanently deleted.",
-                  )}
-                </span>
-              </label>
-              {error && (
-                <p className="notice error" role="alert">
-                  {tr(error)}
-                </p>
-              )}
-              <button
-                className="primary-action"
-                disabled={!deleteConfirmed || busy}
-                onClick={() =>
-                  perform(async () => {
-                    await api("account", "DELETE", {
-                      confirmation: "DELETE_ACCOUNT",
-                    });
-                    setAccount(null);
-                    setResults(null);
-                    setSelected(null);
-                    setVehicleId("");
-                    setMapVehicleId("");
-                    setMapSelection("");
+              </div>
+            )}
+            {sheet === "ticket" && selected && (
+              <div className="stack">
+                <div className="ticket-detail-title">
+                  <span className="eyebrow">
+                    {selected.plate} / {selected.state}
+                  </span>
+                  <h2>{tr(selected.description)}</h2>
+                  <strong>{tr(money(selected.due))}</strong>
+                  <span className="muted small">
+                    {tr("Reported amount due")}
+                  </span>
+                </div>
+                <div className="notice">
+                  {selected.localStatus
+                    ? tr("Marked ") +
+                      tr(selected.localStatus) +
+                      tr(" by you. City confirmation may still be pending.")
+                    : selected.status === "Unknown"
+                      ? tr(
+                          "Historical issuance record. Current payment status is unknown.",
+                        )
+                      : tr(selected.status)}
+                </div>
+                <dl className="detail-grid">
+                  {[
+                    [tr("Summons"), selected.id],
+                    [tr("Issue date"), niceDate(selected.issued, locale)],
+                    [
+                      tr("Time"),
+                      selected.time?.replace(
+                        /^0?(\d{1,2}):([0-5]\d)([AP])$/,
+                        "$1:$2 $3M",
+                      ),
+                    ],
+                    [tr("Location"), selected.location.label],
+                    ...(detailMode === "geek"
+                      ? [
+                          [tr("Violation code"), selected.code],
+                          [tr("Issuing agency"), selected.agency],
+                          [tr("Plate type"), selected.plateType],
+                          [
+                            tr("Notice date"),
+                            niceDate(selected.noticeDate, locale),
+                          ],
+                          [
+                            tr("Location precision"),
+                            selected.location.precision,
+                          ],
+                          ...(selected.location.resolvedBy
+                            ? [
+                                [
+                                  tr("Location lookup"),
+                                  selected.location.resolvedBy,
+                                ],
+                              ]
+                            : []),
+                          [tr("Checked"), niceDate(selected.checkedAt, locale)],
+                        ]
+                      : []),
+                    [
+                      tr("Action date"),
+                      selected.actionDate
+                        ? niceDate(selected.actionDate, locale) +
+                          " (" +
+                          tr(selected.deadlineBasis) +
+                          tr(" + 30 days)")
+                        : tr("Confirm from official notice"),
+                    ],
+                    ...(detailMode === "geek"
+                      ? Object.entries(selected.vehicle || {}).map(
+                          ([key, value]) => [
+                            tr("City-reported vehicle") + " · " + tr(key),
+                            value,
+                          ],
+                        )
+                      : []),
+                  ].map(([k, v]) => (
+                    <div
+                      key={k}
+                      className={
+                        k === tr("Summons")
+                          ? "detail-field-wide detail-field-summons"
+                          : k === tr("Location")
+                            ? "detail-field-wide"
+                            : k === tr("Action date")
+                              ? "detail-field-wide detail-field-action"
+                              : undefined
+                      }
+                    >
+                      <dt>{k}</dt>
+                      <dd>{v ? tr(String(v)) : tr("Not provided")}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <TicketLocation
+                  key={selected.id}
+                  ticket={selected}
+                  token={config.mapboxToken || undefined}
+                  onOpen={(ticket) => {
+                    setMapSelection(ticket.id);
+                    setMapFilter("all");
                     setSheet(null);
-                    setView("garage");
-                  }, tr("Your account was deleted. You can sign up again with the same email."))
+                    setView("map");
+                  }}
+                />
+                <div className="money-table">
+                  {[
+                    [tr("Fine"), selected.fine],
+                    [tr("Penalties"), selected.penalty],
+                    [tr("Interest"), selected.interest],
+                    [tr("Reductions"), selected.reduction],
+                    [tr("Payments"), selected.payments],
+                    [tr("Reported balance"), selected.due],
+                  ].map(([k, v]) => (
+                    <div key={k}>
+                      <span>{k}</span>
+                      <span>{tr(money(v as number))}</span>
+                    </div>
+                  ))}
+                </div>
+                {selected.image && (
+                  <a
+                    className="button"
+                    href={selected.image}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {tr("View official summons image")}
+                    <ArrowUpRight size={14} />
+                  </a>
+                )}
+                <a
+                  className="primary-action"
+                  href="https://www.nyc.gov/main/services/parking-and-camera-tickets"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {tr("Official NYC ticket guidance")}
+                  <ArrowUpRight size={17} />
+                </a>
+                {detailMode === "geek" && (
+                  <details className="source-details">
+                    <summary>
+                      {tr("Record sources")}
+                      <ChevronDown size={13} />
+                    </summary>
+                    {selected.sources.map((s: string) => (
+                      <a
+                        key={s}
+                        className="text-link"
+                        href={"https://data.cityofnewyork.us/d/" + s}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {s}
+                        <ArrowUpRight size={12} />
+                      </a>
+                    ))}
+                    <dl className="field-provenance">
+                      {Object.entries(selected.provenance || {}).map(
+                        ([field, source]) => (
+                          <div key={field}>
+                            <dt>{tr(field)}</dt>
+                            <dd>{String(source)}</dd>
+                          </div>
+                        ),
+                      )}
+                    </dl>
+                  </details>
+                )}
+                <p className="small muted">
+                  {tr(
+                    "Review the official notice for deadlines. Missing a record or a balance does not establish dismissal.",
+                  )}
+                </p>
+              </div>
+            )}
+
+            {sheet === "delete" && (
+              <div className="stack">
+                <p>
+                  {tr(
+                    "This removes all cars from your garage. Your login account and consent history remain. NYC public records are not affected.",
+                  )}
+                </p>
+
+                <button
+                  className="primary-action"
+                  onClick={() =>
+                    perform(async () => {
+                      await api("garage", "DELETE");
+                      setAccount(null);
+                      setSheet(null);
+                      await signOut();
+                    }, tr("Your TicketSafe data was removed"))
+                  }
+                >
+                  {tr("Delete my saved data")}
+                </button>
+                {
+                  <button
+                    className="text-link"
+                    onClick={() => {
+                      setDeleteConfirmed(false);
+                      setError("");
+                      setSheet("delete-account");
+                    }}
+                  >
+                    {tr("Delete account")}
+                  </button>
                 }
-              >
-                {busy && <LoaderCircle size={16} className="spin" />}
-                {tr("Permanently delete account")}
-              </button>
-            </div>
-          )}
-        </Modal>
-      )}
+              </div>
+            )}
+            {sheet === "delete-account" && auth.user && (
+              <div className="stack">
+                <p>
+                  {tr(
+                    "Permanently delete your login account, saved cars, preferences, and consent records. This cannot be undone. NYC public records and histories saved by other customers are not affected.",
+                  )}
+                </p>
+                <p className="small muted">
+                  {tr(
+                    "After deletion, you can sign up again with the same email.",
+                  )}
+                </p>
+                <label className="check-row">
+                  <input
+                    type="checkbox"
+                    checked={deleteConfirmed}
+                    onChange={(event) =>
+                      setDeleteConfirmed(event.target.checked)
+                    }
+                    disabled={busy}
+                  />
+                  <span>
+                    {tr(
+                      "I understand that my account will be permanently deleted.",
+                    )}
+                  </span>
+                </label>
+                {error && (
+                  <p className="notice error" role="alert">
+                    {tr(error)}
+                  </p>
+                )}
+                <button
+                  className="primary-action"
+                  disabled={!deleteConfirmed || busy}
+                  onClick={() =>
+                    perform(async () => {
+                      await api("account", "DELETE", {
+                        confirmation: "DELETE_ACCOUNT",
+                      });
+                      setAccount(null);
+                      setResults(null);
+                      setSelected(null);
+                      setVehicleId("");
+                      setMapVehicleId("");
+                      setMapSelection("");
+                      setSheet(null);
+                      setView("garage");
+                    }, tr("Your account was deleted. You can sign up again with the same email."))
+                  }
+                >
+                  {busy && <LoaderCircle size={16} className="spin" />}
+                  {tr("Permanently delete account")}
+                </button>
+              </div>
+            )}
+          </Modal>
+        )}
       </PopupPresence>
-      <PopupPresence>{toast && (
-        <div className="toast" role="status">
-          {tr(toast)}
-        </div>
-      )}</PopupPresence>
+      <PopupPresence>
+        {toast && (
+          <div className="toast" role="status">
+            {tr(toast)}
+          </div>
+        )}
+      </PopupPresence>
     </div>
   );
 }
@@ -2869,9 +2907,13 @@ function Modal({
     }
     return () => {
       document.removeEventListener("keydown", key);
-      if (--modalLocks === 0) document.body.style.overflow = previousBodyOverflow;
+      if (--modalLocks === 0)
+        document.body.style.overflow = previousBodyOverflow;
       // A new popup may already own focus while this one finishes closing.
-      if (dialog?.contains(document.activeElement) || document.activeElement === document.body)
+      if (
+        dialog?.contains(document.activeElement) ||
+        document.activeElement === document.body
+      )
         last?.focus();
     };
   }, []);

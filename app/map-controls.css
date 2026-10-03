@@ -56,7 +56,9 @@
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
-  transition: background 150ms ease, border-color 150ms ease;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease;
 }
 
 .app .map-panel-action:hover:not(:disabled) {
@@ -127,5 +129,223 @@
 @media (prefers-reduced-motion: reduce) {
   .app .map-panel-action {
     transition: none;
+  }
+}
+
+/* A single, stable Locations surface owns the scope, list and selection. */
+.app .view-map .map-results {
+  width: min(420px, 42vw);
+  min-width: 0;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+.app .map-vehicle-picker {
+  width: 100%;
+  min-width: 0;
+  flex: 0 0 auto;
+  margin: 0 0 10px;
+}
+.app .map-vehicle-picker .custom-select-trigger {
+  width: 100%;
+  min-width: 0;
+}
+.app .map-vehicle-picker .custom-select-trigger > span:first-child {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.app .map-context-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.app .view-map .map-context-row .map-helper {
+  display: block;
+  margin: 0;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.app .map-refresh-action {
+  flex-shrink: 0;
+  min-height: 44px;
+  white-space: nowrap;
+}
+.app .map-results .tabs {
+  width: 100%;
+  min-width: 0;
+  flex-shrink: 0;
+}
+.app .map-results .empty {
+  padding: 20px 4px 12px;
+}
+.app .map-results .empty .button {
+  margin: 8px 0 4px;
+}
+.app .map-selection h3,
+.app .map-selection .location-matched-sub,
+.app .map-selection-compact-title {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app .map-selection,
+.app .map-selection-compact,
+.app .map-selection-compact-info {
+  min-width: 0;
+}
+.garage-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 48px auto;
+  padding: 32px 24px;
+  max-width: 440px;
+  text-align: center;
+}
+.garage-loading h1 {
+  margin: 0;
+  font-size: 24px;
+}
+.garage-loading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+@media (max-width: 800px) {
+  .app[data-view="map"] .main-view.view-map {
+    padding-inline: 20px;
+  }
+  .app[data-view="map"] .map-scene {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    width: 100%;
+    min-width: 0;
+    gap: 0;
+  }
+  .app[data-view="map"] .map-results {
+    align-self: center;
+    width: min(100%, 440px);
+    max-width: 440px;
+    margin-inline: auto;
+  }
+  .app[data-view="map"] .map-results:not(.map-box-minimized) {
+    display: flex;
+    height: min(54dvh, 470px);
+    max-height: min(54dvh, 470px, 100%);
+    overflow: hidden;
+  }
+  .app[data-view="map"] .map-results.map-box-minimized {
+    display: flex;
+    height: auto;
+    max-height: 100%;
+  }
+  .app[data-view="map"] .map-results:has(> .empty) {
+    height: auto;
+  }
+  .app .map-results .map-selection {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
+/* Consistent account cards and feedback rows, independent of loading text. */
+.app-startup {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  color: var(--muted);
+  background: var(--bg);
+}
+.app-startup-brand {
+  font-size: 26px;
+  font-weight: 650;
+  letter-spacing: -1px;
+  color: var(--text);
+}
+.app-startup-brand span {
+  color: var(--blue);
+}
+.notification-status-slot {
+  min-height: 42px;
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+.notification-status-slot p {
+  margin: 0;
+}
+.vehicle-save-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  line-height: 1.5;
+}
+.vehicle-save-consent input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  margin: 2px 0 0;
+}
+.vehicle-save-consent span {
+  min-width: 0;
+  flex: 1;
+}
+.support-feedback {
+  margin-top: 20px;
+}
+.support-feedback > p {
+  margin-block: 12px;
+}
+.support-feedback textarea {
+  resize: vertical;
+  min-height: 104px;
+}
+@media (min-width: 801px) {
+  .desktop-workspace .account-workspace-panels {
+    align-items: stretch;
+  }
+  .desktop-workspace .account-page .account-layout {
+    align-items: stretch;
+  }
+  .desktop-workspace .account-signin-panel,
+  .desktop-workspace .account-notifications-card {
+    align-self: stretch;
+  }
+  .desktop-workspace .support-feedback {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    margin-top: 0;
+  }
+  .desktop-workspace .account-page .account-legal-card {
+    grid-row: 3;
+  }
+  .desktop-workspace .support-feedback form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    gap: 12px 20px;
+  }
+  .desktop-workspace .support-feedback form > :nth-child(n + 3) {
+    grid-column: 1 / -1;
+  }
+  .desktop-workspace .support-feedback form > button {
+    justify-self: start;
   }
 }

@@ -1,6 +1,6 @@
 # TicketSafe administration
 
-The dashboard is `/admin13678`. Sign in with your existing TicketSafe Supabase account. The migration resolves the already verified `ylin20001@gmail.com` account once and pins master access to its UUID. It does not reset a password, migrate customers, or modify saved vehicles.
+The dashboard is `/web-portal`. Sign in with your existing TicketSafe Supabase account. The migration resolves the already verified `ylin20001@gmail.com` account once and pins master access to its UUID. It does not reset a password, migrate customers, or modify saved vehicles.
 
 ## Access and data
 
@@ -8,7 +8,7 @@ Every request checks the token against Supabase Auth, the active database sessio
 
 Customer search/filter/pagination, saved vehicles, notes/tags, recent signed-in presence, sending history, connection status and notification dry runs use real database state. Online means signed-in activity within three minutes; hidden pages stop heartbeat requests. Status distinguishes configured credentials from a tested connection. No guest presence or external presence service is used.
 
-Product announcements require separate explicit opt-in in Account. Ticket subscriptions never imply promotional consent. Individual service messages must concern the selected customer's account. Preview, recipient eligibility and explicit confirmation precede sending. Debug mail can go only to the requesting administrator.
+Product announcements require separate explicit opt-in in Account. Ticket subscriptions never imply promotional consent. Individual service messages must concern the selected customer's account. Preview, recipient eligibility and explicit confirmation precede sending. Debug includes a connection test to the requesting administrator and an explicitly confirmed latest-ticket test to a selected verified customer. The latter uses their real saved history, marks the email TEST, and never updates notification baselines.
 
 ## Delivery safeguards
 
@@ -23,3 +23,11 @@ CRM tables enable RLS with no browser-role access. Privileged database logic is 
 Apply `supabase/migrations/20261003013822_crm_dashboard.sql` using the linked-project migration workflow. Run `node scripts/bundle-crm-function.mjs` to produce the Deno-ready bundle at `work/crm-admin/index.js`, using the same deployment workspace pattern as the other bundled functions. Deploy it as `crm-admin` with gateway JWT verification disabled: signed unsubscribe links are public, and the handler validates every regular action itself. Do not deploy a raw source entrypoint without its imports/bundle configuration.
 
 `npm test` includes actual Postgres role/session/consent/delivery-limit tests and mocked Edge dispatch checks. Use notification dry runs first. A dashboard email test or campaign confirmation sends real email and consumes the existing Resend allowance.
+
+## Support and account tools
+
+Apply `20261003162622_crm_support_account_actions.sql` after the base CRM migration and redeploy the bundled function. Verified users submit support, feedback, and bug reports from Account; messages go only to this database inbox, never email. Customers cannot read the inbox or other users' messages. Admin/support can read and permanently delete messages. Submissions are capped at five per day with a 60-second cooldown; the inbox caps at 10,000 messages. Records older than 90 days are cleaned on submissions or inbox activity.
+
+Only master/admin can run customer account actions. Password resets and email changes send secure Supabase verification links rather than setting credentials or bypassing confirmation. Email changes require secure email change enabled in Supabase. Administrator accounts must use their own settings. Delete requires customer request confirmation and typing their email in the UI. An optional service status email describes completed deletion or pending verification accurately.
+
+Administrative actions use a durable idempotency ledger, 20 actions per admin/day, and the existing shared CRM 100-email daily cap. Ambiguous responses are marked for review and are never automatically replayed. The sender accepting a message is distinct from delivery. CRM links/cookies are absent; all dropdowns are custom. `/admin13678` is removed; `/web-portal` is the supported Vercel route. `CRM_ALLOWED_ORIGINS` optionally extends allowed origins for a named local development origin; production does not need a new variable.

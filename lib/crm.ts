@@ -16,6 +16,11 @@ export type CrmAction =
   | "status"
   | "debug"
   | "test_email"
+  | "support_create"
+  | "support_messages"
+  | "support_delete"
+  | "account_action"
+  | "ticket_test"
   | "presence"
   | "announcement_preferences"
   | "announcement_preferences_save";

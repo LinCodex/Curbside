@@ -58,24 +58,34 @@ export function NotificationSettings({
         <p>{tr("Accept the current terms before enabling ticket emails.")}</p>
       )}
       <p>{tr("SMS notifications are unavailable.")}</p>
-      {loading && !error && (
-        <p role="status">{tr("Loading email preferences…")}</p>
-      )}
-      {saving && <p role="status">{tr("Saving email preferences…")}</p>}
-      {error && (
-        <div role="alert">
-          {tr(
-            "Email preferences could not be loaded or saved. Please try again.",
-          )}{" "}
-          <button
-            type="button"
-            className="text-link"
-            onClick={() => void refresh(true)}
-          >
-            {tr("Try again")}
-          </button>
-        </div>
-      )}
+      <div
+        className="notification-status-slot"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {error ? (
+          <div role="alert">
+            {tr(
+              "Email preferences could not be loaded or saved. Please try again.",
+            )}{" "}
+            <button
+              type="button"
+              className="text-link"
+              onClick={() => void refresh(true)}
+            >
+              {tr("Try again")}
+            </button>
+          </div>
+        ) : (
+          <p>
+            {saving
+              ? tr("Saving email preferences…")
+              : loading
+                ? tr("Loading email preferences…")
+                : "\u00a0"}
+          </p>
+        )}
+      </div>
     </section>
   );
 }

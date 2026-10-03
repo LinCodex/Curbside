@@ -12,7 +12,7 @@ function useAccountClient(url?: string, key?: string) {
   const [client, setClient] = useState<SupabaseClient | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [recovering, setRecovering] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   useEffect(() => {
     if (!url || !key) return;
@@ -116,7 +116,14 @@ function useAccountClient(url?: string, key?: string) {
       unsubscribe?.();
     };
   }, [url, key]);
-  return { client, user, recovering, setRecovering, loading, error };
+  return {
+    client,
+    user,
+    recovering,
+    setRecovering,
+    loading: url && key ? loading : false,
+    error,
+  };
 }
 
 type Configuration = ReturnType<typeof publicConfig>;

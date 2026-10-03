@@ -24,7 +24,7 @@ test("speed metrics exclude accounts, CRM, auth callbacks and privacy signals", 
     "/",
     "/?view=garage",
     "/?view=account",
-    "/admin13678",
+    "/web-portal",
     "/auth/confirm?code=SECRET",
     "/?view=search#access_token=SECRET",
   ])

@@ -16,11 +16,9 @@ export function useMapLocations(
 ) {
   // Temporary Mapbox results stay in this page's memory, never D1/localStorage.
   const [cache] = useState(() => new Map<string, Location | null>());
-  const [customOverrides, setCustomOverrides] = useState<
-    Record<string, Location>
-  >({});
   const [revision, setRevision] = useState(0);
   const [limit, setLimit] = useState(24);
+  const [retryRevision, setRetryRevision] = useState(0);
   const [resolving, setResolving] = useState(false);
   const [error, setError] = useState("");
   const signature = JSON.stringify(
@@ -125,81 +123,10 @@ export function useMapLocations(
       abort.abort();
       setResolving(false);
     };
-  }, [signature, token, active, limit]);
-
-  const autocorrectLocation = async (
-    ticket: Violation,
-    customAddress?: string,
-  ): Promise<Location | null> => {
-    const addressToLookup = (
-      customAddress || cleanLocationLabel(ticket.location.label)
-    ).trim();
-    if (!addressToLookup) return null;
-
-    // 1. Try Mapbox Geocode
-    if (token) {
-      try {
-        const url = new URL("https://api.mapbox.com/search/geocode/v6/forward");
-        Object.entries({
-          q: locationQuery(addressToLookup),
-          access_token: token,
-          country: "us",
-          bbox: "-74.3,40.45,-73.65,40.95",
-          types: "address,street",
-          autocomplete: "false",
-          limit: "1",
-          permanent: "false",
-        }).forEach(([k, v]) => url.searchParams.set(k, v));
-        const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
-        if (res.ok) {
-          const data: any = await res.json();
-          const loc = mapboxLocation(
-            { ...ticket.location, label: addressToLookup },
-            data.features?.[0],
-          );
-          if (loc) {
-            const finalLoc: Location = {
-              ...loc,
-              resolvedBy: "Autocorrected address",
-            };
-            cache.set(ticket.location.label, finalLoc);
-            setCustomOverrides((prev) => ({ ...prev, [ticket.id]: finalLoc }));
-            setRevision((r) => r + 1);
-            return finalLoc;
-          }
-        }
-      } catch {}
-    }
-
-    // 2. Try NYC Planning Labs GeoSearch Fallback
-    try {
-      const geoUrl = new URL("https://geosearch.planninglabs.nyc/v2/search");
-      geoUrl.searchParams.set("text", cleanLocationLabel(addressToLookup));
-      geoUrl.searchParams.set("size", "1");
-      const geoRes = await fetch(geoUrl, { signal: AbortSignal.timeout(6000) });
-      if (geoRes.ok) {
-        const geoJson: any = await geoRes.json();
-        const loc = geoSearchLocation(
-          { ...ticket.location, label: addressToLookup },
-          geoJson.features?.[0],
-        );
-        if (loc) {
-          cache.set(ticket.location.label, loc);
-          setCustomOverrides((prev) => ({ ...prev, [ticket.id]: loc }));
-          setRevision((r) => r + 1);
-          return loc;
-        }
-      }
-    } catch {}
-
-    return null;
-  };
+  }, [signature, token, active, limit, retryRevision]);
 
   void revision;
   const resolved = tickets.map((t) => {
-    if (customOverrides[t.id]) {
-      return { ...t, location: customOverrides[t.id] };
-    }
     const cached = cache.get(t.location.label);
     if (cached) {
       return { ...t, location: cached };
@@ -228,6 +155,9 @@ export function useMapLocations(
     error,
     hasMore: total > limit,
     resolveMore: () => setLimit((l) => l + 24),
-    autocorrectLocation,
+    retry: () => {
+      for (const [key, value] of cache) if (!value) cache.delete(key);
+      setRetryRevision((r) => r + 1);
+    },
   };
 }

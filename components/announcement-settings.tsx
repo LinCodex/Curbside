@@ -106,21 +106,34 @@ export default function AnnouncementSettings() {
         <span>{tr("Email me TicketSafe announcements")}</span>
       </label>
       <p>{tr("Optional product updates. Unsubscribe anytime.")}</p>
-      {saving && <p role="status">{tr("Saving email preferences…")}</p>}
-      {error && (
-        <p role="alert">
-          {tr(
-            "Email preferences could not be loaded or saved. Please try again.",
-          )}{" "}
-          <button
-            type="button"
-            className="text-link"
-            onClick={() => setRetry((value) => value + 1)}
-          >
-            {tr("Try again")}
-          </button>
-        </p>
-      )}
+      <div
+        className="notification-status-slot"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {error ? (
+          <div role="alert">
+            {tr(
+              "Email preferences could not be loaded or saved. Please try again.",
+            )}{" "}
+            <button
+              type="button"
+              className="text-link"
+              onClick={() => setRetry((value) => value + 1)}
+            >
+              {tr("Try again")}
+            </button>
+          </div>
+        ) : (
+          <p>
+            {saving
+              ? tr("Saving email preferences…")
+              : loading
+                ? tr("Loading email preferences…")
+                : "\u00a0"}
+          </p>
+        )}
+      </div>
     </section>
   );
 }

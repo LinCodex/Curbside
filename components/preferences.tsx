@@ -57,6 +57,7 @@ const Context = createContext({
   },
   profileId: null as string | null,
   profileLoading: false,
+  ready: false,
   savedPreferences: readPreferences(null),
   savePreferences: async (_: ReturnType<typeof readPreferences>) => {
     void _;
@@ -89,6 +90,9 @@ export function PreferencesProvider({
     activeKey.current = preferenceKey(profileId);
   }, [profileId]);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [resolvedProfile, setResolvedProfile] = useState<
+    string | null | undefined
+  >(undefined);
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const updateTheme = () => setDeviceDark(media.matches);
@@ -127,21 +131,28 @@ export function PreferencesProvider({
   const resolvedTheme = resolveTheme(displayed.theme, deviceDark);
   const locale = resolveLanguage(displayed.language, languages);
   useEffect(() => {
-    if (!loaded) return;
+    if (!loaded || auth.loading || resolvedProfile !== profileId) return;
     document.documentElement.dataset.theme = resolvedTheme;
     document.documentElement.lang = locale === "zh" ? "zh-Hans" : "en";
     document.documentElement.style.colorScheme = resolvedTheme;
+    try {
+      localStorage.setItem(
+        "ticketsafe.display.v1",
+        JSON.stringify({ theme: resolvedTheme, locale }),
+      );
+    } catch {}
     document
       .querySelector('meta[name="theme-color"]')
       ?.setAttribute(
         "content",
         resolvedTheme === "dark" ? "#050607" : "#f3f5f7",
       );
-  }, [resolvedTheme, locale, loaded]);
+  }, [resolvedTheme, locale, loaded, auth.loading, resolvedProfile, profileId]);
   useEffect(() => {
     let alive = true;
     const key = preferenceKey(profileId);
     setPreview(null);
+    setResolvedProfile(undefined);
     try {
       setPreferences(readPreferences(localStorage.getItem(key)));
     } catch {
@@ -149,14 +160,17 @@ export function PreferencesProvider({
     }
     if (!profileId || !auth.client) {
       setProfileLoading(false);
+      setResolvedProfile(profileId);
       return;
     }
     setProfileLoading(true);
-    auth.client
-      .from("curbside_preferences")
-      .select("theme,language,detail_mode")
-      .eq("user_id", profileId)
-      .maybeSingle()
+    Promise.resolve(
+      auth.client
+        .from("curbside_preferences")
+        .select("theme,language,detail_mode")
+        .eq("user_id", profileId)
+        .maybeSingle(),
+    )
       .then(async ({ data, error }) => {
         if (!alive) return;
         if (!error && data) {
@@ -191,6 +205,16 @@ export function PreferencesProvider({
           }
         }
         setProfileLoading(false);
+        setResolvedProfile(profileId);
+      })
+      .catch(() => {
+        /* Keep local display choices when offline. */
+      })
+      .finally(() => {
+        if (alive) {
+          setProfileLoading(false);
+          setResolvedProfile(profileId);
+        }
       });
     return () => {
       alive = false;
@@ -221,6 +245,11 @@ export function PreferencesProvider({
       tr,
       profileId,
       profileLoading,
+      ready:
+        loaded &&
+        !auth.loading &&
+        resolvedProfile === profileId &&
+        !profileLoading,
       savedPreferences: preferences,
       setTheme: (theme: ThemePreference) =>
         void savePreferences({ ...preferences, theme }).catch(() => {}),
@@ -233,6 +262,9 @@ export function PreferencesProvider({
     }),
     [
       displayed,
+      loaded,
+      auth.loading,
+      resolvedProfile,
       preferences,
       resolvedTheme,
       locale,
@@ -281,11 +313,7 @@ export function PreferencesPanel({
       className="preference-panel preference-popup"
       aria-label={tr("Display settings")}
     >
-      <p className="small muted">
-        {tr(
-          "Choose Apply to save your changes.",
-        )}
-      </p>
+      <p className="small muted">{tr("Choose Apply to save your changes.")}</p>
       <PreferenceChoice
         label={tr("Appearance")}
         value={draft.theme}
@@ -329,11 +357,7 @@ export function PreferencesPanel({
         )}
       </p>
       <p className="preference-device-note">
-        {tr(
-          profileId
-            ? "Synced to your account."
-            : "Saved on this device.",
-        )}
+        {tr(profileId ? "Synced to your account." : "Saved on this device.")}
       </p>
       {error && (
         <p className="notice error" role="alert">

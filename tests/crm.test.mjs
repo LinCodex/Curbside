@@ -31,15 +31,22 @@ async function database() {
 create schema auth;grant usage on schema auth,public to service_role,authenticated,anon;
 create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,is_anonymous boolean default false,banned_until timestamptz,created_at timestamptz default now(),last_sign_in_at timestamptz);
 create table auth.sessions(id uuid primary key,user_id uuid references auth.users(id),not_after timestamptz);
-create table public.curbside_vehicles(id uuid primary key default gen_random_uuid(),user_id uuid references auth.users(id),plate text);
+create table public.curbside_vehicles(id uuid primary key default gen_random_uuid(),user_id uuid references auth.users(id),plate text,state text,plate_type text);
 create table public.curbside_email_settings(user_id uuid primary key references auth.users(id),enabled boolean default false);
 create table public.curbside_email_outbox(user_id uuid,status text);
-create table public.curbside_vehicle_snapshots(checked_at timestamptz);
+create table public.curbside_vehicle_snapshots(checked_at timestamptz,plate text,state text,plate_type text,payload jsonb);
+create table public.curbside_preferences(user_id uuid,language text);
 insert into auth.users(id,email,email_confirmed_at) values('${master}','ylin20001@gmail.com',now()),('${customer}','customer@example.invalid',now());
 insert into auth.sessions(id,user_id) values('${session}','${master}'),('${session2}','${customer}');`);
   await db.exec(
     fs.readFileSync(
       "supabase/migrations/20261003013822_crm_dashboard.sql",
+      "utf8",
+    ),
+  );
+  await db.exec(
+    fs.readFileSync(
+      "supabase/migrations/20261003162622_crm_support_account_actions.sql",
       "utf8",
     ),
   );
@@ -348,4 +355,163 @@ test("CRM email inputs reject header injection and templates escape administrato
   assert.ok(!html.includes("<script>"));
   assert.ok(html.includes("&lt;script&gt;"));
   assert.ok(html.includes("TicketSafe"));
+});
+
+test("support messages require the current confirmed profile; CRM inbox is private, rate-limited, and deletable", async () => {
+  const db = await database();
+  try {
+    await assert.rejects(
+      rpc(
+        db,
+        "support_create",
+        {
+          expectedUserId: master,
+          kind: "support",
+          subject: "Question",
+          message: "Help",
+        },
+        customer,
+        session2,
+      ),
+      /account changed/,
+    );
+    await rpc(
+      db,
+      "support_create",
+      {
+        expectedUserId: customer,
+        kind: "feedback",
+        subject: "Suggestion",
+        message: "Improve map",
+      },
+      customer,
+      session2,
+    );
+    await assert.rejects(
+      rpc(
+        db,
+        "support_create",
+        {
+          expectedUserId: customer,
+          kind: "support",
+          subject: "Again",
+          message: "Too soon",
+        },
+        customer,
+        session2,
+      ),
+      /Please wait/,
+    );
+    await assert.rejects(
+      rpc(db, "support_messages", {}, customer, session2),
+      /Administrator access/,
+    );
+    const inbox = await rpc(db, "support_messages");
+    assert.equal(inbox.total, 1);
+    assert.equal(inbox.messages[0].kind, "feedback");
+    assert.equal((await rpc(db, "support_messages", { kind: "bug" })).total, 0);
+    await rpc(db, "support_delete", { messageId: inbox.messages[0].id });
+    assert.equal((await rpc(db, "support_messages")).total, 0);
+    for (const role of ["anon", "authenticated"]) {
+      await db.exec("set role " + role);
+      await assert.rejects(
+        db.query("select * from public.ticketsafe_support_messages"),
+        /permission denied/,
+      );
+      await db.exec("reset role");
+    }
+  } finally {
+    await db.close();
+  }
+});
+test("account actions bind idempotency to content and restrict privileges; test tickets use real snapshots", async () => {
+  const db = await database();
+  try {
+    const input = {
+      kind: "reset_password",
+      userId: customer,
+      confirm: true,
+      idempotencyKey: key,
+      fingerprint: "a",
+    };
+    const op = await rpc(db, "account_claim", input);
+    assert.equal(op.claimed, true);
+    assert.equal((await rpc(db, "account_claim", input)).claimed, false);
+    await assert.rejects(
+      rpc(db, "account_claim", { ...input, fingerprint: "b" }),
+      /different content/,
+    );
+    await rpc(db, "account_result", {
+      operationId: op.operationId,
+      status: "completed",
+      mailStatus: "accepted",
+    });
+    assert.equal((await rpc(db, "account_claim", input)).status, "completed");
+    await assert.rejects(
+      rpc(db, "account_claim", {
+        ...input,
+        userId: master,
+        idempotencyKey: crypto.randomUUID(),
+      }),
+      /administrator accounts/,
+    );
+    await assert.rejects(
+      rpc(db, "account_claim", {
+        ...input,
+        kind: "ticket_test",
+        idempotencyKey: crypto.randomUUID(),
+      }),
+      /No saved ticket/,
+    );
+    await db.query(
+      "insert into public.curbside_vehicles(user_id,plate,state,plate_type) values($1,'BYEBYE','NY','')",
+      [customer],
+    );
+    const tickets = [
+      { id: "older", issued: "2025-01-01" },
+      { id: "latest", issued: "2026-10-01" },
+    ];
+    await db.query(
+      "insert into public.curbside_vehicle_snapshots(plate,state,plate_type,payload) values('BYEBYE','NY','',$1)",
+      [JSON.stringify({ tickets })],
+    );
+    const ticket = await rpc(db, "account_claim", {
+      ...input,
+      kind: "ticket_test",
+      idempotencyKey: crypto.randomUUID(),
+    });
+    assert.equal(ticket.ticket.id, "latest");
+    assert.equal(
+      (await db.query("select count(*) n from public.curbside_email_outbox"))
+        .rows[0].n,
+      0,
+    );
+    await rpc(db, "role_set", { userId: customer, role: "support" });
+    await assert.rejects(
+      rpc(
+        db,
+        "account_claim",
+        { ...input, userId: master },
+        customer,
+        session2,
+      ),
+      /Support access/,
+    );
+  } finally {
+    await db.close();
+  }
+});
+
+test("account reset sends verification without exposing links or repeating a provider send",async()=>{
+ const db=await database();let sends=0,generated=0;
+ try {
+  const client={auth:{getUser:async()=>({data:{user:{id:master,email_confirmed_at:"2026-10-01",is_anonymous:false}},error:null}),admin:{generateLink:async input=>{generated++;assert.equal(input.type,"recovery");return {data:{properties:{action_link:"https://db.example.invalid/auth/v1/verify?token=private"}},error:null}}}},rpc:async(_name,args)=>{try{return {data:await rpc(db,args.action,args.input,args.actor_id,args.session_id),error:null}}catch(error){return {data:null,error}}}};
+  const handler=crmAdminHandler(client,{enabled:"true",senderVerified:"true",apiKey:"test-not-live",from:"service@example.invalid",signingSecret:"s".repeat(32),appOrigin:"https://app.example.invalid",supabaseUrl:"https://db.example.invalid"},["https://app.example.invalid"],async(_url,options)=>{sends++;assert.equal(JSON.parse(options.body).to[0],"customer@example.invalid");return Response.json({id:"test-provider-id"})});
+  const token="header."+Buffer.from(JSON.stringify({sub:master,session_id:session})).toString("base64url")+".signature";
+  const input={action:"account_action",kind:"reset_password",userId:customer,idempotencyKey:key,confirm:true,notify:true};
+  const request=()=>new Request("https://db.example.invalid/functions/v1/crm-admin",{method:"POST",headers:{Origin:"https://app.example.invalid",Authorization:"Bearer "+token},body:JSON.stringify(input)});
+  const response=await handler(request());assert.equal(response.status,200);const body=await response.json();assert.equal(body.status,"completed");assert.equal(body.verificationPending,true);assert.ok(!JSON.stringify(body).includes("token=private"));assert.equal(sends,2);assert.equal(generated,1);
+  assert.equal((await (await handler(request())).json()).replayed,true);assert.equal(sends,2);assert.equal(generated,1);
+  assert.equal((await db.query("select attempts from public.ticketsafe_crm_budget")).rows[0].attempts,2);
+ }finally{await db.close();}
 });

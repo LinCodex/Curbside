@@ -348,7 +348,6 @@ async function database() {
   await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;
     create schema auth;grant usage on schema auth,public to anon,authenticated,service_role;
     create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,is_anonymous boolean default false);
-    grant select on auth.users to service_role;
     create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims',true),''),'{}')::jsonb $$;
     create function auth.uid() returns uuid language sql stable as $$ select (auth.jwt()->>'sub')::uuid $$;
     create function public.rls_auto_enable() returns event_trigger language plpgsql as $$ begin return;end $$;`);
@@ -371,6 +370,7 @@ async function database() {
   await db.exec(
     read("supabase/migrations/20261002161702_email_ticket_details.sql"),
   );
+  await db.exec(read("supabase/migrations/20261003162158_snapshot_auth_read_permissions.sql"));
   await db.exec(`insert into auth.users values('${owner}','owner@example.invalid',now(),false),('${other}','other@example.invalid',now(),false);
     insert into public.curbside_terms_acceptances(user_id,version) values('${owner}','2026-09-27.1'),('${other}','2026-09-27.1');
     insert into public.curbside_vehicles(user_id,plate,state,nickname) values('${owner}','FIRST1','NY','Existing car'),('${other}','FIRST1','NY','Shared subscriber');
@@ -717,4 +717,23 @@ test("real Supabase notification migration enforces RLS, complete baselines, sum
   } finally {
     await db.close();
   }
+});
+
+
+test("snapshot worker Auth grants cover eligibility without exposing credentials to clients", async () => {
+  const db = await database();
+  try {
+    await db.exec("alter table auth.users add column encrypted_password text; revoke select(id,email,email_confirmed_at,is_anonymous) on auth.users from service_role;");
+    await assert.rejects(finish(db, ["1000000001"]), (error) => error.code === "42501");
+    await db.exec("reset role;");
+    assert.equal((await db.query("select payload from public.curbside_vehicle_snapshots where key='NY:FIRST1:*'")).rows[0].payload, null);
+    await db.exec(read("supabase/migrations/20261003162158_snapshot_auth_read_permissions.sql"));
+    assert.equal(await finish(db, ["1000000001"]), true);
+    assert.equal(await finish(db, ["1000000001", "1000000002"]), true);
+    assert.equal(await count(db, "curbside_email_events"), 1);
+    assert.equal((await db.query("select has_column_privilege('service_role','auth.users','encrypted_password','SELECT') as ok")).rows[0].ok, false);
+    for (const role of ["anon", "authenticated"]) {
+      assert.equal((await db.query("select has_column_privilege($1,'auth.users','email','SELECT') as ok", [role])).rows[0].ok, false);
+    }
+  } finally { await db.close(); }
 });
