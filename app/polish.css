@@ -2179,6 +2179,13 @@ html[data-theme="light"] .account-attribution-links span {
 .city-backdrop {
   background: #090c10;
 }
+/* Keep the crop steady when mobile browser chrome expands or collapses. */
+@media (max-width: 800px), (hover: none) and (pointer: coarse) {
+  .city-backdrop-image {
+    height: 100vh;
+    height: 100lvh;
+  }
+}
 
 /* Mobile Floating Dock Refinement & Bottom Frosted Blur Scrim */
 .mobile-nav-scrim {

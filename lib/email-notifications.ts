@@ -121,12 +121,20 @@ export async function verifyEmailUnsubscribe(
 
 // Customer-token calls only; ownership and verified/legal eligibility are also
 // enforced by the database. Never accept an email address or arbitrary user ID.
-export async function loadEmailNotificationSettings(client: SupabaseClient) {
+export async function loadEmailNotificationSettings(
+  client: SupabaseClient,
+  expectedUserId?: string,
+) {
   const {
     data: { user },
     error,
   } = await client.auth.getUser();
-  if (error || !user?.email_confirmed_at || user.is_anonymous)
+  if (
+    error ||
+    !user?.email_confirmed_at ||
+    user.is_anonymous ||
+    (expectedUserId && user.id !== expectedUserId)
+  )
     throw new Error("Verified account required");
   const result = await client
     .from("curbside_email_settings")
@@ -139,6 +147,7 @@ export async function loadEmailNotificationSettings(client: SupabaseClient) {
 export async function saveEmailNotificationSettings(
   client: SupabaseClient,
   enabled: boolean,
+  expectedUserId?: string,
 ) {
   const {
     data: { user },
@@ -148,6 +157,7 @@ export async function saveEmailNotificationSettings(
     error ||
     !user?.email_confirmed_at ||
     user.is_anonymous ||
+    (expectedUserId && user.id !== expectedUserId) ||
     typeof enabled !== "boolean"
   )
     throw new Error("Verified account required");

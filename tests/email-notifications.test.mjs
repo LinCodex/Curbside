@@ -16,11 +16,14 @@ const compile = async (file) => {
       Buffer.from(result.outputFiles[0].text).toString("base64")
   );
 };
-const { emailDeliveryAvailable, signEmailUnsubscribe, verifyEmailUnsubscribe } =
-  await compile("lib/email-notifications.ts");
-const { detailedTicketEmail } = await compile(
-  "lib/ticket-email.ts",
-);
+const {
+  emailDeliveryAvailable,
+  signEmailUnsubscribe,
+  verifyEmailUnsubscribe,
+  loadEmailNotificationSettings,
+  saveEmailNotificationSettings,
+} = await compile("lib/email-notifications.ts");
+const { detailedTicketEmail } = await compile("lib/ticket-email.ts");
 const { dispatchTicketEmails } = await compile(
   "supabase/functions/email-notifications/delivery.ts",
 );
@@ -38,6 +41,78 @@ const config = {
   appOrigin: "https://tickets.example.invalid",
   supabaseUrl: "https://database.example.invalid",
 };
+
+test("notification preference operations reject an account switch before touching the database", async () => {
+  let queries = 0;
+  const client = {
+    auth: {
+      getUser: async () => ({
+        data: { user: { id: other, email_confirmed_at: "2026-10-01" } },
+        error: null,
+      }),
+    },
+    from() {
+      queries++;
+      throw new Error("Unexpected database access");
+    },
+  };
+  await assert.rejects(
+    loadEmailNotificationSettings(client, owner),
+    /Verified account required/,
+  );
+  await assert.rejects(
+    saveEmailNotificationSettings(client, true, owner),
+    /Verified account required/,
+  );
+  assert.equal(queries, 0);
+});
+
+test("notification preference reads and writes stay scoped to the confirmed account", async () => {
+  const filters = [];
+  const writes = [];
+  let operation;
+  const query = {
+    select() {
+      return this;
+    },
+    eq(column, id) {
+      filters.push([column, id]);
+      return this;
+    },
+    update(value) {
+      operation = "update";
+      writes.push(value);
+      return this;
+    },
+    async maybeSingle() {
+      return {
+        data: operation === "update" ? { user_id: owner } : { enabled: true },
+        error: null,
+      };
+    },
+  };
+  const client = {
+    auth: {
+      getUser: async () => ({
+        data: { user: { id: owner, email_confirmed_at: "2026-10-01" } },
+        error: null,
+      }),
+    },
+    from(table) {
+      assert.equal(table, "curbside_email_settings");
+      return query;
+    },
+  };
+  assert.deepEqual(await loadEmailNotificationSettings(client, owner), {
+    enabled: true,
+  });
+  await saveEmailNotificationSettings(client, false, owner);
+  assert.deepEqual(filters, [
+    ["user_id", owner],
+    ["user_id", owner],
+  ]);
+  assert.deepEqual(writes, [{ enabled: false }]);
+});
 
 test("delivery requires explicit enablement, verified sender and private configuration; unsubscribe is signed and narrowly scoped", async () => {
   assert.equal(emailDeliveryAvailable(config), true);

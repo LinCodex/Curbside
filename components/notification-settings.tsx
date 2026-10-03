@@ -1,137 +1,76 @@
 "use client";
-import { useEffect, useState } from "react";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { useSupabaseAccount } from "./use-supabase-account";
+import { useEffect, useRef } from "react";
+import { Check, LoaderCircle } from "lucide-react";
 import { usePreferences } from "./preferences";
-import {
-  loadEmailNotificationSettings,
-  saveEmailNotificationSettings,
-} from "../lib/email-notifications";
+import { useNotificationPreferences } from "./notification-preferences";
 
 export function NotificationSettings({
   legalAccepted,
 }: {
   legalAccepted: boolean;
 }) {
-  const { client, user } = useSupabaseAccount();
-  return (
-    <NotificationSettingsState
-      key={user?.id || "guest"}
-      client={client}
-      userId={user?.id}
-      legalAccepted={legalAccepted}
-    />
-  );
-}
-function NotificationSettingsState({
-  client,
-  userId,
-  legalAccepted,
-}: {
-  client: SupabaseClient | null;
-  userId?: string;
-  legalAccepted: boolean;
-}) {
   const { tr } = usePreferences();
-  const [enabled, setEnabled] = useState(false);
-  const [available, setAvailable] = useState<boolean | null>(null);
-  const [reload, setReload] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(false);
+  const { enabled, available, loading, saving, error, save, refresh } =
+    useNotificationPreferences();
+  const checkbox = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    let alive = true;
-    if (!client || !userId) return;
-    Promise.all([
-      loadEmailNotificationSettings(client),
-      client.functions.invoke("email-notifications", {
-        body: { mode: "status" },
-      }),
-    ])
-      .then(([settings, status]) => {
-        if (!alive) return;
-        setEnabled(settings.enabled);
-        setAvailable(status.error ? null : status.data?.available === true);
-        if (status.error) setError(true);
-      })
-      .catch(() => {
-        if (alive) setError(true);
-      })
-      .finally(() => {
-        if (alive) setLoading(false);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [client, userId, reload]);
-  async function save(next: boolean) {
-    if (!client || saving || !userId) return;
-    const identity = userId;
-    setSaving(true);
-    setError(false);
-    try {
-      await saveEmailNotificationSettings(client, next);
-      const current = await client.auth.getUser();
-      if (current.data.user?.id === identity) setEnabled(next);
-    } catch {
-      setError(true);
-    } finally {
-      setSaving(false);
-    }
-  }
+    void refresh();
+  }, [refresh]);
+  useEffect(() => {
+    if (checkbox.current) checkbox.current.indeterminate = loading;
+  }, [loading]);
   return (
     <section
       className="notification-settings"
       aria-label={tr("Ticket notifications")}
     >
       <h3>{tr("Ticket notifications")}</h3>
-      <p>
-        {tr(
-          "Daily alerts for new tickets on saved vehicles.",
-        )}
-      </p>
-      <label>
+      <p>{tr("Daily alerts for new tickets on saved vehicles.")}</p>
+      <label className="notification-checkbox">
         <input
+          ref={checkbox}
+          className="notification-checkbox-input"
           type="checkbox"
-          checked={enabled}
+          checked={enabled === true}
+          aria-busy={loading || saving}
           onChange={(event) => void save(event.target.checked)}
           disabled={
             loading || saving || (!enabled && (!available || !legalAccepted))
           }
-        />{" "}
-        {tr("Email me about new tickets")}
+        />
+        <span className="notification-checkbox-mark" aria-hidden="true">
+          {loading ? (
+            <LoaderCircle className="notification-loading-icon" size={14} />
+          ) : enabled ? (
+            <Check size={15} strokeWidth={3} />
+          ) : null}
+        </span>
+        <span>{tr("Email me about new tickets")}</span>
       </label>
       <p>
         {available === true
-          ? tr(
-              "Sent to your account email. Unsubscribe anytime.",
-            )
+          ? tr("Sent to your account email. Unsubscribe anytime.")
           : available === false
-            ? tr(
-                "Email notifications are unavailable.",
-              )
+            ? tr("Email notifications are unavailable.")
             : tr("Checking email delivery availability…")}
       </p>
       {!legalAccepted && (
         <p>{tr("Accept the current terms before enabling ticket emails.")}</p>
       )}
       <p>{tr("SMS notifications are unavailable.")}</p>
-      {loading && <p role="status">{tr("Loading email preferences…")}</p>}
+      {loading && !error && (
+        <p role="status">{tr("Loading email preferences…")}</p>
+      )}
       {saving && <p role="status">{tr("Saving email preferences…")}</p>}
       {error && (
         <div role="alert">
           {tr(
             "Email preferences could not be loaded or saved. Please try again.",
-          )}
+          )}{" "}
           <button
             type="button"
             className="text-link"
-            onClick={() => {
-              setError(false);
-              setLoading(true);
-              setAvailable(null);
-              setReload((value) => value + 1);
-            }}
+            onClick={() => void refresh(true)}
           >
             {tr("Try again")}
           </button>

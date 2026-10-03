@@ -1,6 +1,7 @@
 "use client";
 import { AccountProvider } from "./account-provider";
 import { PreferencesProvider } from "./preferences";
+import { NotificationPreferencesProvider } from "./notification-preferences";
 export default function AppProviders({
   children,
 }: {
@@ -8,7 +9,9 @@ export default function AppProviders({
 }) {
   return (
     <AccountProvider>
-      <PreferencesProvider>{children}</PreferencesProvider>
+      <NotificationPreferencesProvider>
+        <PreferencesProvider>{children}</PreferencesProvider>
+      </NotificationPreferencesProvider>
     </AccountProvider>
   );
 }
