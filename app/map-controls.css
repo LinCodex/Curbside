@@ -507,19 +507,25 @@
 }
 @media (min-width: 801px) {
   .desktop-workspace .account-workspace-panels {
-    align-items: stretch;
+    align-items: start;
+    grid-auto-rows: max-content;
   }
   .desktop-workspace .account-page .account-layout {
     align-items: stretch;
   }
   .desktop-workspace .account-signin-panel,
-  .desktop-workspace .account-notifications-card {
+  .desktop-workspace .account-notifications-card,
+  .desktop-workspace .account-tools-card {
     align-self: stretch;
+    height: auto;
+    min-height: min-content;
+    overflow: visible;
   }
   .desktop-workspace .account-signin-panel .account-signout {
     align-self: flex-start;
+    width: auto;
+    max-width: 100%;
     margin-top: auto;
-    min-width: 112px;
   }
   .desktop-workspace .support-feedback {
     grid-column: 1 / -1;
