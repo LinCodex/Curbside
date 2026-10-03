@@ -103,7 +103,7 @@
   "Looking up this address…": "正在查找此地址…",
   "No reliable map match yet. The recorded address is shown above.": "尚无可靠的地图匹配。上方显示的是记录中的地址。",
   "View violation": "查看违章",
-  "No tickets match this filter.": "没有符合筛选条件的罚单。",
+  "No tickets match this filter.": "没有符合此筛选条件的罚单。",
   "No ticket locations yet.": "尚无罚单地点。",
   "Search a vehicle to see addresses from city records. Tickets without a reliable location remain in the list.": "查询车辆以查看市政府记录中的地址。无法可靠定位的罚单仍会保留在列表中。",
   "Search a plate": "查询车牌",
@@ -1240,5 +1240,18 @@
   "Customer not found.": "未找到已验证的用户。",
   "Daily account-action limit reached.": "已达到今日账户操作次数上限。",
   "Confirm this action first.": "请先确认此操作。",
-  "Manage administrator accounts through their own account settings.": "管理员账户需通过其自身账户设置管理。"
+  "Manage administrator accounts through their own account settings.": "管理员账户需通过其自身账户设置管理。",
+  "New tickets on saved cars, checked daily.": "每天检查已保存车辆的新罚单。",
+  "New-ticket emails": "新罚单邮件提醒",
+  "Account email · Unsubscribe anytime.": "发送至账户邮箱，可随时退订。",
+  "Email alerts unavailable.": "邮件提醒暂不可用。",
+  "Checking email service…": "正在检查邮件服务…",
+  "Accept the terms to enable alerts.": "接受条款后即可开启提醒。",
+  "SMS not available yet.": "短信提醒暂未开放。",
+  "Could not update preferences.": "暂时无法更新设置。",
+  "Product update emails": "产品动态邮件",
+  "Optional · Unsubscribe anytime.": "自愿订阅，可随时退订。",
+  "Filter saved tickets": "筛选已保存车辆的罚单",
+  "Unpaid tickets": "未付罚单",
+  "Tickets with payments": "有付款记录的罚单"
 }

@@ -29,14 +29,8 @@ export async function dispatchTicketEmails(
   send: typeof fetch = fetch,
 ) {
   if (!emailDeliveryAvailable(config)) return { available: false, accepted: 0 };
-  // Finish all the current morning's car checks before creating one daily
-  // summary. A checking lease also blocks dispatch until its completion/retry.
-  const due = await admin
-    .from("curbside_vehicle_snapshots")
-    .select("key", { count: "exact", head: true })
-    .lte("next_check_at", new Date().toISOString());
-  if (due.error || (due.count || 0) > 0)
-    return { available: true, accepted: 0 };
+  // The database groups each recipient's cars with a bounded wait. Unrelated
+  // vehicles and source retries must not block already eligible recipients.
   const claimed = await admin.rpc("curbside_claim_email_jobs");
   if (claimed.error) return { available: true, accepted: 0 };
   let accepted = 0;

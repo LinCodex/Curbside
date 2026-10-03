@@ -103,9 +103,9 @@ export default function AnnouncementSettings() {
             <Check size={15} strokeWidth={3} />
           ) : null}
         </span>
-        <span>{tr("Email me TicketSafe announcements")}</span>
+        <span>{tr("Product update emails")}</span>
       </label>
-      <p>{tr("Optional product updates. Unsubscribe anytime.")}</p>
+      <p>{tr("Optional · Unsubscribe anytime.")}</p>
       <div
         className="notification-status-slot"
         aria-live="polite"
@@ -113,9 +113,7 @@ export default function AnnouncementSettings() {
       >
         {error ? (
           <div role="alert">
-            {tr(
-              "Email preferences could not be loaded or saved. Please try again.",
-            )}{" "}
+            {tr("Could not update preferences.")}{" "}
             <button
               type="button"
               className="text-link"
@@ -125,13 +123,7 @@ export default function AnnouncementSettings() {
             </button>
           </div>
         ) : (
-          <p>
-            {saving
-              ? tr("Saving email preferences…")
-              : loading
-                ? tr("Loading email preferences…")
-                : "\u00a0"}
-          </p>
+          <p>{saving ? tr("Saving…") : loading ? tr("Loading…") : "\u00a0"}</p>
         )}
       </div>
     </section>

@@ -294,9 +294,6 @@ test("worker freezes provider idempotency, retries ambiguous failures, suppresse
   );
   assert.equal(disabled.calls.length, 0);
   assert.equal(sends, 0);
-  const pending = deliveryFixture({ due: 1 });
-  await dispatchTicketEmails(pending.admin, config, send);
-  assert.equal(sends, 0);
   const optedOut = deliveryFixture({ current: false });
   await dispatchTicketEmails(optedOut.admin, config, send);
   assert.equal(sends, 0);
@@ -370,7 +367,16 @@ async function database() {
   await db.exec(
     read("supabase/migrations/20261002161702_email_ticket_details.sql"),
   );
-  await db.exec(read("supabase/migrations/20261003162158_snapshot_auth_read_permissions.sql"));
+  await db.exec(
+    read(
+      "supabase/migrations/20261003162158_snapshot_auth_read_permissions.sql",
+    ),
+  );
+  await db.exec(
+    read(
+      "supabase/migrations/20261003200000_profile_notification_readiness.sql",
+    ),
+  );
   await db.exec(`insert into auth.users values('${owner}','owner@example.invalid',now(),false),('${other}','other@example.invalid',now(),false);
     insert into public.curbside_terms_acceptances(user_id,version) values('${owner}','2026-09-27.1'),('${other}','2026-09-27.1');
     insert into public.curbside_vehicles(user_id,plate,state,nickname) values('${owner}','FIRST1','NY','Existing car'),('${other}','FIRST1','NY','Shared subscriber');
@@ -403,6 +409,57 @@ async function finish(
 }
 const count = async (db, table) =>
   (await db.query(`select count(*)::int as n from public.${table}`)).rows[0].n;
+
+test("unrelated snapshot backlogs do not block a ready recipient; own-car grouping has a ten-minute limit", async () => {
+  const db = await database();
+  try {
+    await finish(db, ["1000000001"]);
+    await finish(db, ["1000000001", "1000000002"]);
+    await db.exec(`insert into public.curbside_vehicle_snapshots(key,plate,state,plate_type)
+      select 'NY:OTHER'||i||':*','OTHER'||i,'NY','' from generate_series(1,500) i;
+      set role service_role;`);
+    const eligible = (
+      await db.query("select * from public.curbside_claim_email_jobs()")
+    ).rows;
+    assert.equal(
+      eligible.length,
+      1,
+      "500 other due plates cannot delay this profile",
+    );
+    await db.exec(`reset role;update public.curbside_email_outbox set status='pending',first_attempt_at=null,
+      lease=null,lease_until=null,next_attempt_at=now();
+      update public.curbside_vehicle_snapshots set next_check_at=now()-interval '1 minute' where plate='FIRST1';
+      set role service_role;`);
+    assert.equal(
+      (await db.query("select * from public.curbside_claim_email_jobs()")).rows
+        .length,
+      0,
+      "a fresh job briefly groups this profile's own pending cars",
+    );
+    await db.exec(
+      "reset role;update public.curbside_email_outbox set created_at=now()-interval '11 minutes';set role service_role;",
+    );
+    assert.equal(
+      (await db.query("select * from public.curbside_claim_email_jobs()")).rows
+        .length,
+      1,
+      "a stalled own-car scan cannot delay dispatch indefinitely",
+    );
+  } finally {
+    await db.close();
+  }
+});
+
+test("dispatcher never queries a global snapshot backlog before sending an eligible job", async () => {
+  const fixture = deliveryFixture();
+  fixture.admin.from = () => {
+    throw new Error("Global backlog query is forbidden");
+  };
+  const result = await dispatchTicketEmails(fixture.admin, config, async () =>
+    Response.json({ id: "test-only" }),
+  );
+  assert.equal(result.accepted, 1);
+});
 
 test("database caps daily provider attempts and suppresses expired, removed-car and changed-email jobs", async () => {
   const db = await database();
@@ -719,21 +776,53 @@ test("real Supabase notification migration enforces RLS, complete baselines, sum
   }
 });
 
-
 test("snapshot worker Auth grants cover eligibility without exposing credentials to clients", async () => {
   const db = await database();
   try {
-    await db.exec("alter table auth.users add column encrypted_password text; revoke select(id,email,email_confirmed_at,is_anonymous) on auth.users from service_role;");
-    await assert.rejects(finish(db, ["1000000001"]), (error) => error.code === "42501");
+    await db.exec(
+      "alter table auth.users add column encrypted_password text; revoke select(id,email,email_confirmed_at,is_anonymous) on auth.users from service_role;",
+    );
+    await assert.rejects(
+      finish(db, ["1000000001"]),
+      (error) => error.code === "42501",
+    );
     await db.exec("reset role;");
-    assert.equal((await db.query("select payload from public.curbside_vehicle_snapshots where key='NY:FIRST1:*'")).rows[0].payload, null);
-    await db.exec(read("supabase/migrations/20261003162158_snapshot_auth_read_permissions.sql"));
+    assert.equal(
+      (
+        await db.query(
+          "select payload from public.curbside_vehicle_snapshots where key='NY:FIRST1:*'",
+        )
+      ).rows[0].payload,
+      null,
+    );
+    await db.exec(
+      read(
+        "supabase/migrations/20261003162158_snapshot_auth_read_permissions.sql",
+      ),
+    );
     assert.equal(await finish(db, ["1000000001"]), true);
     assert.equal(await finish(db, ["1000000001", "1000000002"]), true);
     assert.equal(await count(db, "curbside_email_events"), 1);
-    assert.equal((await db.query("select has_column_privilege('service_role','auth.users','encrypted_password','SELECT') as ok")).rows[0].ok, false);
+    assert.equal(
+      (
+        await db.query(
+          "select has_column_privilege('service_role','auth.users','encrypted_password','SELECT') as ok",
+        )
+      ).rows[0].ok,
+      false,
+    );
     for (const role of ["anon", "authenticated"]) {
-      assert.equal((await db.query("select has_column_privilege($1,'auth.users','email','SELECT') as ok", [role])).rows[0].ok, false);
+      assert.equal(
+        (
+          await db.query(
+            "select has_column_privilege($1,'auth.users','email','SELECT') as ok",
+            [role],
+          )
+        ).rows[0].ok,
+        false,
+      );
     }
-  } finally { await db.close(); }
+  } finally {
+    await db.close();
+  }
 });

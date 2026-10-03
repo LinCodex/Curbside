@@ -134,10 +134,53 @@
 
 /* A single, stable Locations surface owns the scope, list and selection. */
 .app .view-map .map-results {
+  --map-panel-inset: 20px;
+  --map-panel-bottom-inset: 20px;
   width: min(420px, 42vw);
   min-width: 0;
   flex-shrink: 0;
   box-sizing: border-box;
+}
+.app .view-map .map-ticket-scroll {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  margin: 0 calc(-1 * var(--map-panel-inset)) calc(-1 * var(--map-panel-bottom-inset));
+  overflow: hidden;
+}
+.app .view-map .map-ticket-scroll > .ticket-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  padding: 2px calc(var(--map-panel-inset) + 2px) var(--map-panel-inset);
+  scroll-padding-block: 8px var(--map-panel-inset);
+  overscroll-behavior: contain;
+}
+.app .view-map .map-ticket-scroll::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 48px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(to top, var(--surface), transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  -webkit-mask-image: linear-gradient(to top, #000, transparent);
+  mask-image: linear-gradient(to top, #000, transparent);
+  transition: opacity 120ms ease-out;
+}
+.app .view-map .map-ticket-scroll[data-more="true"]::after {
+  opacity: 1;
+}
+.app .view-map .map-results:has(> .empty) {
+  height: auto;
+  max-height: 100%;
 }
 .app .map-vehicle-picker {
   width: 100%;
@@ -180,10 +223,15 @@
   flex-shrink: 0;
 }
 .app .map-results .empty {
-  padding: 20px 4px 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 4px;
+  scrollbar-width: none;
 }
 .app .map-results .empty .button {
-  margin: 8px 0 4px;
+  min-height: 44px;
+  margin: 8px 0 0;
 }
 .app .map-selection h3,
 .app .map-selection .location-matched-sub,
@@ -234,6 +282,8 @@
     gap: 0;
   }
   .app[data-view="map"] .map-results {
+    --map-panel-inset: 16px;
+    --map-panel-bottom-inset: 14px;
     align-self: center;
     width: min(100%, 440px);
     max-width: 440px;
@@ -252,6 +302,7 @@
   }
   .app[data-view="map"] .map-results:has(> .empty) {
     height: auto;
+    max-height: 100%;
   }
   .app .map-results .map-selection {
     flex: 1 1 auto;
@@ -262,6 +313,34 @@
 }
 
 /* Consistent account cards and feedback rows, independent of loading text. */
+.app .garage-ticket-filter {
+  flex: 0 0 auto;
+  margin-bottom: 12px;
+}
+.app .garage-ticket-filter .custom-select-trigger {
+  width: 100%;
+}
+.app .activity-dock > .ticket-list {
+  min-height: 0;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  padding-bottom: 12px;
+  scroll-padding-bottom: 12px;
+}
+.app .activity-dock > .ticket-list::-webkit-scrollbar { display: none; }
+@media (max-width: 800px) {
+  .app .activity-dock > .ticket-list {
+    max-height: min(48dvh, 420px);
+    overflow-y: auto;
+  }
+}
+@media (max-width: 800px) and (max-height: 700px) {
+  .app[data-view="map"] .map-results:not(.map-box-minimized):not(:has(> .empty)) {
+    height: min(64dvh, 440px);
+    max-height: min(64dvh, 440px, 100%);
+  }
+}
+
 .app-startup {
   min-height: 100dvh;
   display: flex;
@@ -282,7 +361,8 @@
   color: var(--blue);
 }
 .notification-status-slot {
-  min-height: 42px;
+  min-height: 20px;
+  min-width: 0;
   line-height: 1.5;
   display: flex;
   align-items: center;
@@ -291,6 +371,47 @@
 }
 .notification-status-slot p {
   margin: 0;
+}
+.account-notifications-card,
+.notification-settings,
+.notification-settings > *,
+.notification-settings label > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.account-notifications-card .notification-settings {
+  gap: 8px;
+}
+.account-notifications-card .notification-settings p {
+  line-height: 1.5;
+}
+.notification-settings label > span:last-child {
+  flex: 1;
+  line-height: 1.4;
+}
+.account-notifications-card .notification-channel-note {
+  font-size: 11px;
+}
+.account-notifications-card .announcement-settings {
+  margin-top: 12px;
+  padding-top: 12px;
+}
+@media (max-width: 800px) {
+  .account-notifications-card .notification-settings h3 {
+    font-size: 16px;
+  }
+  .account-notifications-card .notification-settings p {
+    font-size: 12px;
+  }
+  .account-notifications-card .notification-settings label {
+    gap: 10px;
+    font-size: 13px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app .view-map .map-ticket-scroll::after {
+    transition: none;
+  }
 }
 .vehicle-save-consent {
   display: flex;
@@ -394,6 +515,11 @@
   .desktop-workspace .account-signin-panel,
   .desktop-workspace .account-notifications-card {
     align-self: stretch;
+  }
+  .desktop-workspace .account-signin-panel .account-signout {
+    align-self: flex-start;
+    margin-top: auto;
+    min-width: 112px;
   }
   .desktop-workspace .support-feedback {
     grid-column: 1 / -1;

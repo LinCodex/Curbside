@@ -62,6 +62,12 @@ insert into auth.sessions(id,user_id) values('${session}','${master}'),('${sessi
       "utf8",
     ),
   );
+  await db.exec(
+    fs.readFileSync(
+      "supabase/migrations/20261003200001_durable_support_replies.sql",
+      "utf8",
+    ),
+  );
   return db;
 }
 async function rpc(db, action, input = {}, actor = master, sid = session) {
@@ -615,6 +621,9 @@ test("account changes apply immediately and email the customer without repeating
   const sent = [];
   const updates = [];
   const deleted = [];
+  let failDelete = false;
+  let failReplyRecord = false;
+  const sendKeys = [];
   try {
     const client = {
       auth: {
@@ -634,12 +643,18 @@ test("account changes apply immediately and email the customer without repeating
             return { data: { user: { id } }, error: null };
           },
           deleteUser: async (id) => {
+            if (failDelete)
+              return { data: {}, error: new Error("Deletion rejected") };
             deleted.push(id);
             return { data: {}, error: null };
           },
         },
       },
       rpc: async (_name, args) => {
+        if (args.action === "support_delivery_result" && failReplyRecord) {
+          failReplyRecord = false;
+          return { data: null, error: new Error("Recording unavailable") };
+        }
         try {
           return {
             data: await rpc(
@@ -670,6 +685,12 @@ test("account changes apply immediately and email the customer without repeating
       ["https://app.example.invalid"],
       async (_url, options) => {
         const body = JSON.parse(options.body);
+        if (/account was deleted/.test(body.subject))
+          assert.ok(
+            deleted.includes(customer),
+            "deletion must succeed before the notice",
+          );
+        sendKeys.push(options.headers["Idempotency-Key"]);
         sent.push(body);
         assert.ok(!JSON.stringify(body).includes("NewPass1a"));
         return Response.json({ id: "test-provider-id" });
@@ -677,9 +698,9 @@ test("account changes apply immediately and email the customer without repeating
     );
     const token =
       "header." +
-      Buffer.from(JSON.stringify({ sub: master, session_id: session })).toString(
-        "base64url",
-      ) +
+      Buffer.from(
+        JSON.stringify({ sub: master, session_id: session }),
+      ).toString("base64url") +
       ".signature";
     const request = (input) =>
       new Request("https://db.example.invalid/functions/v1/crm-admin", {
@@ -707,16 +728,20 @@ test("account changes apply immediately and email the customer without repeating
     assert.equal(sent[0].to[0], "customer@example.invalid");
     assert.match(sent[0].subject, /password was changed/);
     assert.equal(
-      (await (await handler(
-        request({
-          action: "account_action",
-          kind: "set_password",
-          userId: customer,
-          password: "NewPass1a",
-          idempotencyKey: key,
-          confirm: true,
-        }),
-      )).json()).replayed,
+      (
+        await (
+          await handler(
+            request({
+              action: "account_action",
+              kind: "set_password",
+              userId: customer,
+              password: "NewPass1a",
+              idempotencyKey: key,
+              confirm: true,
+            }),
+          )
+        ).json()
+      ).replayed,
       true,
     );
     assert.equal(sent.length, 1);
@@ -737,6 +762,24 @@ test("account changes apply immediately and email the customer without repeating
       sent.slice(1).map((message) => message.to[0]),
       ["customer@example.invalid", "next@example.invalid"],
     );
+    failDelete = true;
+    const beforeFailedDelete = sent.length;
+    const failedDelete = await handler(
+      request({
+        action: "account_action",
+        kind: "delete_account",
+        userId: customer,
+        idempotencyKey: crypto.randomUUID(),
+        confirm: true,
+      }),
+    );
+    assert.equal((await failedDelete.json()).status, "review");
+    assert.equal(
+      sent.length,
+      beforeFailedDelete,
+      "failed deletion must not send a success notice",
+    );
+    failDelete = false;
     const removed = await handler(
       request({
         action: "account_action",
@@ -830,6 +873,48 @@ test("account changes apply immediately and email the customer without repeating
       stored.messages[0].reply,
       "The fade lifts at the end of the list.",
     );
+    const followup = {
+      action: "support_reply",
+      messageId: inbox.messages[0].id,
+      reply: "A second verified reply.",
+      confirm: true,
+    };
+    failReplyRecord = true;
+    const first = await handler(request(followup));
+    assert.equal(first.status, 503);
+    assert.match((await first.json()).error, /needs review/);
+    const firstBody = sent.at(-1),
+      firstKey = sendKeys.at(-1),
+      attempts = sent.length;
+    const concurrent = await handler(request(followup));
+    assert.equal(concurrent.status, 503);
+    assert.equal(
+      sent.length,
+      attempts,
+      "an active lease prevents duplicate concurrent sends",
+    );
+    await db.exec(
+      "update public.ticketsafe_crm_deliveries set support_lease_until=now()-interval '1 second' where status='sending'",
+    );
+    const retried = await handler(request(followup));
+    assert.equal((await retried.json()).mailStatus, "accepted");
+    assert.deepEqual(sent.at(-1), firstBody);
+    assert.equal(
+      sendKeys.at(-1),
+      firstKey,
+      "reconciliation reuses the provider idempotency key",
+    );
+    const count = sent.length;
+    const replayed = await handler(request(followup));
+    assert.equal((await replayed.json()).replayed, true);
+    assert.equal(sent.length, count, "a recorded send is never repeated");
+    const recorded = (
+      await db.query(
+        "select provider_id,status from public.ticketsafe_crm_deliveries where support_first_attempt_at is not null order by sent_at desc",
+      )
+    ).rows[0];
+    assert.equal(recorded.provider_id, "test-provider-id");
+    assert.equal(recorded.status, "sent");
   } finally {
     await db.close();
   }

@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { publicConfig } from "../lib/runtime";
 import { confirmedAccount, verifyBrowserAccount } from "@/lib/browser-account";
+import { boundedFetch, withDeadline } from "@/lib/bounded-request";
 import {
   snapshotEmailConfirmation,
   type ConfirmationCallback,
@@ -28,6 +29,7 @@ function useAccountClient(url?: string, key?: string) {
         setLoading(true);
         setError(false);
         const c = createClient(url, key, {
+          global: { fetch: boundedFetch },
           auth: {
             persistSession: true,
             autoRefreshToken: true,
@@ -68,7 +70,7 @@ function useAccountClient(url?: string, key?: string) {
           setLoading(!sameAccount);
           // Keep SDK calls outside its auth-state callback/initialization lock.
           verificationTimer = setTimeout(() => {
-            void verifyBrowserAccount(c, session)
+            void withDeadline(verifyBrowserAccount(c, session))
               .then((verified) => {
                 if (!alive || currentRevision !== revision) return;
                 verifiedToken = verified ? session.access_token : undefined;
@@ -86,10 +88,12 @@ function useAccountClient(url?: string, key?: string) {
         });
         unsubscribe = () => data.subscription.unsubscribe();
         const initialRevision = revision;
-        const result = await c.auth.getSession();
+        const result = await withDeadline(c.auth.getSession());
         if (alive && initialRevision === revision) {
           try {
-            const verified = await verifyBrowserAccount(c, result.data.session);
+            const verified = await withDeadline(
+              verifyBrowserAccount(c, result.data.session),
+            );
             if (alive && initialRevision === revision) {
               verifiedToken = verified
                 ? result.data.session?.access_token
@@ -155,7 +159,7 @@ export function SupabaseAccountProvider({
   const [configurationLoaded, setConfigurationLoaded] = useState(false);
   useEffect(() => {
     const abort = new AbortController();
-    fetch("/api/config", { signal: abort.signal })
+    boundedFetch("/api/config", { signal: abort.signal })
       .then((response) => {
         if (!response.ok) throw new Error("Configuration unavailable");
         return response.json();

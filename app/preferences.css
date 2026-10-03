@@ -211,7 +211,7 @@ html[data-theme="light"] :is(.button, .segmented, .scene-summary button) {
 html[data-theme="light"]
   :is(
     .round-control:hover,
-    .button:hover,
+    .button:hover:not(.primary),
     .ticket:hover,
     .desktop-nav button:hover:not(.active)
   ) {

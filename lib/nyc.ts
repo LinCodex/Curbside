@@ -1,4 +1,5 @@
 import { BoundedCache } from "./ttl-cache";
+import { fetchCityPages } from "./city-pages";
 import {
   type Plate,
   type Violation,
@@ -181,10 +182,8 @@ async function fetchDataset(id: string, name: string, p: Plate, force = false) {
   if (config().SOCRATA_APP_TOKEN)
     headers["X-App-Token"] = config().SOCRATA_APP_TOKEN!;
   try {
-    const r = await fetch(url, { headers, signal: AbortSignal.timeout(12000) });
-    if (!r.ok) throw new Error("Source temporarily unavailable");
-    const rows: any = await r.json();
-    if (!Array.isArray(rows)) throw new Error("Invalid source response");
+    const pageResult = await fetchCityPages(url, headers);
+    const rows = pageResult.rows;
     let meta = (await cached("meta:" + id)) as {
       updatedAt: string | null;
     } | null;
@@ -212,17 +211,24 @@ async function fetchDataset(id: string, name: string, p: Plate, force = false) {
       source: {
         id,
         name,
-        ok: true,
+        ok: pageResult.ok,
         checkedAt,
         updatedAt: meta?.updatedAt ?? null,
         count: rows.length,
-        truncated: rows.length === 1000,
+        truncated: pageResult.truncated,
+        ...(!pageResult.ok ? { error: "Source temporarily unavailable" } : {}),
       } satisfies SourceStatus,
     };
     await put(
       key,
       result,
-      live ? 6 * 3600_000 : id === "pvqr-7yc4" ? 24 * 3600_000 : 7 * 86400_000,
+      !pageResult.ok || pageResult.truncated
+        ? 120000
+        : live
+          ? 6 * 3600_000
+          : id === "pvqr-7yc4"
+            ? 24 * 3600_000
+            : 7 * 86400_000,
     );
     return result;
   } catch {

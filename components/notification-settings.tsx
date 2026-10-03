@@ -25,7 +25,7 @@ export function NotificationSettings({
       aria-label={tr("Ticket notifications")}
     >
       <h3>{tr("Ticket notifications")}</h3>
-      <p>{tr("Daily alerts for new tickets on saved vehicles.")}</p>
+      <p>{tr("New tickets on saved cars, checked daily.")}</p>
       <label className="notification-checkbox">
         <input
           ref={checkbox}
@@ -45,19 +45,19 @@ export function NotificationSettings({
             <Check size={15} strokeWidth={3} />
           ) : null}
         </span>
-        <span>{tr("Email me about new tickets")}</span>
+        <span>{tr("New-ticket emails")}</span>
       </label>
       <p>
         {available === true
-          ? tr("Sent to your account email. Unsubscribe anytime.")
+          ? tr("Account email · Unsubscribe anytime.")
           : available === false
-            ? tr("Email notifications are unavailable.")
-            : tr("Checking email delivery availability…")}
+            ? tr("Email alerts unavailable.")
+            : tr("Checking email service…")}
       </p>
-      {!legalAccepted && (
-        <p>{tr("Accept the current terms before enabling ticket emails.")}</p>
-      )}
-      <p>{tr("SMS notifications are unavailable.")}</p>
+      {!legalAccepted && <p>{tr("Accept the terms to enable alerts.")}</p>}
+      <p className="notification-channel-note">
+        {tr("SMS not available yet.")}
+      </p>
       <div
         className="notification-status-slot"
         aria-live="polite"
@@ -65,9 +65,7 @@ export function NotificationSettings({
       >
         {error ? (
           <div role="alert">
-            {tr(
-              "Email preferences could not be loaded or saved. Please try again.",
-            )}{" "}
+            {tr("Could not update preferences.")}{" "}
             <button
               type="button"
               className="text-link"
@@ -77,13 +75,7 @@ export function NotificationSettings({
             </button>
           </div>
         ) : (
-          <p>
-            {saving
-              ? tr("Saving email preferences…")
-              : loading
-                ? tr("Loading email preferences…")
-                : "\u00a0"}
-          </p>
+          <p>{saving ? tr("Saving…") : loading ? tr("Loading…") : "\u00a0"}</p>
         )}
       </div>
     </section>

@@ -169,6 +169,7 @@ export function PreferencesProvider({
         .from("curbside_preferences")
         .select("theme,language,detail_mode")
         .eq("user_id", profileId)
+        .abortSignal(AbortSignal.timeout(12000))
         .maybeSingle(),
     )
       .then(async ({ data, error }) => {

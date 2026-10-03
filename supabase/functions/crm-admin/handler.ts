@@ -243,59 +243,89 @@ export function crmAdminHandler(
             "The verified email sender is not ready.",
             503,
           );
-        const message = await rpc("support_reply", {
-          messageId: input.messageId,
-          confirm: true,
-        });
-        if (
-          !message ||
-          typeof message !== "object" ||
-          typeof message.email !== "string" ||
-          typeof message.subject !== "string" ||
-          typeof message.message !== "string"
-        )
-          throw new RequestError("Message not found.");
-        const content = supportReplyEmail({
-          subject: String(message.subject || ""),
-          customerMessage: String(message.message || ""),
-          reply: replyText,
-          language: String(message.language || "en"),
-          origin: config.appOrigin || "https://curbside-eta.vercel.app",
-        });
         const digest = await crypto.subtle.digest(
           "SHA-256",
-          new TextEncoder().encode(`${input.messageId}\n${replyText}`),
+          new TextEncoder().encode(input.messageId + "\n" + replyText),
         );
-        const replyKey = Array.from(new Uint8Array(digest), (b) =>
+        const fingerprint = Array.from(new Uint8Array(digest), (b) =>
           b.toString(16).padStart(2, "0"),
         ).join("");
-        const response = await sendFetch("https://api.resend.com/emails", {
-          method: "POST",
-          signal: AbortSignal.timeout(12000),
-          headers: {
-            Authorization: `Bearer ${config.apiKey}`,
-            "Content-Type": "application/json",
-            "Idempotency-Key": `ticketsafe-support-reply/${replyKey}`,
-          },
-          body: JSON.stringify({
-            from: "TicketSafe Support <support@ezrefillny.net>",
-            reply_to: "support@ezrefillny.net",
-            to: [message.email],
-            subject: content.subject,
-            html: content.html,
-            text: content.text,
-          }),
-        });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok || typeof payload.id !== "string")
-          throw new RequestError(
-            "The reply email was not accepted. Try again.",
-            503,
-          );
-        await rpc("support_reply_record", {
+        const key =
+          fingerprint.slice(0, 8) +
+          "-" +
+          fingerprint.slice(8, 12) +
+          "-4" +
+          fingerprint.slice(13, 16) +
+          "-8" +
+          fingerprint.slice(17, 20) +
+          "-" +
+          fingerprint.slice(20, 32);
+        // Persist the intent and original context before contacting the provider.
+        const prepared = await rpc("support_delivery_prepare", {
           messageId: input.messageId,
           reply: replyText,
+          confirm: true,
+          fingerprint,
+          idempotencyKey: key,
+          origin: config.appOrigin || "https://curbside-eta.vercel.app",
         });
+        const context = prepared.context;
+        const content = supportReplyEmail({
+          subject: String(context.subject || ""),
+          customerMessage: String(context.message || ""),
+          reply: String(prepared.reply),
+          language: String(context.language || "en"),
+          origin: String(context.origin),
+        });
+        const claimed = await rpc("support_delivery_claim", {
+          deliveryId: prepared.deliveryId,
+          content,
+        });
+        if (!claimed.claimed) {
+          if (claimed.status === "completed")
+            return reply({
+              status: "completed",
+              mailStatus: "accepted",
+              replayed: true,
+            });
+          throw new RequestError(
+            "Reply delivery needs review. Check Resend before sending again.",
+            503,
+          );
+        }
+        try {
+          const response = await sendFetch("https://api.resend.com/emails", {
+            method: "POST",
+            signal: AbortSignal.timeout(12000),
+            headers: {
+              Authorization: `Bearer ${config.apiKey}`,
+              "Content-Type": "application/json",
+              "Idempotency-Key": `ticketsafe-support-reply/${prepared.deliveryId}`,
+            },
+            body: JSON.stringify({
+              from: "TicketSafe Support <support@ezrefillny.net>",
+              reply_to: "support@ezrefillny.net",
+              to: [claimed.recipient],
+              subject: claimed.content.subject,
+              html: claimed.content.html,
+              text: claimed.content.text,
+            }),
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok || typeof payload.id !== "string")
+            throw new Error("Provider acceptance is unconfirmed");
+          await rpc("support_delivery_result", {
+            deliveryId: prepared.deliveryId,
+            providerId: payload.id,
+          });
+        } catch {
+          // Leave the durable intent available for reconciliation. Safe retries
+          // reuse frozen content and the same provider key within 22 hours.
+          throw new RequestError(
+            "Reply delivery needs review. Check Resend before sending again.",
+            503,
+          );
+        }
         return reply({ status: "completed", mailStatus: "accepted" });
       }
       if (["account_action", "ticket_test"].includes(action)) {
@@ -468,10 +498,10 @@ export function crmAdminHandler(
             const message = zh
               ? "管理员已删除您的罚单卫士账户。已保存的车辆和私人账户数据已被移除。如非您本人请求，请联系支持。"
               : "An administrator deleted your TicketSafe account. Saved cars and private account data were removed. If you did not request this, contact support.";
-            await notice(claimed.email, subject, message, "deleted");
             const deleted = await admin.auth.admin.deleteUser(input.userId);
             if (deleted.error)
               throw new Error("Account deletion could not be completed.");
+            await notice(claimed.email, subject, message, "deleted");
           }
           if (kind === "ticket_test") {
             const ticket = claimed.ticket || {};

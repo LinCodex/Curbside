@@ -65,6 +65,7 @@ import BotChallenge, {
 import MapPanelControls from "./map-panel-controls";
 import { CookieSettingsButton, useCookieConsent } from "./cookie-consent";
 import { NotificationSettings } from "./notification-settings";
+import MapTicketScroll from "./map-ticket-scroll";
 import AnnouncementSettings from "./announcement-settings";
 import { hasOnboarded, onboardingCookie } from "@/lib/onboarding";
 import {
@@ -122,6 +123,7 @@ export default function Curbside() {
   const [mapSelection, setMapSelection] = useState("");
   const [mapVehicleId, setMapVehicleId] = useState("");
   const [mapFilter, setMapFilter] = useState("all");
+  const [garageFilter, setGarageFilter] = useState("all");
   const [mapBoxMinimized, setMapBoxMinimized] = useState(false);
   const [accountLoading, setAccountLoading] = useState(true);
   const [accountError, setAccountError] = useState(false);
@@ -745,8 +747,12 @@ export default function Curbside() {
   const allHistory = useMemo(
     () =>
       combinedGarageHistory(
-        auth.user?.id && account?.user?.id === auth.user.id ? account?.vehicles || [] : [],
-        auth.user?.id && account?.user?.id === auth.user.id ? account?.tickets || [] : [],
+        auth.user?.id && account?.user?.id === auth.user.id
+          ? account?.vehicles || []
+          : [],
+        auth.user?.id && account?.user?.id === auth.user.id
+          ? account?.tickets || []
+          : [],
       ),
     [account, auth.user?.id],
   );
@@ -765,6 +771,15 @@ export default function Curbside() {
         (t: any) => !activeVehicle || t.vehicleId === activeVehicle.id,
       );
   const tickets: Violation[] = results?.tickets || garageTickets;
+  const visibleGarageTickets = allVehicles
+    ? garageTickets.filter((ticket: Violation) =>
+        garageFilter === "unpaid"
+          ? ticket.due != null && ticket.due > 0
+          : garageFilter === "paid"
+            ? ticket.payments != null && ticket.payments > 0
+            : true,
+      )
+    : garageTickets;
   const searchedVehicle =
     results &&
     vehicles.find(
@@ -964,7 +979,11 @@ export default function Curbside() {
   };
   const garagePending =
     auth.loading || (!!auth.user && (accountLoading || !account));
-  if (!preferencesReady || restoredOwner !== searchOwner || (auth.user && accountLoading))
+  if (
+    !preferencesReady ||
+    restoredOwner !== searchOwner ||
+    (auth.user && accountLoading)
+  )
     return (
       <main
         className="app-startup"
@@ -1358,28 +1377,44 @@ export default function Curbside() {
                 <div className="section-heading">
                   <h2>{tr("Ticket activity")}</h2>
                   <span className="mono muted">
-                    {garageTickets.length.toLocaleString(locale)}{" "}
+                    {visibleGarageTickets.length.toLocaleString(locale)}{" "}
                     {tr("tickets")}
                   </span>
                 </div>
-                {garageTickets.length ? (
+                {allVehicles && (
+                  <div className="garage-ticket-filter">
+                    <CustomSelect
+                      label="Filter saved tickets"
+                      value={garageFilter}
+                      onChange={setGarageFilter}
+                      options={[
+                        { value: "all", label: "All tickets" },
+                        { value: "unpaid", label: "Unpaid tickets" },
+                        { value: "paid", label: "Tickets with payments" },
+                      ]}
+                    />
+                  </div>
+                )}
+                {visibleGarageTickets.length ? (
                   <TicketList
-                    tickets={
-                      allVehicles ? garageTickets : garageTickets.slice(0, 5)
-                    }
+                    tickets={visibleGarageTickets}
                     showPlate={allVehicles}
                     onSelect={openTicket}
                   />
                 ) : (
                   <p className="small muted">
                     {tr(
-                      (
-                        allVehicles
-                          ? allHistory.ready === vehicles.length
-                          : activeVehicle.snapshot
-                      )
-                        ? "No tickets found in the saved history."
-                        : "Preparing your saved history. It will appear here automatically.",
+                      allVehicles &&
+                        garageFilter !== "all" &&
+                        garageTickets.length
+                        ? "No tickets match this filter."
+                        : (
+                              allVehicles
+                                ? allHistory.ready === vehicles.length
+                                : activeVehicle.snapshot
+                            )
+                          ? "No tickets found in the saved history."
+                          : "Preparing your saved history. It will appear here automatically.",
                     )}
                   </p>
                 )}
@@ -1697,11 +1732,13 @@ export default function Curbside() {
                     </button>
                   )}
                   {mapTickets.length ? (
-                    <TicketList
-                      tickets={mapTickets}
-                      onSelect={selectMapTicket}
-                      showPlate={mapScope === "all"}
-                    />
+                    <MapTicketScroll>
+                      <TicketList
+                        tickets={mapTickets}
+                        onSelect={selectMapTicket}
+                        showPlate={mapScope === "all"}
+                      />
+                    </MapTicketScroll>
                   ) : (
                     <div className="empty">
                       <MapPin size={27} />
@@ -1883,13 +1920,6 @@ export default function Curbside() {
                           <ChevronRight size={16} />
                         </button>
                       }
-                      <button
-                        className="button ghost"
-                        onClick={() => void signOut()}
-                      >
-                        <LogOut size={15} />
-                        {tr("Sign out")}
-                      </button>
                       <details>
                         <summary className="small muted">
                           {tr("Account data")}
@@ -1906,6 +1936,13 @@ export default function Curbside() {
                           {tr("Delete my TicketSafe data")}
                         </button>
                       </details>
+                      <button
+                        className="button ghost account-signout"
+                        onClick={() => void signOut()}
+                      >
+                        <LogOut size={15} />
+                        {tr("Sign out")}
+                      </button>
                     </>
                   )}
                 </div>
