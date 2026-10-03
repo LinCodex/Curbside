@@ -152,24 +152,24 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
                 <p>{tr("Your browser privacy signal keeps analytics off.")}</p>
               )}
             </div>
-            <div className="cookie-actions">
+            <div className="privacy-choice-controls" role="group" aria-label={tr("Your privacy choices")}>
               <button
                 type="button"
-                className="cookie-choice"
+                className="privacy-choice-button"
                 onClick={openSettings}
               >
                 {tr("Customize")}
               </button>
               <button
                 type="button"
-                className="cookie-choice cookie-choice-decision"
+                className="privacy-choice-button privacy-choice-decision"
                 onClick={() => save(false)}
               >
                 {tr("Necessary only")}
               </button>
               <button
                 type="button"
-                className="cookie-choice cookie-choice-decision"
+                className="privacy-choice-button privacy-choice-decision"
                 onClick={() => save(true)}
               >
                 {tr("Accept all")}
@@ -250,24 +250,24 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
               </Link>
             </p>
           </div>
-          <div className="cookie-actions">
+          <div className="privacy-choice-controls" role="group" aria-label={tr("Your privacy choices")}>
             <button
               type="button"
-              className="cookie-choice cookie-choice-decision"
+              className="privacy-choice-button privacy-choice-decision"
               onClick={() => save(false)}
             >
               {tr("Necessary only")}
             </button>
             <button
               type="button"
-              className="cookie-choice cookie-choice-decision"
+              className="privacy-choice-button privacy-choice-decision"
               onClick={() => save(true)}
             >
               {tr("Accept all")}
             </button>
             <button
               type="button"
-              className="cookie-choice"
+              className="privacy-choice-button"
               onClick={() => save(draftAnalytics)}
             >
               {tr("Save choices")}

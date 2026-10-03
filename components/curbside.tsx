@@ -67,6 +67,7 @@ import { CookieSettingsButton } from "./cookie-consent";
 import { NotificationSettings } from "./notification-settings";
 import AnnouncementSettings from "./announcement-settings";
 import { hasOnboarded, onboardingCookie } from "@/lib/onboarding";
+import { readSearchNavigation, readSearchResult, writeSearchNavigation, writeSearchResult } from "@/lib/search-session";
 import {
   money,
   STATES,
@@ -126,6 +127,9 @@ export default function Curbside() {
   >("login");
   const [onboardingOpen, setOnboardingOpen] = useState<boolean | null>(null);
   const currentAuthId = useRef<string | undefined>(undefined);
+  const [restoredOwner, setRestoredOwner] = useState<string | null>(null);
+  const searchOwner = auth.user?.id || "guest";
+  const initialRouteView = useRef("");
   useEffect(() => {
     const openLinkedView = () => {
       const linkedView = window.location.hash.slice(1);
@@ -246,6 +250,10 @@ export default function Curbside() {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     const q = new URLSearchParams(location.search);
     const callbackHash = new URLSearchParams(location.hash.slice(1));
+    const requestedView = q.has("auth") || q.has("invite")
+      ? "account"
+      : q.get("view") || location.hash.slice(1);
+    if (nav.some(item => item.id === requestedView)) initialRouteView.current = requestedView;
     if (
       ["signup", "email"].includes(callbackHash.get("type") || "") ||
       (callbackHash.has("error_code") && q.get("auth") !== "recovery" && callbackHash.get("type") !== "recovery")
@@ -407,6 +415,65 @@ export default function Curbside() {
       alive = false;
     };
   }, [auth.user?.id, api, notify]);
+  useEffect(() => {
+    if (auth.loading || restoredOwner === searchOwner) return;
+    let alive = true;
+    queueMicrotask(() => {
+      if (!alive) return;
+      let restored = null;
+      let navigation = null;
+      try {
+        restored = readSearchResult(sessionStorage, searchOwner);
+        navigation = readSearchNavigation(sessionStorage, searchOwner);
+      } catch { /* Storage can be unavailable in restricted browser modes. */ }
+      // Carry a guest's public search through sign-in; isolate changes between profiles.
+      if (restoredOwner !== "guest") setResults(restored);
+      if (navigation) {
+        const linkedView = new URLSearchParams(location.search).get("view") || location.hash.slice(1);
+        if (!initialRouteView.current && !nav.some(item => item.id === linkedView)) setView(navigation.view);
+        setPlate(navigation.plate);
+        setState(navigation.state);
+        setPlateType(navigation.plateType);
+        setHistory(navigation.history);
+        setFilter(navigation.filter);
+        setVehicleId(navigation.vehicleId);
+        setMapVehicleId(navigation.mapVehicleId);
+        setMapFilter(navigation.mapFilter);
+        setMapSelection(navigation.mapSelection);
+        setMapBoxMinimized(navigation.mapBoxMinimized);
+      } else if (restoredOwner && restoredOwner !== "guest") {
+        setPlate("");
+        setState("NY");
+        setPlateType("");
+        setFilter("all");
+        setMapVehicleId("");
+        setMapFilter("all");
+        setMapSelection("");
+        setMapBoxMinimized(false);
+      }
+      setRestoredOwner(searchOwner);
+    });
+    return () => { alive = false; };
+  }, [auth.loading, restoredOwner, searchOwner]);
+  useEffect(() => {
+    if (auth.loading || restoredOwner !== searchOwner) return;
+    try {
+      if (!writeSearchResult(sessionStorage, searchOwner, results) && results)
+        queueMicrotask(() => notify(tr("Your browser could not remember this search for refresh.")));
+    } catch { /* Searching still works when browser storage is blocked. */ }
+  }, [auth.loading, restoredOwner, searchOwner, results, notify, tr]);
+  useEffect(() => {
+    if (auth.loading || restoredOwner !== searchOwner) return;
+    const query = new URLSearchParams(location.search);
+    query.set("view", view);
+    window.history.replaceState(window.history.state, "", location.pathname + "?" + query.toString() + location.hash);
+    try {
+      writeSearchNavigation(sessionStorage, searchOwner, {
+        view, plate, state, plateType, history, filter, vehicleId,
+        mapVehicleId, mapFilter, mapSelection, mapBoxMinimized,
+      });
+    } catch { /* Preserve the view URL even without browser storage. */ }
+  }, [auth.loading, restoredOwner, searchOwner, view, plate, state, plateType, history, filter, vehicleId, mapVehicleId, mapFilter, mapSelection, mapBoxMinimized]);
   useEffect(() => {
     if (config.hcaptchaKey || !config.turnstileKey || !challengeEl.current)
       return;
@@ -1247,9 +1314,11 @@ export default function Curbside() {
                         <span>
                           <Clock3 size={13} />
                           {tr("Checked")}{" "}
-                          {new Date(results.checkedAt).toLocaleTimeString(
+                          {new Date(results.checkedAt).toLocaleString(
                             locale === "zh" ? "zh-CN" : "en-US",
                             {
+                              month: "short",
+                              day: "numeric",
                               hour: "numeric",
                               minute: "2-digit",
                             },

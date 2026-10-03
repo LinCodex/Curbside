@@ -49,14 +49,16 @@ body:has(.modal-backdrop, dialog[open]) .cookie-banner {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.cookie-actions {
+.privacy-choice-controls {
   display: flex;
   flex-shrink: 0;
+  min-height: 44px;
+  visibility: visible;
   align-items: stretch;
   flex-wrap: wrap;
   gap: 10px;
 }
-.cookie-choice {
+.privacy-choice-button {
   min-height: 44px;
   padding: 10px 16px;
   border: 1px solid var(--line);
@@ -67,15 +69,15 @@ body:has(.modal-backdrop, dialog[open]) .cookie-banner {
   font-weight: 650;
   white-space: nowrap;
 }
-.cookie-choice-decision {
+.privacy-choice-decision {
   background: var(--accent-fill);
   border-color: var(--accent-fill);
   color: white;
 }
-.cookie-choice:hover {
+.privacy-choice-button:hover {
   filter: brightness(1.1);
 }
-.cookie-choice:focus-visible,
+.privacy-choice-button:focus-visible,
 .cookie-close:focus-visible,
 .cookie-settings-link:focus-visible {
   outline: 2px solid var(--blue);
@@ -115,7 +117,7 @@ body:has(.modal-backdrop, dialog[open]) .cookie-banner {
   padding-inline: 4px;
   margin-inline: -4px;
 }
-.cookie-dialog > .cookie-actions {
+.cookie-dialog > .privacy-choice-controls {
   padding-top: 20px;
 }
 .cookie-dialog:not([open]) {
@@ -277,25 +279,25 @@ body:has(.modal-backdrop, dialog[open]) .cookie-banner {
     gap: 14px;
     max-height: calc(100svh - max(12px, env(safe-area-inset-top, 0px)) - max(12px, env(safe-area-inset-bottom, 0px)));
   }
-  .cookie-banner .cookie-actions {
+  .cookie-banner .privacy-choice-controls {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     width: 100%;
   }
-  .cookie-banner .cookie-actions > :first-child {
+  .cookie-banner .privacy-choice-controls > :first-child {
     grid-column: 1 / -1;
   }
-  .cookie-choice {
+  .privacy-choice-button {
     padding: 10px 12px;
   }
   .cookie-dialog {
     padding: 22px;
   }
-  .cookie-dialog .cookie-actions {
+  .cookie-dialog .privacy-choice-controls {
     display: grid;
     grid-template-columns: 1fr 1fr;
   }
-  .cookie-dialog .cookie-actions > :last-child {
+  .cookie-dialog .privacy-choice-controls > :last-child {
     grid-column: 1 / -1;
   }
 }

@@ -1,7 +1,7 @@
 // Historical database consent version: never rewrite existing acceptance records.
 export const LEGAL_VERSION = "2026-09-27.1";
-export const PRIVACY_VERSION = "2026-10-02.4";
-export const LEGAL_DISPLAY_REVISION = "2026-10-02.4";
+export const PRIVACY_VERSION = "2026-10-03.1";
+export const LEGAL_DISPLAY_REVISION = "2026-10-03.1";
 export const OPERATOR = {
   name: "Flushing NY Wireless",
   address: "136-78 Roosevelt Ave, Flushing, NY, United States",
@@ -110,7 +110,7 @@ export const legalDocuments: Record<string, LegalDocument> = {
           "The necessary ticketsafe_consent cookie records your optional analytics choice, the consent-purpose version and the decision time for 180 days. It contains no account identifier or advertising identifier. We remember acceptance and refusal equally and do not renew this period on ordinary visits. We ask again after expiry, clearing cookies or a change to optional purposes or providers. Choices apply to this browser and site address; another browser, device or domain has its own storage.",
           "The first notice offers Customize, Necessary only and Accept all. Analytics is not preselected for a first visit. You can withdraw or change your choice through Cookie settings in the page footer, Account or the privacy pages. Withdrawal blocks future analytics events immediately; it does not erase information already processed or affect necessary features. Closing the choices without saving leaves the previous choice unchanged, or keeps analytics off if no choice exists. If your browser blocks saving the choice, analytics stays off.",
           "Necessary storage supports sign-in, search security, your privacy choice and functionality you request, such as remembering display settings. Guest display settings stay in device storage and do not require a Supabase account. Optional analytics consent is separate from account terms acceptance and new-ticket email subscriptions. Refusing analytics does not prevent searching, signing in, saving vehicles or using maps.",
-          "The installable app caches public fonts, icons, an offline page and decorative map assets. It does not cache private account responses or ticket searches for offline access. TicketSafe does not request your precise device GPS location.",
+          "The installable app caches public fonts, icons, an offline page and decorative map assets. Your current view, filters and returned city records are kept in this tab's session storage to restore your search after refresh. Search records are separated by profile and cleared on sign-out or when you clear browser session data. Restored records retain their original source and check timestamps. Temporary Mapbox matches and private account responses are not stored in this search cache. TicketSafe does not request your precise device GPS location.",
         ],
       },
       {

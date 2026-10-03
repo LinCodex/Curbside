@@ -22,6 +22,10 @@
 .app .map-panel-navigation {
   justify-content: space-between;
 }
+.app .map-panel-step-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 
 .app .map-panel-heading h2 {
   font-size: 16px;
