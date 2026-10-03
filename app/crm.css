@@ -938,6 +938,7 @@ html[data-theme="light"] .crm-state-bad {
 .crm-entry-card h1 {
   font-size: 23px;
   margin-top: 8px;
+  letter-spacing: -0.6px;
 }
 .crm-entry-card > p:not(.crm-eyebrow) {
   font-size: 13px;
@@ -952,6 +953,10 @@ html[data-theme="light"] .crm-state-bad {
   min-height: 44px;
   color: var(--muted);
   margin-top: 14px;
+}
+.crm-entry .crm-footer {
+  margin-top: 20px;
+  padding-top: 14px;
 }
 .crm-login-form {
   display: grid;
