@@ -44,6 +44,7 @@ body {
   --gutter: clamp(24px, 4vw, 64px);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --mobile-dock-clearance: calc(86px + var(--safe-bottom));
   --header-height: 84px;
 }
 .app-header {
@@ -721,6 +722,24 @@ html[data-theme="light"] .toast {
   color: var(--text);
   box-shadow: var(--shadow);
   border-radius: 14px;
+}
+.app .toast {
+  bottom: calc(24px + var(--safe-bottom));
+  width: max-content;
+  max-width: calc(100vw - 40px);
+  overflow-wrap: anywhere;
+  text-align: center;
+  pointer-events: none;
+}
+@media (max-width: 800px) {
+  .app .toast {
+    /* Reserve the dock's space even while it is animating or temporarily hidden. */
+    bottom: calc(var(--mobile-dock-clearance) + 12px);
+  }
+  .app .mobile-nav,
+  html[data-theme="light"] .app .mobile-nav {
+    bottom: calc(12px + var(--safe-bottom));
+  }
 }
 .view-enter {
   animation: instrument-enter 220ms var(--ease-out) both;
@@ -2175,7 +2194,7 @@ html[data-theme="light"] .account-page .account-legal-item-icon {
 /* One clearance budget for the fixed dock; never stack footer and page padding. */
 @media (max-width: 800px) {
   .app .main-view:not(.view-map) {
-    padding-bottom: calc(86px + var(--safe-bottom));
+    padding-bottom: var(--mobile-dock-clearance);
     min-height: calc(100dvh - var(--header-height));
   }
   .main-view:not(.view-map) .content-page {
@@ -2722,7 +2741,7 @@ html[data-theme="light"] .legal-section-links a[aria-current="location"] {
     flex: 1 1 0;
     height: auto;
     min-height: 0;
-    padding-bottom: calc(86px + var(--safe-bottom)) !important;
+    padding-bottom: var(--mobile-dock-clearance) !important;
   }
   .app[data-view="map"] .map-scene {
     display: grid;
