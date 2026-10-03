@@ -177,7 +177,7 @@ html[data-theme="light"] .app .garage-add-action {
   .desktop-workspace .account-workspace-panels {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-rows: auto auto;
+    grid-template-rows: max-content max-content;
     align-content: start;
     align-items: start;
     min-height: 0;
