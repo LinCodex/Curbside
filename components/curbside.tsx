@@ -289,22 +289,33 @@ export default function Curbside() {
           travel: 0,
         });
       });
-    setDockHidden(false);
+    let hidden = false;
+    const reveal = () => {
+      hidden = false;
+      setDockHidden(false);
+    };
     let frame = 0;
     let source: HTMLElement | null = null;
     const update = () => {
       frame = 0;
       const target = source || document;
-      const y = Math.max(0, source ? source.scrollTop : window.scrollY);
-      const max = source
-        ? source.scrollHeight - source.clientHeight
-        : document.documentElement.scrollHeight - window.innerHeight;
+      const max = Math.max(
+        0,
+        source
+          ? source.scrollHeight - source.clientHeight
+          : document.documentElement.scrollHeight - window.innerHeight,
+      );
+      // Clamp both edges so elastic scrolling cannot reverse the dock animation.
+      const y = Math.min(
+        max,
+        Math.max(0, source ? source.scrollTop : window.scrollY),
+      );
       const previous = positions.get(target) || { y: 0, travel: 0 };
       const delta = y - previous.y;
-      const travel =
-        Math.sign(delta) === Math.sign(previous.travel)
-          ? previous.travel + delta
-          : delta;
+      // Accumulate net travel rather than treating tiny reversals as a new gesture.
+      const travel = hidden
+        ? Math.min(0, previous.travel + delta)
+        : Math.max(0, previous.travel + delta);
       positions.set(target, { y, travel });
       // Keep keyboard navigation visible and ignore Safari overscroll edges.
       if (
@@ -314,11 +325,15 @@ export default function Curbside() {
           ".desktop-nav button:focus-visible, .mobile-nav button:focus-visible",
         )
       ) {
-        setDockHidden(false);
-      } else if (travel >= 96 && y > 60) {
-        setDockHidden(true);
-      } else if (travel < -12) {
-        setDockHidden(false);
+        reveal();
+        positions.set(target, { y, travel: 0 });
+      } else if (
+        (!hidden && travel >= 80 && y > 60) ||
+        (hidden && travel <= -24)
+      ) {
+        hidden = !hidden;
+        setDockHidden(hidden);
+        positions.set(target, { y, travel: 0 });
       }
     };
     const onScroll = (event: Event) => {
@@ -856,13 +871,15 @@ export default function Curbside() {
           ))}
         </nav>
         <div className="header-right">
-          <button
-            className="round-control"
-            onClick={() => go("account")}
-            aria-label={tr("Account settings")}
-          >
-            <UserRound size={19} />
-          </button>
+          {view !== "account" && (
+            <button
+              className="round-control"
+              onClick={() => go("account")}
+              aria-label={tr("Account settings")}
+            >
+              <UserRound size={19} />
+            </button>
+          )}
         </div>
       </header>
       {offline && (
