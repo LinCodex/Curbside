@@ -2,6 +2,7 @@
 
 import { Select } from "radix-ui";
 import { Check, ChevronDown, ChevronUp } from "lucide-react";
+import { useCallback, useState } from "react";
 
 const emptyValue = "__crm_all__";
 
@@ -18,24 +19,35 @@ export default function CrmSelect({
   label: string;
   disabled?: boolean;
 }) {
+  const [portalContainer, setPortalContainer] =
+    useState<HTMLDialogElement | null>(null);
+  const attachTrigger = useCallback((node: HTMLButtonElement | null) => {
+    // Native modal dialogs make portals outside their top layer inert.
+    setPortalContainer(node?.closest("dialog") || null);
+  }, []);
   return (
     <Select.Root
       value={value || emptyValue}
       onValueChange={(next) => onChange(next === emptyValue ? "" : next)}
       disabled={disabled}
     >
-      <Select.Trigger className="crm-select-trigger" aria-label={label}>
+      <Select.Trigger
+        ref={attachTrigger}
+        className="crm-select-trigger"
+        aria-label={label}
+      >
         <Select.Value />
         <Select.Icon>
           <ChevronDown size={16} />
         </Select.Icon>
       </Select.Trigger>
-      <Select.Portal>
+      <Select.Portal container={portalContainer || undefined}>
         <Select.Content
           className="crm-select-menu"
           position="popper"
           sideOffset={6}
           collisionPadding={12}
+          onEscapeKeyDown={(event) => event.stopPropagation()}
         >
           <Select.ScrollUpButton className="crm-select-scroll">
             <ChevronUp size={16} />
