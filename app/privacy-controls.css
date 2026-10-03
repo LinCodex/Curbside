@@ -4,6 +4,8 @@
   bottom: 24px;
   left: 24px;
   right: 24px;
+  max-height: calc(100dvh - 48px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  overflow: hidden;
   display: flex;
   align-items: center;
   gap: 28px;
@@ -15,9 +17,16 @@
   box-shadow: 0 16px 60px #0004;
   animation: cookie-appear 220ms ease-out both;
 }
+/* Let the active app dialog finish before asking for a privacy choice. */
+body:has(.modal-backdrop) .cookie-banner {
+  display: none;
+}
 .cookie-banner-copy {
   flex: 1;
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .cookie-banner h2 {
   display: flex;
@@ -42,6 +51,7 @@
 }
 .cookie-actions {
   display: flex;
+  flex-shrink: 0;
   align-items: stretch;
   flex-wrap: wrap;
   gap: 10px;
@@ -72,9 +82,12 @@
   outline-offset: 3px;
 }
 .cookie-dialog {
+  position: fixed;
+  inset: max(24px, env(safe-area-inset-top, 0px)) 16px max(24px, env(safe-area-inset-bottom, 0px));
+  margin: auto;
   width: min(600px, calc(100% - 32px));
-  max-height: calc(100dvh - 48px);
-  overflow: auto;
+  max-height: calc(100dvh - max(24px, env(safe-area-inset-top, 0px)) - max(24px, env(safe-area-inset-bottom, 0px)));
+  overflow: hidden;
   overscroll-behavior: contain;
   padding: 28px;
   border: 1px solid var(--line);
@@ -89,6 +102,20 @@
     transform 180ms ease,
     display 180ms allow-discrete,
     overlay 180ms allow-discrete;
+}
+.cookie-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.cookie-dialog-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-inline: 4px;
+  margin-inline: -4px;
+}
+.cookie-dialog > .cookie-actions {
+  padding-top: 20px;
 }
 .cookie-dialog:not([open]) {
   opacity: 0;
@@ -116,6 +143,7 @@
 }
 .cookie-dialog-heading {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
@@ -161,7 +189,7 @@
   accent-color: var(--accent-fill);
 }
 .cookie-dialog .cookie-remember {
-  margin: 20px 0;
+  margin: 20px 0 0;
 }
 .cookie-dialog .cookie-signal {
   margin-top: 12px;
@@ -244,8 +272,7 @@
     bottom: calc(104px + env(safe-area-inset-bottom, 0px));
     padding: 18px;
     gap: 14px;
-    max-height: calc(100dvh - 140px);
-    overflow: auto;
+    max-height: calc(100dvh - 120px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   }
   .cookie-banner .cookie-actions {
     display: grid;

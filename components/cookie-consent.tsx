@@ -203,51 +203,53 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
               <X size={20} />
             </button>
           </div>
-          <p>
-            {tr(
-              "Choose how TicketSafe uses cookies and similar technologies. You can change this anytime.",
-            )}
-          </p>
-          <div className="cookie-purpose">
-            <div>
-              <strong>{tr("Strictly necessary")}</strong>
-              <p>
-                {tr(
-                  "Sign-in, security, your privacy choice, and settings you ask us to remember. These keep the service working.",
-                )}
-              </p>
-            </div>
-            <span className="cookie-always-on">{tr("Always on")}</span>
-          </div>
-          <label className="cookie-purpose cookie-analytics">
-            <div>
-              <strong>{tr("Analytics")}</strong>
-              <p>
-                {tr(
-                  "Vercel Analytics and Speed Insights measure public visits and page performance. No advertising cookies or private vehicle details.",
-                )}
-              </p>
-            </div>
-            <input
-              type="checkbox"
-              checked={draftAnalytics && !signal}
-              onChange={(event) => setDraftAnalytics(event.target.checked)}
-              disabled={signal}
-            />
-          </label>
-          {signal && (
-            <p className="cookie-signal">
-              {tr("Your browser privacy signal keeps analytics off.")}
+          <div className="cookie-dialog-body">
+            <p>
+              {tr(
+                "Choose how TicketSafe uses cookies and similar technologies. You can change this anytime.",
+              )}
             </p>
-          )}
-          <p className="cookie-remember">
-            {tr(
-              "We remember your choice in this browser for six months, unless you clear cookies or our optional uses change.",
-            )}{" "}
-            <Link href="/legal/privacy" onClick={() => setSettingsOpen(false)}>
-              {tr("Privacy policy")}
-            </Link>
-          </p>
+            <div className="cookie-purpose">
+              <div>
+                <strong>{tr("Strictly necessary")}</strong>
+                <p>
+                  {tr(
+                    "Sign-in, security, your privacy choice, and settings you ask us to remember. These keep the service working.",
+                  )}
+                </p>
+              </div>
+              <span className="cookie-always-on">{tr("Always on")}</span>
+            </div>
+            <label className="cookie-purpose cookie-analytics">
+              <div>
+                <strong>{tr("Analytics")}</strong>
+                <p>
+                  {tr(
+                    "Vercel Analytics and Speed Insights measure public visits and page performance. No advertising cookies or private vehicle details.",
+                  )}
+                </p>
+              </div>
+              <input
+                type="checkbox"
+                checked={draftAnalytics && !signal}
+                onChange={(event) => setDraftAnalytics(event.target.checked)}
+                disabled={signal}
+              />
+            </label>
+            {signal && (
+              <p className="cookie-signal">
+                {tr("Your browser privacy signal keeps analytics off.")}
+              </p>
+            )}
+            <p className="cookie-remember">
+              {tr(
+                "We remember your choice in this browser for six months, unless you clear cookies or our optional uses change.",
+              )}{" "}
+              <Link href="/legal/privacy" onClick={() => setSettingsOpen(false)}>
+                {tr("Privacy policy")}
+              </Link>
+            </p>
+          </div>
           <div className="cookie-actions">
             <button
               type="button"
