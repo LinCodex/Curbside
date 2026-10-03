@@ -87,7 +87,7 @@ function NotificationSettingsState({
       <h3>{tr("Ticket notifications")}</h3>
       <p>
         {tr(
-          "Daily email when newly found tickets appear for your saved cars. No balance-change emails. Your first complete check establishes a baseline and sends no alerts.",
+          "Daily alerts for new tickets on saved vehicles.",
         )}
       </p>
       <label>
@@ -104,22 +104,17 @@ function NotificationSettingsState({
       <p>
         {available === true
           ? tr(
-              "Sent to your verified account email. You can turn this off here or unsubscribe from an email.",
+              "Sent to your account email. Unsubscribe anytime.",
             )
           : available === false
             ? tr(
-                "Email delivery is unavailable while the sender is being configured. No ticket emails are being sent.",
+                "Email notifications are unavailable.",
               )
             : tr("Checking email delivery availability…")}
       </p>
       {!legalAccepted && (
         <p>{tr("Accept the current terms before enabling ticket emails.")}</p>
       )}
-      <p>
-        {tr(
-          "Emails include your saved vehicle, new-ticket details, reported balances, available location maps, and official NYC payment links. Only saved vehicles are monitored.",
-        )}
-      </p>
       <p>{tr("SMS notifications are unavailable.")}</p>
       {loading && <p role="status">{tr("Loading email preferences…")}</p>}
       {saving && <p role="status">{tr("Saving email preferences…")}</p>}

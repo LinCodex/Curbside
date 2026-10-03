@@ -14,7 +14,10 @@ import {
 import styles from "./auth-panel.module.css";
 import { usePreferences } from "./preferences";
 import { useSupabaseAccount } from "./use-supabase-account";
-import BotChallenge from "./bot-challenge";
+import BotChallenge, {
+  CaptchaDisclosure,
+  type ChallengeHandle,
+} from "./bot-challenge";
 import {
   meetsPasswordRequirement,
   PASSWORD_REQUIREMENT,
@@ -30,6 +33,8 @@ export function signupNeedsSignIn(
     (!!user && Array.isArray(user.identities) && user.identities.length === 0)
   );
 }
+class SecurityCheckError extends Error {}
+const ignoreToken = () => {};
 
 export default function AuthPanel({
   client,
@@ -46,7 +51,7 @@ export default function AuthPanel({
 }) {
   const { tr, savedPreferences } = usePreferences();
   const captchaKey = useSupabaseAccount().configuration.hcaptchaKey;
-  const [captchaToken, setCaptchaToken] = useState("");
+  const challenge = useRef<ChallengeHandle>(null);
   const [captchaReset, setCaptchaReset] = useState(0);
   const [mode, setMode] = useState<"login" | "register" | "reset">(initialMode);
   const [busy, setBusy] = useState(false);
@@ -58,11 +63,21 @@ export default function AuthPanel({
   const [stage, setStage] = useState<"form" | "confirmation" | "existing">(
     "form",
   );
-  const [showResendChallenge, setShowResendChallenge] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const emailInput = useRef<HTMLInputElement>(null);
   const [resendAt, setResendAt] = useState(0);
   const [remaining, setRemaining] = useState(0);
+  const freshChallenge = async () => {
+    if (!captchaKey) return undefined;
+    try {
+      if (!challenge.current) throw new Error("Challenge unavailable");
+      return await challenge.current.execute();
+    } catch {
+      throw new SecurityCheckError(
+        tr("Security check failed. Please try again."),
+      );
+    }
+  };
   const rememberSent = (email: string) => {
     const until = Date.now() + 60_000;
     setResendAt(until);
@@ -77,7 +92,6 @@ export default function AuthPanel({
   const pendingConfirmation = (email: string) => {
     setPendingEmail(email);
     setStage("confirmation");
-    setShowResendChallenge(false);
     try {
       setResendAt(
         Number(
@@ -102,15 +116,12 @@ export default function AuthPanel({
   }, [pendingEmail, resendAt]);
   const resend = async () => {
     if (busy || remaining > 0 || !pendingEmail) return;
-    if (captchaKey && !captchaToken) {
-      setError(tr("Complete the security check."));
-      return;
-    }
     setBusy(true);
     setError("");
     setMessage("");
-    rememberSent(pendingEmail);
     try {
+      const captchaToken = await freshChallenge();
+      rememberSent(pendingEmail);
       const result = await client.auth.resend({
         type: "signup",
         email: pendingEmail,
@@ -123,18 +134,15 @@ export default function AuthPanel({
         setError(
           tr("Could not resend yet. Please wait a minute and try again."),
         );
-      else
-        setMessage(
-          tr(
-            "If confirmation is still needed, a fresh link will arrive by email. Check your inbox and spam folder.",
-          ),
-        );
-    } catch {
-      setError(tr("Could not connect. Check your connection and try again."));
+      else setMessage(tr("Check your inbox for a verification link."));
+    } catch (err) {
+      setError(
+        err instanceof SecurityCheckError
+          ? err.message
+          : tr("Could not connect. Check your connection and try again."),
+      );
     } finally {
       setBusy(false);
-      setShowResendChallenge(false);
-      setCaptchaToken("");
       setCaptchaReset((value) => value + 1);
     }
   };
@@ -144,10 +152,6 @@ export default function AuthPanel({
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email") || "").trim();
     const password = String(form.get("password") || "");
-    if (!recovering && captchaKey && !captchaToken) {
-      setError(tr("Complete the security check."));
-      return;
-    }
     if (
       (recovering || mode === "register") &&
       !meetsPasswordRequirement(password)
@@ -160,6 +164,7 @@ export default function AuthPanel({
     setError("");
     setMessage("");
     try {
+      const captchaToken = recovering ? undefined : await freshChallenge();
       const result = recovering
         ? await client.auth.updateUser({ password })
         : mode === "register"
@@ -215,9 +220,7 @@ export default function AuthPanel({
         onComplete();
       } else if (mode === "reset")
         setMessage(
-          tr(
-            "If an account exists, a password reset link will arrive by email. Check your inbox and spam folder.",
-          ),
+          tr("If you have an account, check your inbox for a reset link."),
         );
       else if (mode === "register") {
         const user =
@@ -233,11 +236,14 @@ export default function AuthPanel({
           rememberSent(email);
         } else onComplete();
       } else onComplete();
-    } catch {
-      setError(tr("Could not connect. Check your connection and try again."));
+    } catch (err) {
+      setError(
+        err instanceof SecurityCheckError
+          ? err.message
+          : tr("Could not connect. Check your connection and try again."),
+      );
     } finally {
       setBusy(false);
-      setCaptchaToken("");
       setCaptchaReset((value) => value + 1);
     }
   };
@@ -245,8 +251,6 @@ export default function AuthPanel({
     setEmail(pendingEmail);
     setMode(next);
     setStage("form");
-    setShowResendChallenge(false);
-    setCaptchaToken("");
     setCaptchaReset((value) => value + 1);
     setError("");
     setMessage("");
@@ -275,22 +279,10 @@ export default function AuthPanel({
         <p className={styles.explanation}>
           {tr(
             existing
-              ? "We can’t complete a new signup with this email. If you already have an account, sign in or reset your password."
-              : "Open the verification link in your email, then come back and sign in. Check your spam folder too.",
+              ? "This email is already registered. Sign in or reset your password."
+              : "Confirm your email, then sign in.",
           )}
         </p>
-        {!existing && (
-          <div className={styles.steps}>
-            <span>
-              <span>1</span>
-              {tr("Verify your email")}
-            </span>
-            <span>
-              <span>2</span>
-              {tr("Sign in to your garage")}
-            </span>
-          </div>
-        )}
         {error && (
           <p className="notice error" role="alert">
             {error}
@@ -320,56 +312,33 @@ export default function AuthPanel({
           </button>
         ) : (
           <div className={styles.resend}>
-            {showResendChallenge && captchaKey ? (
-              <>
-                <BotChallenge
-                  siteKey={captchaKey}
-                  onToken={setCaptchaToken}
-                  resetKey={captchaReset}
-                />
-                <button
-                  type="button"
-                  className="button secondary"
-                  disabled={busy || !captchaToken}
-                  onClick={resend}
-                >
-                  {busy && <LoaderCircle className="spin" size={16} />}
-                  {tr("Send another verification email")}
-                </button>
-                <button
-                  type="button"
-                  className="text-link"
-                  disabled={busy}
-                  onClick={() => {
-                    setShowResendChallenge(false);
-                    setCaptchaToken("");
-                  }}
-                >
-                  {tr("Cancel")}
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                className="text-link"
-                disabled={busy || remaining > 0}
-                onClick={() => {
-                  if (captchaKey) {
-                    setCaptchaToken("");
-                    setShowResendChallenge(true);
-                  } else void resend();
-                }}
-              >
-                {remaining > 0 ? (
-                  <>
-                    {tr("Resend available in")} {remaining}
-                    {tr("s")}
-                  </>
-                ) : (
-                  tr("Resend verification email")
-                )}
-              </button>
+            {captchaKey && (
+              <BotChallenge
+                ref={challenge}
+                siteKey={captchaKey}
+                mode="invisible"
+                showDisclosure={false}
+                onToken={ignoreToken}
+                resetKey={captchaReset}
+              />
             )}
+            <button
+              type="button"
+              className="text-link"
+              disabled={busy || remaining > 0}
+              onClick={() => void resend()}
+            >
+              {busy ? (
+                tr("Verifying…")
+              ) : remaining > 0 ? (
+                <>
+                  {tr("Resend available in")} {remaining}
+                  {tr("s")}
+                </>
+              ) : (
+                tr("Resend verification email")
+              )}
+            </button>
           </div>
         )}
         <button
@@ -380,11 +349,7 @@ export default function AuthPanel({
         >
           {tr(existing ? "Use a different email" : "Change email")}
         </button>
-        <p className={styles.footnote}>
-          {tr(
-            "Your garage stays private. Email verification is required to sign in.",
-          )}
-        </p>
+        {captchaKey && <CaptchaDisclosure />}
       </section>
     );
   }
@@ -496,7 +461,10 @@ export default function AuthPanel({
         {!recovering && captchaKey && (
           <BotChallenge
             siteKey={captchaKey}
-            onToken={setCaptchaToken}
+            onToken={ignoreToken}
+            ref={challenge}
+            mode="invisible"
+            showDisclosure={false}
             resetKey={captchaReset}
           />
         )}
@@ -517,6 +485,7 @@ export default function AuthPanel({
           )}
         </button>
       </form>
+      {!recovering && captchaKey && <CaptchaDisclosure />}
       {!recovering && (
         <button
           className="text-link"
@@ -530,9 +499,6 @@ export default function AuthPanel({
           {tr(mode === "reset" ? "Back to sign in" : "Forgot password?")}
         </button>
       )}
-      <p className="small muted">
-        {tr("Save your cars and view their city-reported ticket history.")}
-      </p>
       <p className="consent-links">
         <a href="/legal/terms" target="_blank" rel="noreferrer">
           {tr("Terms of Service")}

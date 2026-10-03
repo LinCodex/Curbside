@@ -24,6 +24,25 @@ declare global {
   }
 }
 let loading: Promise<CaptchaSDK> | null = null;
+export function CaptchaDisclosure() {
+  const { tr } = usePreferences();
+  return (
+    <p className="security-disclosure">
+      {tr("Protected by hCaptcha.")}{" "}
+      <a
+        href="https://www.hcaptcha.com/privacy"
+        target="_blank"
+        rel="noreferrer"
+      >
+        {tr("Privacy")}
+      </a>
+      {" · "}
+      <a href="https://www.hcaptcha.com/terms" target="_blank" rel="noreferrer">
+        {tr("Terms")}
+      </a>
+    </p>
+  );
+}
 function loadSDK() {
   if (loading) return loading;
   if (window.hcaptcha) return Promise.resolve(window.hcaptcha);
@@ -63,6 +82,7 @@ export default function BotChallenge({
   resetKey = 0,
   mode = "visible",
   verifiedUntil = null,
+  showDisclosure = true,
   ref,
 }: {
   siteKey: string;
@@ -70,6 +90,7 @@ export default function BotChallenge({
   resetKey?: number;
   mode?: "visible" | "invisible";
   verifiedUntil?: number | null;
+  showDisclosure?: boolean;
   ref?: Ref<ChallengeHandle>;
 }) {
   const { tr, locale, resolvedTheme } = usePreferences();
@@ -124,11 +145,7 @@ export default function BotChallenge({
           if (!result.response) throw new Error("Missing verification token");
           return result.response;
         } catch {
-          throw new Error(
-            tr(
-              "Security check could not complete. Please try searching again.",
-            ),
-          );
+          throw new Error(tr("Security check failed. Please try again."));
         } finally {
           inFlight.current = false;
           setExecuting(false);
@@ -207,63 +224,40 @@ export default function BotChallenge({
     <div
       className="bot-challenge"
       data-mode={mode}
+      data-disclosure={showDisclosure}
       data-verified={verified || !!verifiedUntil}
     >
-      <div className="bot-challenge-heading">
-        <ShieldCheck size={17} aria-hidden="true" />
-        <span>
-          {tr(
-            mode === "invisible"
-              ? "Automatic security check"
-              : "Security check",
-          )}
-        </span>
-        <small role="status">
-          {(verified || verifiedUntil) && (
-            <Check size={12} aria-hidden="true" />
-          )}
-          {tr(
-            executing
-              ? "Verifying…"
-              : verifiedUntil
-                ? "Ready"
-                : verified
-                  ? "Verified"
-                  : mode === "invisible"
-                    ? "On search"
-                    : "Required",
-          )}
-        </small>
-      </div>
-      <div className="bot-challenge-widget" data-size={size} ref={container} />
-      {mode === "invisible" && (
-        <p className="security-disclosure">
-          {tr(
-            verifiedUntil
-              ? "Recent verification is valid. Protection stays active for every search."
-              : "Runs when you search. A challenge appears only when required.",
-          )}
+      {showDisclosure && (
+        <div className="bot-challenge-heading">
+          <ShieldCheck size={17} aria-hidden="true" />
           <span>
-            {tr("Protected by hCaptcha.")}{" "}
-            <a
-              href="https://www.hcaptcha.com/privacy"
-              target="_blank"
-              rel="noreferrer"
-            >
-              {tr("Privacy")}
-            </a>
-            {" · "}
-            <a
-              href="https://www.hcaptcha.com/terms"
-              target="_blank"
-              rel="noreferrer"
-            >
-              {tr("Terms")}
-            </a>
+            {tr(
+              mode === "invisible"
+                ? "Automatic security check"
+                : "Security check",
+            )}
           </span>
-        </p>
+          <small role="status">
+            {(verified || verifiedUntil) && (
+              <Check size={12} aria-hidden="true" />
+            )}
+            {tr(
+              executing
+                ? "Verifying…"
+                : verifiedUntil
+                  ? "Ready"
+                  : verified
+                    ? "Verified"
+                    : mode === "invisible"
+                      ? ""
+                      : "Required",
+            )}
+          </small>
+        </div>
       )}
-      {!ready && !failure && (
+      <div className="bot-challenge-widget" data-size={size} ref={container} />
+      {mode === "invisible" && showDisclosure && <CaptchaDisclosure />}
+      {mode === "visible" && showDisclosure && !ready && !failure && (
         <p className="bot-challenge-loading" role="status">
           {tr("Loading security check…")}
         </p>

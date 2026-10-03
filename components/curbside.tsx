@@ -57,6 +57,7 @@ import { FREE_ACCESS } from "@/lib/release";
 import { LEGAL_VERSION } from "@/lib/legal";
 import { useAccount } from "./account-provider";
 import AuthPanel from "./auth-panel";
+import PopupPresence from "./popup-presence";
 import AccountDetails from "./account-details";
 import { combinedGarageHistory } from "@/lib/garage-history";
 import WelcomeOnboarding from "./welcome-onboarding";
@@ -2045,6 +2046,7 @@ export default function Curbside() {
           </button>
         ))}
       </nav>
+      <PopupPresence>
       {(authOpen || auth.recovering) && (
         <Modal
           title={tr(auth.recovering ? "Reset password" : "Your account")}
@@ -2077,6 +2079,8 @@ export default function Curbside() {
           )}
         </Modal>
       )}
+      </PopupPresence>
+      <PopupPresence>
       {onboardingOpen && !authOpen && !auth.recovering && (
         <Modal
           title={tr("Welcome to TicketSafe")}
@@ -2089,7 +2093,9 @@ export default function Curbside() {
           />
         </Modal>
       )}
+      </PopupPresence>
 
+      <PopupPresence>
       {account &&
         !account.user.legalAccepted &&
         !authOpen &&
@@ -2144,7 +2150,9 @@ export default function Curbside() {
             </div>
           </Modal>
         )}
+      </PopupPresence>
 
+      <PopupPresence>
       {sheet && (
         <Modal
           title={
@@ -2653,11 +2661,12 @@ export default function Curbside() {
           )}
         </Modal>
       )}
-      {toast && (
+      </PopupPresence>
+      <PopupPresence>{toast && (
         <div className="toast" role="status">
           {tr(toast)}
         </div>
-      )}
+      )}</PopupPresence>
     </div>
   );
 }
@@ -2794,6 +2803,8 @@ function TicketList({
     </div>
   );
 }
+let modalLocks = 0;
+let previousBodyOverflow = "";
 function Modal({
   title,
   close,
@@ -2809,6 +2820,7 @@ function Modal({
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const last = document.activeElement as HTMLElement;
+    const dialog = ref.current;
     ref.current?.focus();
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") close();
@@ -2829,11 +2841,16 @@ function Modal({
       }
     };
     document.addEventListener("keydown", key);
-    document.body.style.overflow = "hidden";
+    if (modalLocks++ === 0) {
+      previousBodyOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+    }
     return () => {
       document.removeEventListener("keydown", key);
-      document.body.style.overflow = "";
-      last?.focus();
+      if (--modalLocks === 0) document.body.style.overflow = previousBodyOverflow;
+      // A new popup may already own focus while this one finishes closing.
+      if (dialog?.contains(document.activeElement) || document.activeElement === document.body)
+        last?.focus();
     };
   }, []);
   return (

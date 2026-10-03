@@ -32,7 +32,9 @@ await build({
               ? "export function usePreferences(){return{tr:value=>value,savedPreferences:{}}}"
               : args.path === "./use-supabase-account"
                 ? "export function useSupabaseAccount(){return{configuration:{}}}"
-                : "export default {}",
+                : args.path === "./bot-challenge"
+                  ? "export default {}; export function CaptchaDisclosure(){return null}"
+                  : "export default {}",
         }));
       },
     },

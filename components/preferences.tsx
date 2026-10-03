@@ -317,7 +317,7 @@ export function PreferencesPanel({
     >
       <p className="small muted">
         {tr(
-          "Preview your changes. Press Apply to keep them, or Cancel to restore your settings.",
+          "Choose Apply to save your changes.",
         )}
       </p>
       <PreferenceChoice
@@ -358,15 +358,15 @@ export function PreferencesPanel({
       <p className="preference-explanation" aria-live="polite">
         {tr(
           draft.detailMode === "normal"
-            ? "The essentials: balances, ticket status, dates, and locations."
-            : "A deeper view: city-reported vehicle attributes, source coverage, and every available ticket field.",
+            ? "Balances, status, dates, and locations."
+            : "All available city records and source details.",
         )}
       </p>
       <p className="preference-device-note">
         {tr(
           profileId
-            ? "Saved to your account. Your settings follow you across devices."
-            : "Saved on this device. No account required.",
+            ? "Synced to your account."
+            : "Saved on this device.",
         )}
       </p>
       {error && (

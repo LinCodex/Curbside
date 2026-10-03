@@ -15,8 +15,8 @@ export function CityBackdrop() {
             : "/nyc-backdrop.webp"
         }
         alt=""
-        width="1800"
-        height="1800"
+        width="3200"
+        height="3200"
         decoding="async"
         fetchPriority="high"
       />

@@ -84,21 +84,17 @@ body {
 }
 .city-backdrop-image {
   opacity: 1;
-  filter: brightness(1.5) contrast(1.08);
+  filter: none;
 }
 .app:not([data-view="map"]) .map-vignette {
-  background:
-    linear-gradient(90deg, #0b0d105c, transparent 72%),
-    linear-gradient(0deg, #0b0d1066, transparent 55%);
+  background: rgb(11 13 16 / 0.12);
 }
 html[data-theme="light"] .city-backdrop-image {
   opacity: 1;
-  filter: brightness(0.84) contrast(1.22);
+  filter: none;
 }
 html[data-theme="light"] .app:not([data-view="map"]) .map-vignette {
-  background:
-    linear-gradient(90deg, #f3f4f652, transparent 70%),
-    linear-gradient(0deg, #f3f4f64d, transparent 50%);
+  background: rgb(243 244 246 / 0.08);
 }
 .ambient-grain {
   display: none;
@@ -2979,10 +2975,10 @@ html[data-theme="light"] .legal-section-links a[aria-current="location"] {
   gap: 8px;
 }
 .bot-challenge[data-mode="invisible"] {
-  padding: 12px 14px;
+  padding: 0;
   gap: 6px;
   background: transparent;
-  border-color: var(--line);
+  border: 0;
 }
 .bot-challenge-widget[data-size="invisible"] {
   min-height: 0;
@@ -2997,6 +2993,135 @@ html[data-theme="light"] .legal-section-links a[aria-current="location"] {
 .security-disclosure span {
   display: block;
   margin-top: 4px;
+}
+.bot-challenge[data-disclosure="false"] {
+  padding: 0;
+  border: 0;
+  background: none;
+  gap: 0;
+}
+.bot-challenge[data-disclosure="false"]:not(:has(.notice)) {
+  position: absolute;
+  height: 0;
+  width: 0;
+  margin: 0;
+}
+.auth-panel > .security-disclosure {
+  text-align: center;
+  font-size: 11px;
+}
+
+/* Small transform-only cues; no layout, blur, or background animation. */
+.app
+  :is(.primary-action, .button, .account-tool):not(:disabled)
+  > .lucide-arrow-right {
+  animation: action-arrow-glide 2.8s ease-in-out infinite;
+}
+@keyframes action-arrow-glide {
+  0%,
+  60%,
+  100% {
+    transform: translateX(0);
+  }
+  78% {
+    transform: translateX(3px);
+  }
+}
+.popup-presence {
+  display: contents;
+}
+.popup-presence .modal-backdrop {
+  animation: popup-backdrop-in 180ms ease-out both;
+}
+.popup-presence .sheet {
+  animation: popup-sheet-in 240ms var(--ease-out) both;
+}
+.popup-presence[data-state="closed"] .modal-backdrop {
+  animation: popup-backdrop-out 180ms ease-in both;
+  pointer-events: none;
+}
+.popup-presence[data-state="closed"] .sheet {
+  animation: popup-sheet-out 180ms ease-in both;
+}
+@keyframes popup-backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes popup-backdrop-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes popup-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes popup-sheet-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+.custom-select-menu[data-state="open"] {
+  animation: popup-sheet-in 180ms var(--ease-out) both;
+}
+.custom-select-menu[data-state="closed"] {
+  animation: popup-backdrop-out 140ms ease-in both;
+}
+.popup-presence .toast {
+  animation: popup-backdrop-in 160ms ease-out both;
+}
+.popup-presence[data-state="closed"] .toast {
+  animation: popup-backdrop-out 180ms ease-in both;
+}
+.install-guide {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 180ms ease,
+    transform 220ms var(--ease-out),
+    display 220ms allow-discrete,
+    overlay 220ms allow-discrete;
+}
+.install-guide[open] {
+  opacity: 1;
+  transform: translateY(0);
+}
+.install-guide::backdrop {
+  background: transparent;
+  transition:
+    background 180ms ease,
+    display 220ms allow-discrete,
+    overlay 220ms allow-discrete;
+}
+.install-guide[open]::backdrop {
+  background: #0008;
+}
+@starting-style {
+  .install-guide[open] {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  .install-guide[open]::backdrop {
+    background: transparent;
+  }
 }
 .security-disclosure a {
   text-decoration: underline;
