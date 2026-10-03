@@ -1,7 +1,7 @@
 // Historical database consent version: never rewrite existing acceptance records.
 export const LEGAL_VERSION = "2026-09-27.1";
-export const PRIVACY_VERSION = "2026-10-02.3";
-export const LEGAL_DISPLAY_REVISION = "2026-10-02.3";
+export const PRIVACY_VERSION = "2026-10-02.4";
+export const LEGAL_DISPLAY_REVISION = "2026-10-02.4";
 export const OPERATOR = {
   name: "Flushing NY Wireless",
   address: "136-78 Roosevelt Ave, Flushing, NY, United States",
@@ -90,14 +90,16 @@ export const legalDocuments: Record<string, LegalDocument> = {
           "Resend delivers account emails and opted-in new-ticket notifications. For ticket alerts it receives the verified recipient email, saved-vehicle and ticket details, reported balances, available location maps, and a signed unsubscribe link. Location maps are attached to the email and do not require remote map-image loading. Clicking a payment link opens NYC CityPay; TicketSafe does not collect payment details or take payments.",
           "Mapbox generates attached ticket-location maps from ticket coordinates and numbered pins. These map requests do not include your email address, license plate, car nickname or summons number. Maps are prepared on the server; opening the email does not send a map request from your mailbox to Mapbox. If a map cannot be generated, the alert still includes the available location text.",
           "Vercel hosts TicketSafe. Supabase provides authentication and stores private car details, preferences, historical consent records and shared public-city snapshots. Account confirmation and password recovery emails use the configured email delivery service. NYC Open Data receives plate queries. When maps or location lookup are used, Mapbox and the configured NYC location services process map requests or address and intersection queries. Car nicknames and other user-entered details are private to the account that saved them.",
+          "Authorized TicketSafe administrators can access account contact information, saved vehicles and notification choices to provide support. The CRM stores support notes, tags, access roles and email delivery records. Operational online counts use a signed-in account's most recent active timestamp, not a guest browsing history. Stale presence entries are removed during subsequent presence updates. Notes and announcement preferences are removed with the related account; audit and campaign records older than 90 days are removed during subsequent administrator activity. Unresolved deliveries remain available for review until this cleanup. Access and sending changes are recorded for accountability.",
           "When hCaptcha is shown, it processes device and interaction information to detect automated abuse under the applicable provider terms. Providers may process information in the United States or other locations where they operate. Their own policies explain their processing and retention. We may disclose information when required by law or reasonably necessary to protect rights and security.",
         ],
       },
       {
         title: "Analytics and privacy signals",
         paragraphs: [
-          "Vercel Web Analytics measures visits to public search, map and legal pages without tracking cookies. Our filter excludes authentication and private account, garage and ticket views, removes plates, emails, ticket details and unapproved query parameters from measured URLs, and rejects custom events. Vercel may derive general location, browser and device information from the request.",
-          "We suppress analytics events when Global Privacy Control or Do Not Track is enabled. We do not operate cross-site behavioral advertising. Essential authentication, hosting and abuse prevention still operate when those privacy signals are enabled.",
+          "Optional Vercel Web Analytics loads only after you allow Analytics in our cookie choices. It counts public search, map and legal page visits without tracking cookies, using a request-derived visitor hash discarded after 24 hours. It may process page URLs, referrers, general location, browser and device information. Our filter excludes authentication and private account, garage and ticket views, removes plates, emails, ticket details and unapproved query parameters from measured URLs, and rejects custom events.",
+          "Optional Vercel Speed Insights measures page performance, such as loading speed and responsiveness, after the same Analytics choice. We sample 10% of eligible events, remove unapproved URL parameters, and exclude authentication, private account, garage and CRM pages. Global Privacy Control, Do Not Track and withdrawing Analytics consent also stop future performance events.",
+          "Analytics is off before a choice and when you choose Necessary only. Global Privacy Control and Do Not Track also keep analytics off, even after Accept all. We do not sell or share personal information for cross-context behavioral advertising. Essential authentication, hosting and abuse prevention still operate when these privacy signals are enabled.",
         ],
       },
       {
@@ -105,6 +107,9 @@ export const legalDocuments: Record<string, LegalDocument> = {
         paragraphs: [
           "A signed, secure, HTTP-only search-verification cookie can last up to five minutes. It is bound to network and browser information and permits a limited number of searches; server-side limits still apply to every request. The service-only security ledger stores keyed hashes and short-lived nonces rather than raw IP addresses or account information.",
           "Supabase stores the authentication session in browser storage so you can remain signed in. A welcome cookie remembers completed onboarding for up to one year and is renewed on visits. Browser storage also keeps guest display preferences, account-specific preference caches and installation-guide choices. Signing out clears the local authentication session. Clearing local data does not delete server records.",
+          "The necessary ticketsafe_consent cookie records your optional analytics choice, the consent-purpose version and the decision time for 180 days. It contains no account identifier or advertising identifier. We remember acceptance and refusal equally and do not renew this period on ordinary visits. We ask again after expiry, clearing cookies or a change to optional purposes or providers. Choices apply to this browser and site address; another browser, device or domain has its own storage.",
+          "The first notice offers Customize, Necessary only and Accept all. Analytics is not preselected for a first visit. You can withdraw or change your choice through Cookie settings in the page footer, Account or the privacy pages. Withdrawal blocks future analytics events immediately; it does not erase information already processed or affect necessary features. Closing the choices without saving leaves the previous choice unchanged, or keeps analytics off if no choice exists. If your browser blocks saving the choice, analytics stays off.",
+          "Necessary storage supports sign-in, search security, your privacy choice and functionality you request, such as remembering display settings. Guest display settings stay in device storage and do not require a Supabase account. Optional analytics consent is separate from account terms acceptance and new-ticket email subscriptions. Refusing analytics does not prevent searching, signing in, saving vehicles or using maps.",
           "The installable app caches public fonts, icons, an offline page and decorative map assets. It does not cache private account responses or ticket searches for offline access. TicketSafe does not request your precise device GPS location.",
         ],
       },
@@ -120,8 +125,10 @@ export const legalDocuments: Record<string, LegalDocument> = {
         title: "Your choices and requests",
         paragraphs: [
           "New-ticket emails are off until you explicitly enable them. You can turn them off in Account or use an email unsubscribe link. Only saved vehicles are monitored; removing a saved vehicle stops its future ticket alerts.",
+          "TicketSafe product announcements have a separate, optional email subscription that is off by default. Ticket alert consent does not subscribe you to announcements. Change this choice in Account or use an announcement's unsubscribe link. Administrators can send individual service messages about your account; these must not be used to bypass announcement consent.",
           "You can edit or remove saved cars, change display preferences, update your email, recover your password or delete your account through TicketSafe. Contact the operator below to request access, correction, a portable copy, deletion or help with an applicable privacy right. We may verify your authority without requesting unnecessary identification and will respond as required by applicable law.",
           "Applicable privacy rights depend on your location and the laws that apply to this business. We do not discriminate against people for exercising applicable rights. We will explain a denied request and any available review process.",
+          "Where applicable, essential account services rely on performance of a contract, and security and abuse prevention rely on legitimate interests or legal duties. Optional analytics relies on your consent. For users in the EEA, United Kingdom and Canada, applicable rights may also include withdrawing consent, objecting to processing, restricting processing and complaining to your local data protection authority. US state privacy rights, where applicable, can include access, correction, deletion, portability and appeals. Contact the operator to exercise rights or ask about international processing and applicable safeguards.",
         ],
       },
       {

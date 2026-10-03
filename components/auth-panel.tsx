@@ -22,6 +22,11 @@ import {
   meetsPasswordRequirement,
   PASSWORD_REQUIREMENT,
 } from "../lib/password-policy";
+import {
+  beginEmailConfirmation,
+  pendingEmailConfirmation,
+  watchEmailConfirmation,
+} from "../lib/email-confirmation";
 
 export function signupNeedsSignIn(
   user: { identities?: unknown[] } | null,
@@ -50,7 +55,9 @@ export default function AuthPanel({
   initialEmail?: string;
 }) {
   const { tr, savedPreferences } = usePreferences();
-  const captchaKey = useSupabaseAccount().configuration.hcaptchaKey;
+  const account = useSupabaseAccount();
+  const captchaKey = account.configuration.hcaptchaKey;
+  const confirmationRequest = useRef("");
   const challenge = useRef<ChallengeHandle>(null);
   const [captchaReset, setCaptchaReset] = useState(0);
   const [mode, setMode] = useState<"login" | "register" | "reset">(initialMode);
@@ -60,7 +67,7 @@ export default function AuthPanel({
   const [message, setMessage] = useState("");
   const [pendingEmail, setPendingEmail] = useState("");
   const [email, setEmail] = useState(initialEmail);
-  const [stage, setStage] = useState<"form" | "confirmation" | "existing">(
+  const [stage, setStage] = useState<"form" | "confirmation" | "existing" | "verified">(
     "form",
   );
   const heading = useRef<HTMLHeadingElement>(null);
@@ -89,7 +96,8 @@ export default function AuthPanel({
       );
     } catch {}
   };
-  const pendingConfirmation = (email: string) => {
+  const pendingConfirmation = (email: string, requestId?: string) => {
+    confirmationRequest.current = requestId || pendingEmailConfirmation(email);
     setPendingEmail(email);
     setStage("confirmation");
     try {
@@ -107,6 +115,26 @@ export default function AuthPanel({
     else heading.current?.focus();
   }, [stage]);
   useEffect(() => {
+    if (stage !== "confirmation") return;
+    let alive = true;
+    const stop = watchEmailConfirmation((receipt) => {
+      if (receipt.requestId !== confirmationRequest.current) return;
+      setStage("verified");
+      setError("");
+      setMessage("");
+    });
+    if (account.user?.email?.toLowerCase() === pendingEmail.toLowerCase()) {
+      void Promise.resolve().then(() => {
+        if (alive) {
+          setStage("verified");
+          setError("");
+          setMessage("");
+        }
+      });
+    }
+    return () => { alive = false; stop(); };
+  }, [stage, account.user, pendingEmail]);
+  useEffect(() => {
     if (!pendingEmail) return;
     const tick = () =>
       setRemaining(Math.max(0, Math.ceil((resendAt - Date.now()) / 1000)));
@@ -122,11 +150,13 @@ export default function AuthPanel({
     try {
       const captchaToken = await freshChallenge();
       rememberSent(pendingEmail);
+      const confirmation = beginEmailConfirmation(pendingEmail, window.location.origin);
+      confirmationRequest.current = confirmation.requestId;
       const result = await client.auth.resend({
         type: "signup",
         email: pendingEmail,
         options: {
-          emailRedirectTo: window.location.origin + "/",
+          emailRedirectTo: confirmation.redirectTo,
           captchaToken,
         },
       });
@@ -165,6 +195,10 @@ export default function AuthPanel({
     setMessage("");
     try {
       const captchaToken = recovering ? undefined : await freshChallenge();
+      const confirmation = !recovering && mode === "register"
+        ? beginEmailConfirmation(email, window.location.origin)
+        : null;
+      if (confirmation) confirmationRequest.current = confirmation.requestId;
       const result = recovering
         ? await client.auth.updateUser({ password })
         : mode === "register"
@@ -172,7 +206,7 @@ export default function AuthPanel({
               email,
               password,
               options: {
-                emailRedirectTo: window.location.origin + "/",
+                emailRedirectTo: confirmation!.redirectTo,
                 data: { curbside_preferences: savedPreferences },
                 captchaToken,
               },
@@ -201,7 +235,7 @@ export default function AuthPanel({
         if (code === "invalid_credentials")
           setError(tr("Email or password is incorrect."));
         else if (code === "email_not_confirmed") {
-          pendingConfirmation(email);
+          pendingConfirmation(email, confirmation?.requestId);
         } else if (code === "weak_password") setError(tr(PASSWORD_REQUIREMENT));
         else if (
           ["over_request_rate_limit", "over_email_send_rate_limit"].includes(
@@ -232,7 +266,7 @@ export default function AuthPanel({
           !("session" in result.data && result.data.session) ||
           !user?.email_confirmed_at
         ) {
-          pendingConfirmation(email);
+          pendingConfirmation(email, confirmation?.requestId);
           rememberSent(email);
         } else onComplete();
       } else onComplete();
@@ -257,11 +291,12 @@ export default function AuthPanel({
   };
   if (stage !== "form" && !recovering) {
     const existing = stage === "existing";
+    const verified = stage === "verified";
     return (
       <section className={styles.confirmation} aria-labelledby="auth-next-step">
         <span className={styles.symbol} aria-hidden="true">
-          {existing ? <LogIn size={30} /> : <Mail size={30} />}
-          {!existing && (
+          {existing ? <LogIn size={30} /> : verified ? <Check size={30} /> : <Mail size={30} />}
+          {!existing && !verified && (
             <span className={styles.check}>
               <Check size={13} />
             </span>
@@ -269,16 +304,18 @@ export default function AuthPanel({
         </span>
         <div className={styles.heading}>
           <p className="eyebrow">
-            {tr(existing ? "Account access" : "One more step")}
+            {tr(existing || verified ? "Account access" : "One more step")}
           </p>
           <h2 id="auth-next-step" ref={heading} tabIndex={-1}>
-            {tr(existing ? "Try signing in" : "Check your email")}
+            {tr(existing ? "Try signing in" : verified ? "Email verified" : "Check your email")}
           </h2>
         </div>
         <p className={styles.email}>{pendingEmail}</p>
         <p className={styles.explanation}>
           {tr(
-            existing
+            verified
+              ? "Your email is verified. Continue to TicketSafe."
+              : existing
               ? "This email is already registered. Sign in or reset your password."
               : "Confirm your email, then sign in.",
           )}
@@ -297,9 +334,9 @@ export default function AuthPanel({
           type="button"
           className="primary-action"
           disabled={busy}
-          onClick={() => returnToForm("login")}
+          onClick={() => verified && account.user ? onComplete() : returnToForm("login")}
         >
-          {tr("Continue to sign in")}
+          {tr(verified && account.user ? "Continue to TicketSafe" : "Continue to sign in")}
           <ArrowRight size={17} />
         </button>
         {existing ? (
@@ -310,7 +347,7 @@ export default function AuthPanel({
           >
             {tr("Reset password")}
           </button>
-        ) : (
+        ) : !verified ? (
           <div className={styles.resend}>
             {captchaKey && (
               <BotChallenge
@@ -340,7 +377,8 @@ export default function AuthPanel({
               )}
             </button>
           </div>
-        )}
+        ) : null}
+        {!verified && (
         <button
           type="button"
           className="text-link"
@@ -349,6 +387,7 @@ export default function AuthPanel({
         >
           {tr(existing ? "Use a different email" : "Change email")}
         </button>
+        )}
         {captchaKey && <CaptchaDisclosure />}
       </section>
     );

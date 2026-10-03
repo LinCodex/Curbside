@@ -61,8 +61,11 @@ import PopupPresence from "./popup-presence";
 import AccountDetails from "./account-details";
 import { combinedGarageHistory } from "@/lib/garage-history";
 import WelcomeOnboarding from "./welcome-onboarding";
-import BotChallenge, { type ChallengeHandle } from "./bot-challenge";
+import BotChallenge, { CaptchaDisclosure, type ChallengeHandle } from "./bot-challenge";
+import MapPanelControls from "./map-panel-controls";
+import { CookieSettingsButton } from "./cookie-consent";
 import { NotificationSettings } from "./notification-settings";
+import AnnouncementSettings from "./announcement-settings";
 import { hasOnboarded, onboardingCookie } from "@/lib/onboarding";
 import {
   money,
@@ -242,6 +245,14 @@ export default function Curbside() {
     if ("serviceWorker" in navigator)
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     const q = new URLSearchParams(location.search);
+    const callbackHash = new URLSearchParams(location.hash.slice(1));
+    if (
+      ["signup", "email"].includes(callbackHash.get("type") || "") ||
+      (callbackHash.has("error_code") && q.get("auth") !== "recovery" && callbackHash.get("type") !== "recovery")
+    ) {
+      location.replace("/auth/confirm" + location.search + location.hash);
+      return;
+    }
     if (nav.some((item) => item.id === q.get("view"))) setView(q.get("view")!);
     if (q.get("invite")) {
       setView("account");
@@ -255,6 +266,17 @@ export default function Curbside() {
       window.removeEventListener("offline", online);
     };
   }, []);
+  useEffect(() => {
+    if (auth.loading) return;
+    const query = new URLSearchParams(location.search);
+    if (!["login", "confirmed"].includes(query.get("auth") || "")) return;
+    setView("account");
+    setAuthInitialMode("login");
+    setAuthOpen(!auth.user);
+    query.delete("auth");
+    const search = query.toString();
+    window.history.replaceState(window.history.state, "", location.pathname + (search ? "?" + search : ""));
+  }, [auth.loading, auth.user]);
   useEffect(() => {
     const activePlate = plate.trim() || results?.query?.plate || "";
     let sub = "NYC Ticket Search";
@@ -359,7 +381,6 @@ export default function Curbside() {
   }, [view]);
   useEffect(() => {
     if (mapSelection) {
-      setMapBoxMinimized(true);
       setCorrectingAddress(false);
       setAutocorrectError("");
     }
@@ -722,6 +743,7 @@ export default function Curbside() {
               siteKey={config.hcaptchaKey}
               onToken={receiveChallenge}
               resetKey={captchaReset}
+              showDisclosure={false}
             />
             {captchaRequired && (
               <p className="error-text" role="alert">
@@ -750,6 +772,10 @@ export default function Curbside() {
         <LockKeyhole size={12} />
         {tr("No account needed to search. Your plate isn’t a public profile.")}
       </p>
+      {config.hcaptchaKey && <div className="search-security-footer">
+        <span><ShieldCheck size={12} aria-hidden="true" />{tr("Automatic security check")}</span>
+        <CaptchaDisclosure />
+      </div>}
     </form>
   );
   const saveVehicle = async (e: any) => {
@@ -778,7 +804,11 @@ export default function Curbside() {
   return (
     <div
       className={
-        "app " + (view === "garage" && !activeVehicle ? "onboarding" : "")
+        "app " +
+        (view === "garage" && !activeVehicle ? "onboarding " : "") +
+        (account && (view === "account" || (view === "garage" && activeVehicle))
+          ? "desktop-workspace"
+          : "")
       }
       data-view={view}
     >
@@ -969,7 +999,14 @@ export default function Curbside() {
         )}
         {view === "garage" && activeVehicle && (
           <section className="vehicle-scene view-enter">
-            <div className="scene-top">
+            <div className="scene-top garage-toolbar">
+              <button
+                className="button garage-add-action"
+                onClick={() => go("search")}
+              >
+                <Plus size={18} />
+                {tr("Add vehicle")}
+              </button>
               <div className="segmented">
                 <button
                   className={allVehicles ? "active" : ""}
@@ -1000,15 +1037,9 @@ export default function Curbside() {
                   </button>
                 ))}
               </div>
-              <button
-                className="round-control"
-                aria-label={tr("Add vehicle")}
-                onClick={() => go("search")}
-              >
-                <Plus size={20} />
-              </button>
             </div>
             <div className="vehicle-identity">
+              <div className="garage-overview-column">
               <div className="garage-overview">
                 <div className="eyebrow">
                   {allVehicles ? (
@@ -1124,6 +1155,7 @@ export default function Curbside() {
                 </button>
               )}
               {detailMode === "geek" && <VehicleData tickets={garageTickets} />}
+              </div>
               <div className="glass activity-dock">
                 <div className="section-heading">
                   <h2>{tr("Ticket activity")}</h2>
@@ -1386,30 +1418,34 @@ export default function Curbside() {
               )}
             </div>
             <div
+              id="map-location-panel"
               className={
                 "glass map-results" +
                 (mapTicket ? " map-results-compact" : "") +
                 (mapBoxMinimized ? " map-box-minimized" : "")
               }
-              tabIndex={0}
+              role="region"
               aria-label={
                 mapTicket ? tr("Selected ticket") : tr("Ticket locations")
               }
             >
+              <MapPanelControls
+                selectedIndex={mapTicket ? mapTickets.indexOf(mapTicket) : -1}
+                total={mapTickets.length}
+                collapsed={mapBoxMinimized}
+                onShowAll={() => {
+                  setMapSelection("");
+                  setMapBoxMinimized(false);
+                  setCorrectingAddress(false);
+                }}
+                onNavigate={(index) => {
+                  const nextTicket = mapTickets[index];
+                  if (nextTicket) setMapSelection(nextTicket.id);
+                }}
+                onToggle={() => setMapBoxMinimized((current) => !current)}
+              />
               {!mapTicket && mapBoxMinimized && (
-                <div
-                  className="map-list-minimized"
-                  onClick={() => setMapBoxMinimized(false)}
-                  onKeyDown={(e) => {
-                    if (["Enter", " "].includes(e.key)) {
-                      e.preventDefault();
-                      setMapBoxMinimized(false);
-                    }
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={tr("Expand ticket locations list")}
-                >
+                <div className="map-list-minimized">
                   <div className="map-list-minimized-info">
                     <MapPin size={15} className="map-list-minimized-icon" />
                     <span>
@@ -1419,30 +1455,12 @@ export default function Curbside() {
                         : tr("ticket locations")}
                     </span>
                   </div>
-                  <div className="map-box-controls">
-                    <button
-                      className="map-box-icon-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setMapBoxMinimized(false);
-                      }}
-                      aria-label={tr("Expand locations list")}
-                      title={tr("Expand locations list")}
-                    >
-                      <ChevronUp size={16} />
-                    </button>
-                  </div>
                 </div>
               )}
               {!mapTicket && !mapBoxMinimized && (
                 <>
-                  <div className="section-heading">
-                    <h2>{tr("Locations")}</h2>
-                    <div
-                      className="row"
-                      style={{ gap: 8, alignItems: "center" }}
-                    >
-                      {activeVehicle && (
+                  {activeVehicle && (
+                    <div className="map-location-refresh">
                         <button
                           className="text-link"
                           onClick={() =>
@@ -1457,23 +1475,10 @@ export default function Curbside() {
                           {tr("Refresh")}
                           <RefreshCw size={13} />
                         </button>
-                      )}
-                      <div className="map-box-controls">
-                        <button
-                          className="map-box-icon-btn"
-                          onClick={() => setMapBoxMinimized(true)}
-                          aria-label={tr("Minimize locations list")}
-                          title={tr("Minimize locations list")}
-                        >
-                          <ChevronDown size={16} />
-                        </button>
-                      </div>
                     </div>
-                  </div>
+                  )}
                   <p className="map-helper">
-                    {tr(
-                      "Addresses work too. Select a ticket to explore its location.",
-                    )}
+                    {tr("Select a ticket to view its location.")}
                   </p>
                   {!!scopedMapTickets.length && (
                     <div className="tabs" aria-label={tr("Map ticket filters")}>
@@ -1543,19 +1548,7 @@ export default function Curbside() {
               )}
               {mapTicket && mapBoxMinimized && (
                 <div className="map-selection-compact" aria-live="polite">
-                  <div
-                    className="map-selection-compact-info"
-                    onClick={() => setMapBoxMinimized(false)}
-                    onKeyDown={(e) => {
-                      if (["Enter", " "].includes(e.key)) {
-                        e.preventDefault();
-                        setMapBoxMinimized(false);
-                      }
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    aria-label={tr("Expand details")}
-                  >
+                  <div className="map-selection-compact-info">
                     <span className="map-selection-compact-title">
                       {mapTicket.location.label || tr("Location not provided")}
                     </span>
@@ -1572,24 +1565,6 @@ export default function Curbside() {
                       {tr("View")}
                       <ArrowUpRight size={13} />
                     </button>
-                    <div className="map-box-controls">
-                      <button
-                        className="map-box-icon-btn"
-                        onClick={() => setMapBoxMinimized(false)}
-                        aria-label={tr("Expand details")}
-                        title={tr("Expand details")}
-                      >
-                        <ChevronUp size={16} />
-                      </button>
-                      <button
-                        className="map-box-icon-btn"
-                        onClick={() => setMapSelection("")}
-                        aria-label={tr("Show all tickets")}
-                        title={tr("Show all tickets")}
-                      >
-                        <X size={15} />
-                      </button>
-                    </div>
                   </div>
                 </div>
               )}
@@ -1604,24 +1579,6 @@ export default function Curbside() {
                         ? tr(mapTicket.location.precision) + tr(" location")
                         : tr("Address on record")}
                     </span>
-                    <div className="map-box-controls">
-                      <button
-                        aria-label={tr("Minimize to compact")}
-                        title={tr("Minimize to compact")}
-                        className="map-box-icon-btn"
-                        onClick={() => setMapBoxMinimized(true)}
-                      >
-                        <ChevronDown size={16} />
-                      </button>
-                      <button
-                        aria-label={tr("Show all tickets")}
-                        title={tr("Show all tickets")}
-                        className="map-box-icon-btn"
-                        onClick={() => setMapSelection("")}
-                      >
-                        <X size={15} />
-                      </button>
-                    </div>
                   </div>
                   <h3>
                     {mapTicket.location.label || tr("Location not provided")}
@@ -1765,15 +1722,6 @@ export default function Curbside() {
                       {tr("View violation")}
                       <ArrowUpRight size={14} />
                     </button>
-                    <button
-                      className="button secondary"
-                      onClick={() => setMapBoxMinimized(true)}
-                      aria-label={tr("Minimize to compact")}
-                      style={{ padding: "0 14px" }}
-                    >
-                      <ChevronDown size={14} />
-                      {tr("Minimize")}
-                    </button>
                   </div>
                 </div>
               )}
@@ -1788,6 +1736,7 @@ export default function Curbside() {
               <p>{tr("Your preferences, your way.")}</p>
             </div>
 
+            <div className="account-workspace-panels">
             <div className="account-layout">
               <div className="glass form-card stack account-signin-panel">
                 <div className="account-identity-heading">
@@ -1882,6 +1831,7 @@ export default function Curbside() {
               </div>
               {account && <div className="glass form-card account-notifications-card">
                 <NotificationSettings legalAccepted={account.user.legalAccepted === true} />
+                <AnnouncementSettings key={auth.user?.id} />
               </div>}
               <div className="glass form-card account-tools-card">
                 <h2>{tr("Your TicketSafe")}</h2>
@@ -1918,6 +1868,7 @@ export default function Curbside() {
                   <Check size={13} />
                   {tr("Free access to searches and saved cars.")}
                 </p>
+                <CookieSettingsButton />
               </div>
             </div>
 
@@ -2013,11 +1964,13 @@ export default function Curbside() {
                 <ChevronRight size={16} aria-hidden="true" />
               </a>
             </div>
+            </div>
           </section>
         )}
 
         <footer className="page-footer">
           <span>{tr("Independent service. Not affiliated with NYC.")}</span>
+          <CookieSettingsButton />
         </footer>
       </main>
       <div

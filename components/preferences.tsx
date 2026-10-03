@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import dictionary from "@/lib/zh.json";
 import { useAccount } from "./account-provider";
+import { confirmedAccount } from "@/lib/browser-account";
+import { saveAccountPreferences } from "@/lib/account-preferences";
 import {
   PREFERENCE_KEY,
   preferenceKey,
@@ -79,7 +81,7 @@ export function PreferencesProvider({
   const [languages, setLanguages] = useState<readonly string[]>(["en"]);
   const [loaded, setLoaded] = useState(false);
   const auth = useAccount();
-  const profileId = auth.user?.id || null;
+  const profileId = confirmedAccount(auth.user)?.id || null;
   const activeProfile = useRef(profileId);
   const activeKey = useRef(PREFERENCE_KEY);
   useLayoutEffect(() => {
@@ -197,43 +199,7 @@ export function PreferencesProvider({
   const savePreferences = useCallback(
     async (next: ReturnType<typeof readPreferences>) => {
       const owner = profileId;
-      const normalized = readPreferences(JSON.stringify(next));
-      if (owner && auth.client) {
-        const { data: identity, error: identityError } =
-          await auth.client.auth.getUser();
-        if (
-          identityError ||
-          identity.user?.id !== owner ||
-          !identity.user.email_confirmed_at
-        )
-          throw new Error(
-            "Your session changed. Sign in again before saving settings.",
-          );
-        const fields = {
-          theme: normalized.theme,
-          language: normalized.language,
-          detail_mode: normalized.detailMode,
-        };
-        const update = () =>
-          auth
-            .client!.from("curbside_preferences")
-            .update(fields)
-            .eq("user_id", owner)
-            .select("user_id");
-        const result = await update();
-        if (result.error)
-          throw new Error("Settings could not be saved. Please try again.");
-        if (!result.data?.length) {
-          const inserted = await auth.client
-            .from("curbside_preferences")
-            .insert({ user_id: owner, ...fields });
-          if (
-            inserted.error &&
-            !(inserted.error.code === "23505" && !(await update()).error)
-          )
-            throw new Error("Settings could not be saved. Please try again.");
-        }
-      }
+      const normalized = await saveAccountPreferences(auth.client, owner, next);
       if (activeProfile.current !== owner)
         throw new Error(
           "Your session changed. Sign in again before saving settings.",

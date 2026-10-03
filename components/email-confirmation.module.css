@@ -1,0 +1,43 @@
+.shell {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: max(24px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+  background: var(--bg, #101216);
+  color: var(--text);
+}
+.card {
+  width: min(100%, 480px);
+  display: grid;
+  justify-items: center;
+  gap: 22px;
+  padding: clamp(28px, 6vw, 44px);
+  border-radius: 24px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  text-align: center;
+  box-shadow: 0 18px 60px #0002;
+  animation: arrive 220ms ease both;
+}
+.brand {
+  color: var(--text);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  text-decoration: none;
+}
+.brand span, .symbol { color: var(--blue); }
+.symbol {
+  width: 76px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  margin-top: 8px;
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--blue) 10%, transparent);
+}
+.card h1 { font-size: clamp(28px, 5vw, 36px); line-height: 1.15; letter-spacing: -1px; margin: 0; }
+.card p { color: var(--muted); font-size: 14px; line-height: 1.7; margin: 0; }
+.card > a:last-child { width: 100%; justify-content: center; }
+@keyframes arrive { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .card { animation: none; } }

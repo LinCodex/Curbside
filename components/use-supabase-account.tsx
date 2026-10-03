@@ -2,6 +2,11 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { publicConfig } from "../lib/runtime";
+import { confirmedAccount, verifyBrowserAccount } from "@/lib/browser-account";
+import {
+  snapshotEmailConfirmation,
+  type ConfirmationCallback,
+} from "@/lib/email-confirmation";
 
 function useAccountClient(url?: string, key?: string) {
   const [client, setClient] = useState<SupabaseClient | null>(null);
@@ -13,6 +18,9 @@ function useAccountClient(url?: string, key?: string) {
     if (!url || !key) return;
     let alive = true;
     let revision = 0;
+    let verificationTimer: ReturnType<typeof setTimeout> | undefined;
+    let verifiedToken: string | undefined;
+    let verifiedUser: User | null = null;
     let unsubscribe: (() => void) | undefined;
     import("@supabase/supabase-js")
       .then(async ({ createClient }) => {
@@ -29,21 +37,71 @@ function useAccountClient(url?: string, key?: string) {
         setClient(c);
         const { data } = c.auth.onAuthStateChange((event, session) => {
           if (!alive) return;
-          revision++;
-          setUser(session?.user?.email_confirmed_at ? session.user : null);
+          const currentRevision = ++revision;
+          clearTimeout(verificationTimer);
           if (event === "PASSWORD_RECOVERY") setRecovering(true);
           if (event === "SIGNED_OUT") setRecovering(false);
+          if (!confirmedAccount(session?.user) || !session?.access_token) {
+            verifiedToken = undefined;
+            verifiedUser = null;
+            setUser(null);
+            setLoading(false);
+            setError(false);
+            return;
+          }
+          const sameAccount = verifiedUser?.id === session.user.id;
+          if (
+            sameAccount &&
+            verifiedToken === session.access_token &&
+            event !== "USER_UPDATED"
+          ) {
+            setLoading(false);
+            return;
+          }
+          verifiedToken = undefined;
+          // Token refresh keeps the previously verified profile mounted. New
+          // session claims are published only after Auth verifies them.
+          if (!sameAccount) {
+            verifiedUser = null;
+            setUser(null);
+          }
+          setLoading(!sameAccount);
+          // Keep SDK calls outside its auth-state callback/initialization lock.
+          verificationTimer = setTimeout(() => {
+            void verifyBrowserAccount(c, session)
+              .then((verified) => {
+                if (!alive || currentRevision !== revision) return;
+                verifiedToken = verified ? session.access_token : undefined;
+                verifiedUser = verified;
+                setUser(verified);
+                setError(false);
+              })
+              .catch(() => {
+                if (alive && currentRevision === revision) setError(true);
+              })
+              .finally(() => {
+                if (alive && currentRevision === revision) setLoading(false);
+              });
+          }, 0);
         });
         unsubscribe = () => data.subscription.unsubscribe();
         const initialRevision = revision;
-        const result = await c.auth.getUser();
+        const result = await c.auth.getSession();
         if (alive && initialRevision === revision) {
-          setUser(
-            result.data.user?.email_confirmed_at ? result.data.user : null,
-          );
-        }
-        if (alive) {
-          setLoading(false);
+          try {
+            const verified = await verifyBrowserAccount(c, result.data.session);
+            if (alive && initialRevision === revision) {
+              verifiedToken = verified
+                ? result.data.session?.access_token
+                : undefined;
+              verifiedUser = verified;
+              setUser(verified);
+            }
+          } catch {
+            if (alive && initialRevision === revision) setError(true);
+          } finally {
+            if (alive && initialRevision === revision) setLoading(false);
+          }
         }
       })
       .catch(() => {
@@ -54,6 +112,7 @@ function useAccountClient(url?: string, key?: string) {
       });
     return () => {
       alive = false;
+      clearTimeout(verificationTimer);
       unsubscribe?.();
     };
   }, [url, key]);
@@ -64,6 +123,7 @@ type Configuration = ReturnType<typeof publicConfig>;
 type AccountContext = ReturnType<typeof useAccountClient> & {
   configuration: Configuration;
   setConfiguration: React.Dispatch<React.SetStateAction<Configuration>>;
+  emailConfirmationCallback: ConfirmationCallback | null;
 };
 const Context = createContext<AccountContext | null>(null);
 export function useSupabaseAccount() {
@@ -76,6 +136,11 @@ export function SupabaseAccountProvider({
 }: {
   children: React.ReactNode;
 }) {
+  const [emailConfirmationCallback] = useState(() =>
+    typeof window === "undefined"
+      ? null
+      : snapshotEmailConfirmation(window.location.href),
+  );
   const [configuration, setConfiguration] = useState<Configuration>({
     services: {},
   } as Configuration);
@@ -112,6 +177,7 @@ export function SupabaseAccountProvider({
         error: account.error || configurationError,
         configuration,
         setConfiguration,
+        emailConfirmationCallback,
       }}
     >
       {children}

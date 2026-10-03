@@ -1,0 +1,127 @@
+/* Keep list navigation separate from panel size and ticket details. */
+.app .map-panel-toolbar {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  gap: 4px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.app .map-panel-heading,
+.app .map-panel-navigation,
+.app .map-panel-step-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.app .map-panel-heading,
+.app .map-panel-navigation {
+  justify-content: space-between;
+}
+
+.app .map-panel-heading h2 {
+  font-size: 16px;
+  letter-spacing: -0.3px;
+  margin: 0;
+}
+
+.app .map-panel-position {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.app .map-panel-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 44px;
+  min-height: 40px;
+  padding: 0 9px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  color: var(--text);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.app .map-panel-action:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+  border-color: color-mix(in srgb, var(--text) 24%, transparent);
+}
+
+.app .map-panel-action:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+
+.app .map-panel-action:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.app .map-panel-back {
+  padding-left: 0;
+  border-color: transparent;
+}
+
+.app .map-location-refresh {
+  display: flex;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+}
+
+.app .map-list-minimized,
+.app .map-selection-compact-info {
+  cursor: default;
+}
+
+.app .map-selection-compact .compact-action-btn {
+  min-height: 40px;
+  height: 40px;
+}
+
+.app .map-results.map-box-minimized {
+  max-height: none;
+}
+
+.app .map-results-compact .map-selection > .row:first-child {
+  margin-bottom: 0;
+}
+
+@media (max-width: 800px) {
+  .app[data-view="map"] .map-results.map-box-minimized {
+    height: auto;
+    max-height: min(180px, 100%);
+  }
+
+  .app .map-panel-action {
+    min-height: 44px;
+  }
+
+  .app .map-results.map-box-minimized .map-panel-toolbar {
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+  }
+
+  .app .map-selection-compact .compact-action-btn {
+    min-height: 44px;
+    height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app .map-panel-action {
+    transition: none;
+  }
+}

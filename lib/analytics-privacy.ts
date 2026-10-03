@@ -1,7 +1,11 @@
 export function publicAnalyticsURL(raw: string): string | null {
   try {
     const url = new URL(raw);
-    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password)
+    if (
+      !["http:", "https:"].includes(url.protocol) ||
+      url.username ||
+      url.password
+    )
       return null;
     if (
       url.hash ||
@@ -23,11 +27,7 @@ export function publicAnalyticsURL(raw: string): string | null {
     if (url.pathname === "/" && !["search", "map"].includes(view ?? ""))
       return null;
     url.search = "";
-    if (
-      url.pathname === "/" &&
-      view &&
-      ["search", "map"].includes(view)
-    )
+    if (url.pathname === "/" && view && ["search", "map"].includes(view))
       url.searchParams.set("view", view);
     return url.toString();
   } catch {
@@ -39,9 +39,19 @@ export function privateAnalyticsEvent<T extends { type: string; url: string }>(
   event: T,
   privacy: { doNotTrack?: string | null; globalPrivacyControl?: boolean },
 ): T | null {
-  if (privacy.doNotTrack === "1" || privacy.globalPrivacyControl)
-    return null;
+  if (privacy.doNotTrack === "1" || privacy.globalPrivacyControl) return null;
   if (event.type !== "pageview") return null;
   const url = publicAnalyticsURL(event.url);
   return url ? { ...event, url } : null;
+}
+
+export function privateSpeedEvent<T extends { url: string; route?: string }>(
+  event: T,
+  privacy: { doNotTrack?: string | null; globalPrivacyControl?: boolean },
+): T | null {
+  if (privacy.doNotTrack === "1" || privacy.globalPrivacyControl) return null;
+  const url = publicAnalyticsURL(event.url);
+  if (!url) return null;
+  const route = new URL(url).pathname;
+  return { ...event, url, route };
 }

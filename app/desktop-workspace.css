@@ -1,0 +1,301 @@
+/* Saved-car workspaces use the viewport; only their content panes scroll. */
+.garage-toolbar {
+  justify-content: flex-start;
+  gap: 14px;
+}
+.app .garage-add-action,
+html[data-theme="light"] .app .garage-add-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  gap: 7px;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--accent-fill);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 650;
+}
+.garage-overview-column {
+  display: contents;
+}
+.account-workspace-panels {
+  display: contents;
+}
+.garage-overview-column > .garage-check-action {
+  margin-block: 16px;
+}
+
+@media (min-width: 801px) {
+  .app.desktop-workspace {
+    height: 100dvh;
+    min-height: 0;
+  }
+  .desktop-workspace .main-view {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+    overflow: hidden;
+  }
+  .desktop-workspace .page-footer {
+    flex: 0 0 auto;
+    margin: 0;
+    padding-block: 10px 14px;
+  }
+  .desktop-workspace .vehicle-scene {
+    flex: 1;
+    min-height: 0;
+    padding-block: 12px 0;
+    gap: 20px;
+    overflow: hidden;
+  }
+  .desktop-workspace .garage-toolbar {
+    flex: 0 0 auto;
+    min-width: 0;
+  }
+  .desktop-workspace .garage-toolbar .segmented {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .desktop-workspace .garage-toolbar .segmented button {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .desktop-workspace .vehicle-identity {
+    display: grid;
+    grid-template-columns: minmax(300px, 0.85fr) minmax(0, 1.65fr);
+    gap: 24px;
+    flex: 1;
+    min-height: 0;
+    max-width: none;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  .desktop-workspace .garage-overview-column {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  .desktop-workspace .garage-overview-column > * {
+    flex-shrink: 0;
+  }
+  .desktop-workspace .garage-overview-column > .garage-check-action {
+    width: 100%;
+    margin: 0;
+  }
+  .desktop-workspace .vehicle-identity h1 {
+    font-size: clamp(34px, 3.6vw, 60px);
+    overflow-wrap: anywhere;
+  }
+  .desktop-workspace .garage-overview {
+    padding: 18px;
+  }
+  .desktop-workspace .scene-summary {
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-block: 16px;
+  }
+  .desktop-workspace .garage-overview .plate-balance-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    gap: 0;
+    padding-block: 6px;
+  }
+  .desktop-workspace .garage-overview .plate-balance-grid > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto;
+    grid-row: auto;
+    align-items: center;
+    gap: 4px 12px;
+    padding-block: 6px;
+  }
+  .desktop-workspace .garage-overview .plate-balance-grid > div + div {
+    border-left: 0;
+    padding-left: 0;
+    border-top: 1px solid var(--line);
+  }
+  .desktop-workspace .garage-overview .plate-balance-grid strong {
+    font-size: clamp(18px, 1.6vw, 22px);
+    overflow-wrap: normal;
+    white-space: nowrap;
+  }
+  .desktop-workspace .garage-overview .plate-balance-grid small {
+    grid-column: 1 / -1;
+  }
+  .desktop-workspace .vehicle-identity > .activity-dock {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    margin: 0;
+  }
+  .desktop-workspace .activity-dock .section-heading,
+  .desktop-workspace .activity-dock .dock-footer {
+    flex: 0 0 auto;
+  }
+  .desktop-workspace .activity-dock > .ticket-list {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  .desktop-workspace .activity-dock .dock-footer {
+    padding-bottom: 0;
+  }
+
+  .desktop-workspace .account-page {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 16px;
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    max-width: none;
+    padding-block: 12px 0;
+    overflow: hidden;
+  }
+  .desktop-workspace .account-page .page-heading {
+    margin: 0;
+  }
+  .desktop-workspace .account-page .page-heading > p {
+    margin-top: 4px;
+  }
+  .desktop-workspace .account-workspace-panels {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: minmax(0, 1fr) auto;
+    min-height: 0;
+    gap: 16px;
+  }
+  .desktop-workspace .account-page .account-layout {
+    display: contents;
+  }
+  .desktop-workspace .account-signin-panel {
+    grid-column: 1;
+    grid-row: 1 / -1;
+  }
+  .desktop-workspace .account-notifications-card {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .desktop-workspace .account-tools-card {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .desktop-workspace .account-page .account-layout > .form-card {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  .desktop-workspace .account-page .form-card {
+    padding: 16px;
+  }
+  .desktop-workspace .account-page .account-signin-panel {
+    gap: 12px;
+  }
+  .desktop-workspace .account-tools-card h2 {
+    margin-bottom: 10px;
+  }
+  .desktop-workspace .account-tools-card .account-tool {
+    padding-block: 10px;
+    min-height: 60px;
+  }
+  .desktop-workspace .account-free-note {
+    margin-top: 6px;
+    padding-top: 10px;
+  }
+  .desktop-workspace .account-page .account-legal-card {
+    grid-column: 2 / -1;
+    grid-row: 2;
+    min-height: 0;
+    max-height: 34vh;
+    margin-top: 0 !important;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  .desktop-workspace .account-page .account-legal-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: 10px;
+  }
+  .desktop-workspace .account-legal-card > .small {
+    display: none;
+  }
+  .desktop-workspace .account-page .account-legal-item {
+    padding: 10px;
+  }
+  .desktop-workspace .account-source-summary {
+    padding: 8px 12px;
+    margin-top: 10px;
+    min-height: 52px;
+  }
+}
+
+@media (min-width: 801px) and (max-width: 1100px) {
+  .desktop-workspace .vehicle-identity {
+    grid-template-columns: minmax(280px, 0.95fr) minmax(0, 1.15fr);
+    gap: 16px;
+  }
+  .desktop-workspace .account-workspace-panels {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  .desktop-workspace .account-page .account-layout {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-height: auto;
+    flex: 0 0 auto;
+  }
+  .desktop-workspace .account-page .account-layout > .form-card {
+    overflow-y: visible;
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .desktop-workspace .account-page .account-tools-card {
+    grid-column: 1 / -1;
+  }
+  .desktop-workspace .account-page .account-legal-card {
+    flex: 0 0 auto;
+    max-height: none;
+    overflow: visible;
+  }
+  .desktop-workspace .account-page .account-legal-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 800px) {
+  .garage-toolbar {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .garage-toolbar .segmented {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+  }
+  .garage-toolbar .segmented button {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}

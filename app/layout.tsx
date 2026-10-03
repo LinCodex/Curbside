@@ -4,6 +4,9 @@ import "./atlas.css";
 import "./polish.css";
 import "./preferences.css";
 import "./design.css";
+import "./desktop-workspace.css";
+import "./map-controls.css";
+import "./privacy-controls.css";
 import AppProviders from "@/components/app-providers";
 import PrivateAnalytics from "@/components/private-analytics";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -55,8 +58,10 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <AppProviders>{children}</AppProviders>
-        <PrivateAnalytics />
+        <AppProviders>
+          {children}
+          <PrivateAnalytics />
+        </AppProviders>
       </body>
     </html>
   );

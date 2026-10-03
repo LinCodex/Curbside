@@ -13,6 +13,7 @@ import {
   UserRound,
 } from "lucide-react";
 import CustomSelect from "./custom-select";
+import { CookieSettingsButton } from "./cookie-consent";
 import {
   LEGAL_DISPLAY_REVISION,
   OPERATOR,
@@ -314,6 +315,7 @@ function Contact() {
         <br />
         <a href={"mailto:" + OPERATOR.email}>{OPERATOR.email}</a>
       </address>
+      <CookieSettingsButton />
     </aside>
   );
 }
