@@ -120,6 +120,50 @@ body:has(.modal-backdrop, dialog[open]) .cookie-banner {
 .cookie-dialog > .privacy-choice-controls {
   padding-top: 20px;
 }
+.browser-storage-guide {
+  display: grid;
+  gap: 16px;
+}
+.browser-storage-guide .browser-storage-summary {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-soft);
+  color: var(--text);
+}
+.browser-storage-guide h3 {
+  margin: 4px 0 0;
+  font-size: 15px;
+}
+.browser-storage-guide ol {
+  margin: 0;
+  padding-left: 22px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+.browser-storage-guide li + li {
+  margin-top: 10px;
+}
+.browser-storage-guide > a {
+  width: fit-content;
+  padding-block: 8px;
+  font-size: 13px;
+}
+.browser-storage-dismiss {
+  flex-shrink: 0;
+  min-height: 44px;
+  margin-top: 20px;
+  border-radius: 12px;
+  background: var(--accent-fill);
+  color: white;
+  font-size: 14px;
+  font-weight: 650;
+}
+.browser-storage-dismiss:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
 .cookie-dialog:not([open]) {
   opacity: 0;
   transform: translateY(12px);

@@ -14,8 +14,10 @@ import { Cookie, X } from "lucide-react";
 import Link from "next/link";
 import { usePreferences } from "./preferences";
 import PopupPresence from "./popup-presence";
+import { hasOnboarded } from "@/lib/onboarding";
 import {
   analyticsConsentAllowed,
+  cookieSettingsPlatform,
   cookieConsentHeader,
   createCookieConsent,
   readCookieConsent,
@@ -25,10 +27,24 @@ import {
 const Context = createContext({
   analyticsEnabled: false,
   openSettings: () => {},
+  consent: null as CookieConsent | null,
+  platform: "desktop" as "desktop" | "ios" | "mobile",
+  installed: false,
+  privacySignal: false,
+  saveChoice: (_analytics: boolean) => { void _analytics; },
 });
 function browserConsentSnapshot() {
   return JSON.stringify({
     consent: readCookieConsent(document.cookie),
+    welcomePending: location.pathname === "/" && !hasOnboarded(document.cookie),
+    installed: window.matchMedia("(display-mode: standalone)").matches ||
+      !!(navigator as Navigator & { standalone?: boolean }).standalone,
+    platform: cookieSettingsPlatform({
+      smallViewport: window.matchMedia("(max-width: 800px)").matches,
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+      maxTouchPoints: navigator.maxTouchPoints,
+    }),
     signal:
       navigator.doNotTrack === "1" ||
       !!(navigator as Navigator & { globalPrivacyControl?: boolean })
@@ -65,6 +81,10 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
     };
     window.addEventListener("focus", notify);
     window.addEventListener("ticketsafe-cookie-change", notify);
+    const mobileLayout = window.matchMedia("(max-width: 800px)");
+    mobileLayout.addEventListener("change", notify);
+    const standalone = window.matchMedia("(display-mode: standalone)");
+    standalone.addEventListener("change", notify);
     document.addEventListener("visibilitychange", onVisible);
     const timer = setInterval(notify, 60_000);
     if (typeof BroadcastChannel !== "undefined") {
@@ -75,6 +95,8 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
       clearInterval(timer);
       window.removeEventListener("focus", notify);
       window.removeEventListener("ticketsafe-cookie-change", notify);
+      mobileLayout.removeEventListener("change", notify);
+      standalone.removeEventListener("change", notify);
       document.removeEventListener("visibilitychange", onVisible);
       channel.current?.close();
       channel.current = null;
@@ -91,13 +113,17 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
         ? (JSON.parse(snapshot) as {
             consent: CookieConsent | null;
             signal: boolean;
+            platform: "desktop" | "ios" | "mobile";
+            welcomePending: boolean;
+            installed: boolean;
           })
-        : { consent: null, signal: false },
+        : { consent: null, signal: false, platform: "desktop" as const, welcomePending: true, installed: false },
     [snapshot],
   );
   const ready = snapshot !== null;
   const consent = saved.consent || sessionChoice;
   const signal = saved.signal;
+  const mobile = saved.platform !== "desktop";
   const openSettings = () => {
     setDraftAnalytics(
       readCookieConsent(document.cookie)?.analytics === true && !signal,
@@ -127,12 +153,12 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
   const analyticsEnabled =
     ready &&
     !storageBlocked &&
-    analyticsConsentAllowed(consent, { globalPrivacyControl: signal });
+    analyticsConsentAllowed(consent, { globalPrivacyControl: signal, essentialOnly: mobile });
   return (
-    <Context.Provider value={{ analyticsEnabled, openSettings }}>
+    <Context.Provider value={{ analyticsEnabled, openSettings, consent, platform: saved.platform, installed: saved.installed, privacySignal: signal, saveChoice: save }}>
       {children}
       <PopupPresence>
-        {ready && !consent && !settingsOpen && (
+        {ready && !mobile && !saved.welcomePending && !consent && !settingsOpen && (
           <section
             className="cookie-banner"
             aria-label={tr("Cookies and device storage")}
@@ -203,7 +229,30 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
               <X size={20} />
             </button>
           </div>
-          <div className="cookie-dialog-body">
+          {mobile ? (
+            <div className="cookie-dialog-body browser-storage-guide">
+              <p className="browser-storage-summary">
+                {tr("On mobile, TicketSafe uses essential storage only. Optional analytics are off, so there is nothing to accept.")}
+              </p>
+              <h3>{tr(saved.platform === "ios" ? "Manage storage in Safari" : "Manage browser storage")}</h3>
+              {saved.platform === "ios" ? (
+                <>
+                  <ol>
+                    <li>{tr("Open the iPhone or iPad Settings app.")}</li>
+                    <li>{tr("Choose Apps → Safari (or Safari on older versions).")}</li>
+                    <li>{tr("Open Advanced → Website Data to review or remove this site's Safari data.")}</li>
+                  </ol>
+                  <p>{tr("Home Screen apps keep separate storage from Safari. Clearing Safari data may not clear this installed app's data.")}</p>
+                </>
+              ) : (
+                <p>{tr("Open your browser's Settings, then Privacy or Site settings, to manage cookies and this site's stored data.")}</p>
+              )}
+              <p>{tr("Browser settings control storage; they do not grant website consent. Blocking all cookies can prevent sign-in.")}</p>
+              <Link href="/legal/privacy" onClick={() => setSettingsOpen(false)}>
+                {tr("Privacy policy")}
+              </Link>
+            </div>
+          ) : <div className="cookie-dialog-body">
             <p>
               {tr(
                 "Choose how TicketSafe uses cookies and similar technologies. You can change this anytime.",
@@ -249,8 +298,12 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
                 {tr("Privacy policy")}
               </Link>
             </p>
-          </div>
-          <div className="privacy-choice-controls" role="group" aria-label={tr("Your privacy choices")}>
+          </div>}
+          {mobile ? (
+            <button type="button" className="browser-storage-dismiss" onClick={() => setSettingsOpen(false)}>
+              {tr("Done")}
+            </button>
+          ) : <div className="privacy-choice-controls" role="group" aria-label={tr("Your privacy choices")}>
             <button
               type="button"
               className="privacy-choice-button privacy-choice-decision"
@@ -272,7 +325,7 @@ export function CookieConsentProvider({ children }: { children: ReactNode }) {
             >
               {tr("Save choices")}
             </button>
-          </div>
+          </div>}
         </dialog>
       }
     </Context.Provider>

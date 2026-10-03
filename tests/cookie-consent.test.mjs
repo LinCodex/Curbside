@@ -7,10 +7,28 @@ import {
   cookieConsentHeader,
   readCookieConsent,
   analyticsConsentAllowed,
+  cookieSettingsPlatform,
 } from "../lib/cookie-consent.ts";
 const now = 1_800_000_000_000;
 const cookie = (value) =>
   `${CONSENT_COOKIE}=${encodeURIComponent(JSON.stringify(value))}`;
+
+test("mobile layouts and iOS Home Screen apps use storage guidance instead of consent controls", () => {
+  const desktop = { smallViewport: false, userAgent: "Mozilla/5.0 Chrome", platform: "Win32", maxTouchPoints: 0 };
+  assert.equal(cookieSettingsPlatform(desktop), "desktop");
+  assert.equal(cookieSettingsPlatform({ ...desktop, smallViewport: true }), "mobile");
+  assert.equal(cookieSettingsPlatform({ ...desktop, userAgent: "Mozilla/5.0 (Linux; Android 15)" }), "mobile");
+  assert.equal(cookieSettingsPlatform({ ...desktop, userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0)" }), "ios");
+  assert.equal(cookieSettingsPlatform({ ...desktop, platform: "MacIntel", maxTouchPoints: 5 }), "ios");
+  assert.equal(cookieSettingsPlatform({ ...desktop, platform: "MacIntel", maxTouchPoints: 0 }), "desktop");
+});
+
+test("essential-only mode blocks analytics even with an existing affirmative consent", () => {
+  const consent = createCookieConsent(true, now);
+  assert.equal(analyticsConsentAllowed(consent, { essentialOnly: true }), false);
+  assert.equal(analyticsConsentAllowed(consent, { essentialOnly: false }), true);
+  assert.equal(analyticsConsentAllowed(null, { essentialOnly: true }), false);
+});
 test("analytics requires explicit, current consent and respects browser privacy signals", () => {
   assert.equal(analyticsConsentAllowed(null, {}), false);
   assert.equal(

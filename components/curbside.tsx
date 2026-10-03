@@ -63,7 +63,7 @@ import { combinedGarageHistory } from "@/lib/garage-history";
 import WelcomeOnboarding from "./welcome-onboarding";
 import BotChallenge, { CaptchaDisclosure, type ChallengeHandle } from "./bot-challenge";
 import MapPanelControls from "./map-panel-controls";
-import { CookieSettingsButton } from "./cookie-consent";
+import { CookieSettingsButton, useCookieConsent } from "./cookie-consent";
 import { NotificationSettings } from "./notification-settings";
 import AnnouncementSettings from "./announcement-settings";
 import { hasOnboarded, onboardingCookie } from "@/lib/onboarding";
@@ -92,6 +92,7 @@ const niceDate = (s?: string | null, locale = "en") =>
       ? "未提供"
       : "Not provided";
 export default function Curbside() {
+  const { consent: cookieConsent, saveChoice: saveCookieChoice } = useCookieConsent();
   const { tr, locale, detailMode } = usePreferences();
   const auth = useAccount();
   const config = auth.configuration;
@@ -212,6 +213,7 @@ export default function Curbside() {
   }, [auth.loading, auth.user, onboardingOpen]);
   const finishOnboarding = (signup: boolean) => {
     document.cookie = onboardingCookie(location.protocol === "https:");
+    if (!cookieConsent) saveCookieChoice(false);
     setOnboardingOpen(false);
     if (signup) {
       setAuthInitialMode("register");
@@ -884,9 +886,7 @@ export default function Curbside() {
       </a>
       <InstallGuide
         manualRequest={installGuideRequest}
-        suppressAutomatic={
-          onboardingOpen !== false || authOpen || auth.recovering
-        }
+        suppressAutomatic
       />
       <PullToRefresh
         disabled={

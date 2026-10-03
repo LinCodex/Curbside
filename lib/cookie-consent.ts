@@ -48,11 +48,23 @@ export function cookieConsentHeader(consent: CookieConsent, secure: boolean) {
 }
 export function analyticsConsentAllowed(
   consent: CookieConsent | null,
-  privacy: { doNotTrack?: string | null; globalPrivacyControl?: boolean },
+  privacy: { doNotTrack?: string | null; globalPrivacyControl?: boolean; essentialOnly?: boolean },
 ) {
   return (
     consent?.analytics === true &&
+    !privacy.essentialOnly &&
     privacy.doNotTrack !== "1" &&
     !privacy.globalPrivacyControl
   );
+}
+
+export function cookieSettingsPlatform(browser: {
+  smallViewport: boolean;
+  userAgent: string;
+  platform: string;
+  maxTouchPoints: number;
+}): "desktop" | "ios" | "mobile" {
+  if (/iPhone|iPad|iPod/i.test(browser.userAgent) ||
+      (browser.platform === "MacIntel" && browser.maxTouchPoints > 1)) return "ios";
+  return browser.smallViewport || /Android|Mobile/i.test(browser.userAgent) ? "mobile" : "desktop";
 }

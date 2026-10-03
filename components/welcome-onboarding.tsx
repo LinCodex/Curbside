@@ -6,7 +6,12 @@ import {
   MapPin,
   RefreshCw,
   ShieldCheck,
+  Smartphone,
+  Share,
+  PlusSquare,
 } from "lucide-react";
+import Link from "next/link";
+import { useCookieConsent } from "./cookie-consent";
 import { PreferenceChoice, usePreferences } from "./preferences";
 import styles from "./welcome-onboarding.module.css";
 import {
@@ -30,8 +35,10 @@ export default function WelcomeOnboarding({
     useState<ReturnType<typeof readPreferences>>(savedPreferences);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const { consent, platform, installed, privacySignal, saveChoice } = useCookieConsent();
+  const [allowAnalytics, setAllowAnalytics] = useState(consent?.analytics === true);
   useEffect(() => {
-    if (step === 2) previewPreferences(draft);
+    if (step === 4) previewPreferences(draft);
   }, [draft, step, previewPreferences]);
   useEffect(() => () => previewPreferences(null), [previewPreferences]);
   const complete = async (signup: boolean) => {
@@ -49,10 +56,10 @@ export default function WelcomeOnboarding({
   return (
     <section className={`welcome-onboarding ${styles.welcome}`}>
       <div className="onboarding-progress" aria-label={tr("Welcome progress")}>
-        {[0, 1, 2].map((index) => (
+        {[0, 1, 2, 3, 4].map((index) => (
           <span key={index} className={index === step ? "active" : ""} />
         ))}
-        <span className="sr-only">{step + 1} / 3</span>
+        <span className="sr-only">{step + 1} / 5</span>
       </div>
       <div
         className={`onboarding-slide ${styles.slide}`}
@@ -125,6 +132,50 @@ export default function WelcomeOnboarding({
               )}
             </p>
           </>
+        ) : step === 2 ? (
+          <>
+            <div className="onboarding-symbol"><ShieldCheck size={42} strokeWidth={1.35} /></div>
+            <h2>{tr("Your privacy, from the start.")}</h2>
+            {platform !== "desktop" ? (
+              <p>{tr("On mobile, TicketSafe uses essential storage only. Optional analytics are off, so there is nothing to accept.")}</p>
+            ) : (
+              <>
+                <p>{tr("Essential storage keeps sign-in, security and your settings working. Optional analytics help us improve public pages.")}</p>
+                <label className={styles.privacyChoice}>
+                  <span>
+                    <strong>{tr("Optional analytics")}</strong>
+                    <small>{tr("Vercel Analytics and Speed Insights measure public visits and page performance. No advertising cookies or private vehicle details.")}</small>
+                  </span>
+                  <input type="checkbox" checked={allowAnalytics && !privacySignal} disabled={privacySignal} onChange={event => setAllowAnalytics(event.target.checked)} />
+                </label>
+                <p className="small muted">{tr("Leave this off to use essential storage only. You can change it later in Cookie settings.")}</p>
+                {privacySignal && <p className="small muted">{tr("Your browser privacy signal keeps analytics off.")}</p>}
+              </>
+            )}
+            <Link href="/legal/privacy" target="_blank" rel="noopener noreferrer" className="text-link">{tr("Privacy policy")}</Link>
+          </>
+        ) : step === 3 ? (
+          <>
+            <div className="onboarding-symbol"><Smartphone size={42} strokeWidth={1.35} /></div>
+            <h2>{tr("Your garage, one tap away")}</h2>
+            {installed ? (
+              <p>{tr("TicketSafe is already opening as a web app on this device.")}</p>
+            ) : (
+              <>
+                <p>{tr("Open your garage like an app, with more room for what matters. No App Store download.")}</p>
+                {platform === "ios" ? (
+                  <ol className={styles.installSteps}>
+                    <li><Share size={20} /><span><strong>{tr("Open this website in Safari")}</strong><small>{tr("Tap the Share button. It may be inside Safari’s More menu.")}</small></span></li>
+                    <li><PlusSquare size={20} /><span><strong>{tr("Choose Add to Home Screen")}</strong><small>{tr("Scroll through the actions. If missing, choose Edit Actions to add it.")}</small></span></li>
+                    <li><Smartphone size={20} /><span><strong>{tr("Keep Open as Web App on")}</strong><small>{tr("If that option appears, leave it enabled, then tap Add.")}</small></span></li>
+                  </ol>
+                ) : (
+                  <p>{tr("On Android, choose Install app or Add to Home screen from your browser menu. On iPhone or iPad, open this site in Safari and choose Share → Add to Home Screen.")}</p>
+                )}
+                <p className="small muted">{tr("Inside the app, pull down from the top to refresh. An internet connection is needed for current ticket records.")}</p>
+              </>
+            )}
+          </>
         ) : (
           <>
             <h2>{tr("Make it feel like yours.")}</h2>
@@ -191,9 +242,12 @@ export default function WelcomeOnboarding({
         </p>
       )}
       <div className="onboarding-actions">
-        {step < 2 ? (
-          <button className="primary-action" onClick={() => setStep(step + 1)}>
-            {tr("Continue")}
+        {step < 4 ? (
+          <button className="primary-action" onClick={() => {
+            if (step === 2 && platform === "desktop") saveChoice(allowAnalytics);
+            setStep(step + 1);
+          }}>
+            {tr(step === 2 && platform === "desktop" ? "Continue with these choices" : "Continue")}
             <ArrowRight size={18} />
           </button>
         ) : (
@@ -230,7 +284,8 @@ export default function WelcomeOnboarding({
         </div>
       </div>
       <p className="onboarding-cookie small muted">
-        {tr("An essential cookie remembers this welcome on this browser.")}
+        {tr("An essential cookie remembers this welcome on this browser.")}{" "}
+        {tr("Skipping keeps optional analytics off unless you already allowed them.")}
       </p>
     </section>
   );
