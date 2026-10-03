@@ -1,5 +1,5 @@
 // Cache public assets only; never cache queries, ticket pages, or accounts.
-const CACHE = "ticketsafe-public-v8";
+const CACHE = "ticketsafe-public-v9";
 const ASSETS = [
   "/offline.html",
   "/favicon.svg",
