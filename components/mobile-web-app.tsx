@@ -211,7 +211,7 @@ export function PullToRefresh({
       const target = e.target as Element;
       if (
         target.closest(
-          "input,textarea,select,button,a,[role=combobox],.mapbox-surface,.map-results,.ticket-list,.custom-select-menu",
+          "input,textarea,select,button,a,[role=combobox],.mapbox-surface,.map-results,.ticket-list,.custom-select-menu,.cookie-banner,.cookie-dialog",
         )
       )
         return;

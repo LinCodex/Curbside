@@ -18,7 +18,7 @@
   animation: cookie-appear 220ms ease-out both;
 }
 /* Let the active app dialog finish before asking for a privacy choice. */
-body:has(.modal-backdrop) .cookie-banner {
+body:has(.modal-backdrop, dialog[open]) .cookie-banner {
   display: none;
 }
 .cookie-banner-copy {
@@ -97,15 +97,16 @@ body:has(.modal-backdrop) .cookie-banner {
   box-shadow: 0 24px 80px #0006;
   opacity: 1;
   transform: translateY(0);
+  /* Preserve the content layout while discrete display transitions finish. */
+  flex-direction: column;
   transition:
-    opacity 180ms ease,
-    transform 180ms ease,
-    display 180ms allow-discrete,
-    overlay 180ms allow-discrete;
+    opacity 100ms ease,
+    transform 100ms ease,
+    display 100ms allow-discrete,
+    overlay 100ms allow-discrete;
 }
 .cookie-dialog[open] {
   display: flex;
-  flex-direction: column;
 }
 .cookie-dialog-body {
   min-height: 0;
@@ -267,16 +268,18 @@ body:has(.modal-backdrop) .cookie-banner {
 }
 @media (max-width: 800px) {
   .cookie-banner {
-    left: 12px;
-    right: 12px;
-    bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    left: max(12px, env(safe-area-inset-left, 0px));
+    right: max(12px, env(safe-area-inset-right, 0px));
+    bottom: max(12px, env(safe-area-inset-bottom, 0px));
     padding: 18px;
     gap: 14px;
-    max-height: calc(100dvh - 120px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    max-height: calc(100svh - max(12px, env(safe-area-inset-top, 0px)) - max(12px, env(safe-area-inset-bottom, 0px)));
   }
   .cookie-banner .cookie-actions {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     width: 100%;
   }
   .cookie-banner .cookie-actions > :first-child {
