@@ -34,7 +34,8 @@ import {
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useSupabaseAccount } from "./use-supabase-account";
 import { usePreferences } from "./preferences";
-import AuthPanel from "./auth-panel";
+import CrmLogin from "./crm-login";
+import CrmSelect from "./crm-select";
 import { CookieSettingsButton } from "./cookie-consent";
 import {
   crmClientRequest,
@@ -54,6 +55,31 @@ type Translate = (text: string) => string;
 type Tab = "overview" | "customers" | "email" | "access" | "status" | "debug";
 const chinese: Record<string, string> = {
   "Admin workspace": "管理工作台",
+  "Admin sign in": "管理员登录",
+  "Sign in": "登录",
+  "Email address": "邮箱地址",
+  Password: "密码",
+  "New password": "新密码",
+  "Show password": "显示密码",
+  "Hide password": "隐藏密码",
+  "Forgot password?": "忘记密码？",
+  "Back to sign in": "返回登录",
+  "Send reset link": "发送重置链接",
+  "Save new password": "保存新密码",
+  "Please wait…": "请稍候…",
+  "Confirm your email before signing in.": "请先验证邮箱，再登录。",
+  "Email or password is incorrect.": "邮箱或密码不正确。",
+  "Security check failed. Please try again.": "安全验证失败，请重试。",
+  "Too many attempts. Please wait before trying again.":
+    "尝试次数过多，请稍后重试。",
+  "Sign-in is unavailable right now. Please try again later.":
+    "登录服务暂不可用，请稍后重试。",
+  "Could not connect. Check your connection and try again.":
+    "无法连接，请检查网络后重试。",
+  "If you have an account, check your inbox for a reset link.":
+    "如有此账户，请在收件箱查看密码重置链接。",
+  "Use at least 8 characters, including a lowercase letter, an uppercase letter, and a digit.":
+    "使用至少 8 个字符，包括小写字母、大写字母和数字。",
   Overview: "概览",
   Customers: "用户",
   Email: "邮件",
@@ -470,7 +496,9 @@ export default function CrmDashboard() {
             TicketSafe<span>.</span>
           </Link>
           <p className="crm-eyebrow">{tr("Admin workspace")}</p>
-          <h1>{tr("Admin access required")}</h1>
+          <h1>
+            {tr(account.user ? "Admin access required" : "Admin sign in")}
+          </h1>
           <p>
             {tr(
               account.user
@@ -487,10 +515,12 @@ export default function CrmDashboard() {
             tr={tr}
           />
           {!account.user && account.client && (
-            <AuthPanel
+            <CrmLogin
               client={account.client}
+              captchaKey={account.configuration.hcaptchaKey}
               recovering={account.recovering}
               onComplete={auth.reload}
+              tr={tr}
             />
           )}
           {account.user && (
@@ -762,25 +792,21 @@ function Customers({
         </label>
         <label className="crm-filter">
           <span className="crm-sr-only">{tr("Customers")}</span>
-          <select
+          <CrmSelect
+            label={tr("Customers")}
             value={filter}
-            onChange={(event) => {
-              setFilter(event.target.value);
+            onChange={(value) => {
+              setFilter(value);
               setPage(1);
             }}
-          >
-            {[
+            options={[
               ["all", "All customers"],
               ["verified", "Verified"],
               ["unverified", "Unverified"],
               ["ticket_emails", "Ticket emails"],
               ["announcement_emails", "Announcements"],
-            ].map(([value, label]) => (
-              <option key={value} value={value}>
-                {tr(label)}
-              </option>
-            ))}
-          </select>
+            ].map(([value, label]) => ({ value, label: tr(label) }))}
+          />
         </label>
         <button className="crm-button crm-primary" type="submit">
           {tr("Search")}
@@ -1071,15 +1097,15 @@ function CustomerEditor({
           <h3>{tr("Add CRM access")}</h3>
           <label>
             <span className="crm-sr-only">{tr("Select role")}</span>
-            <select
+            <CrmSelect
+              label={tr("Select role")}
               value={role}
-              onChange={(event) =>
-                setRole(event.target.value as "admin" | "support")
-              }
-            >
-              <option value="support">{tr("Support")}</option>
-              <option value="admin">{tr("Admin")}</option>
-            </select>
+              onChange={(value) => setRole(value as "admin" | "support")}
+              options={[
+                { value: "support", label: tr("Support") },
+                { value: "admin", label: tr("Admin") },
+              ]}
+            />
           </label>
           <button
             className="crm-button"
@@ -1583,19 +1609,18 @@ function AccessWorkspace({
                     <span className="crm-sr-only">
                       {tr("Edit role")} {row.email}
                     </span>
-                    <select
+                    <CrmSelect
+                      label={`${tr("Edit role")}: ${row.email}`}
                       value={row.role}
                       disabled={!!busy}
-                      onChange={(event) =>
-                        void update(
-                          row,
-                          event.target.value as "admin" | "support",
-                        )
+                      onChange={(value) =>
+                        void update(row, value as "admin" | "support")
                       }
-                    >
-                      <option value="admin">{tr("Admin")}</option>
-                      <option value="support">{tr("Support")}</option>
-                    </select>
+                      options={[
+                        { value: "admin", label: tr("Admin") },
+                        { value: "support", label: tr("Support") },
+                      ]}
+                    />
                   </label>
                   <button
                     className="crm-button crm-danger"
@@ -1874,21 +1899,22 @@ function DebugWorkspace({
         </form>
         <label className="crm-form-label">
           {tr("Customer details")}
-          <select
+          <CrmSelect
+            label={tr("Customer details")}
             value={userId}
-            onChange={(event) => {
-              setUserId(event.target.value);
+            onChange={(value) => {
+              setUserId(value);
               setResult(null);
             }}
             disabled={!!busy}
-          >
-            <option value="">{tr("All notification checks")}</option>
-            {users.data?.users.map((user) => (
-              <option key={user.id} value={user.id}>
-                {user.email}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: "", label: tr("All notification checks") },
+              ...(users.data?.users.map((user) => ({
+                value: user.id,
+                label: user.email,
+              })) || []),
+            ]}
+          />
         </label>
         <Feedback
           loading={users.loading}
