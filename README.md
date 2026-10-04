@@ -2,6 +2,8 @@
 
 NYC plate search, private saved cars, retained city ticket histories, and a map. Public search requires no account. Supabase supplies authentication, database storage and existing account/snapshot Edge Functions. Existing customer UUIDs, cars, preferences, sessions and acceptance records remain in the same project.
 
+Current release: **1.0.0**. Start with the [changelog](CHANGELOG.md), [developer handoff](DEVELOPER.md) and [dated service verification](docs/SERVICE-VERIFICATION.md). Database and Edge Function deployment is separate from Vercel's GitHub deployment.
+
 ## Development
 
 Use Node 22.13 or newer. Run npm ci, copy .env.example to an ignored .env.local, configure the existing project's URL and publishable key, and run npm run dev. APP_ORIGIN must match the exact website origin. Never expose a Supabase service-role key; privileged function credentials remain in the Supabase function runtime.
@@ -14,7 +16,7 @@ Account deletion calls the existing account-delete Edge Function, which validate
 
 ## Deployment and costs
 
-Vercel uses the standard Next.js build. The active address remains https://curbside-eta.vercel.app. The custom domain requires DNS and authentication-origin verification before activation; no redirect to an unavailable domain is enabled.
+Vercel uses the standard Next.js build. The active address remains https://curbside-eta.vercel.app. The custom-domain alias is listed in Vercel but did not resolve in the October 4 check. It requires DNS, TLS and authentication-origin verification before activation; no redirect to an unavailable domain is enabled.
 
 Vercel Web Analytics is retained. Only explicit public search/map and current legal-page visits are counted, with queries stripped and private account/garage/recovery views excluded. Global Privacy Control and Do Not Track are respected.
 

@@ -330,8 +330,7 @@ html[data-theme="light"]
     .money-table,
     .detail-grid,
     .source-details > div,
-    .ticket-location,
-    .map-legal-credits nav + nav
+    .ticket-location
   ) {
   border-color: var(--line);
 }
@@ -361,10 +360,6 @@ html[data-theme="light"] :is(.map-selection, .map-results .ticket-selected) {
 }
 html[data-theme="light"] .map-results-compact .map-selection {
   background: none;
-}
-html[data-theme="light"] :is(.map-credits, .map-legal-credits) {
-  color: #4e5d6c;
-  background: #f6f8faf0;
 }
 html[data-theme="light"] :is(.ticket-location, .ticket-map-preview) {
   background: #edf1f5;

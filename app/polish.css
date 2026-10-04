@@ -921,25 +921,6 @@ html[data-theme="light"] .legal-back-button:active {
   left: 14px;
   z-index: 8;
 }
-.map-credits {
-  position: absolute;
-  right: 16px;
-  bottom: 10px;
-  z-index: 8;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 3px 7px;
-  border-radius: 4px;
-  background: #090b0ecc;
-  font:
-    10px/1.5 Curbside,
-    sans-serif;
-  color: #c5cad1;
-}
-.map-credits a:hover {
-  text-decoration: underline;
-}
 .map-helper {
   font-size: 12px;
   line-height: 1.7;
@@ -1012,13 +993,6 @@ html[data-theme="light"] .legal-back-button:active {
   .mapboxgl-ctrl-bottom-left {
     bottom: 89px;
     left: 9px;
-  }
-  .map-credits {
-    bottom: 89px;
-    right: 10px;
-    max-width: 70%;
-    font-size: 9px;
-    gap: 5px;
   }
   .map-scene {
     padding-top: 32px;
@@ -1319,12 +1293,6 @@ html[data-theme="light"] .legal-back-button:active {
     transform: translateX(-50%) scale(1.4);
     opacity: 0.25;
   }
-}
-.map-credits {
-  font-size: 10px;
-  gap: 6px;
-  padding: 2px 5px;
-  background: #07090bb3;
 }
 @media (min-width: 801px) {
   .app {
@@ -2046,10 +2014,6 @@ html[data-theme="light"] .map-list-minimized-icon {
   .onboarding .main-view::-webkit-scrollbar {
     display: none;
   }
-}
-.map-legal-credits,
-.map-credits {
-  display: none !important;
 }
 .account-legal-card {
   width: 100%;

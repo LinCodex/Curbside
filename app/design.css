@@ -2737,20 +2737,9 @@ html[data-theme="light"] .legal-section-links a[aria-current="location"] {
     margin-bottom: 0;
     max-height: 100%;
   }
-  .app[data-view="map"]
-    .map-results:not(.map-results-compact):not(.map-box-minimized) {
-    height: min(52dvh, 440px);
-    max-height: min(52dvh, 440px, 100%);
-  }
   .app[data-view="map"] .map-results.map-box-minimized {
     height: auto;
     max-height: 84px;
-  }
-  .app[data-view="map"]
-    .map-results:not(.map-results-compact):not(.map-box-minimized):has(
-      > .empty
-    ) {
-    height: auto;
   }
   .app[data-view="map"] .atlas {
     bottom: 0;

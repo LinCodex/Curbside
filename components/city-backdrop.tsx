@@ -1,5 +1,4 @@
 "use client";
-import { MapCredits } from "./map-credits";
 
 import { usePreferences } from "./preferences";
 
@@ -21,7 +20,6 @@ export function CityBackdrop() {
         fetchPriority="high"
       />
       <div className="map-vignette" />
-      <MapCredits provider="nyc" />
     </div>
   );
 }

@@ -84,7 +84,6 @@ function createIco(pngBuffers) {
 
 async function buildIcons() {
   const publicDir = path.resolve("public");
-  const distDir = path.resolve("dist/client");
 
   // Write SVGs
   fs.writeFileSync(path.join(publicDir, "favicon.svg"), faviconSvg, "utf-8");
@@ -114,16 +113,6 @@ async function buildIcons() {
   fs.writeFileSync(path.join(publicDir, "favicon.ico"), ico);
   console.log("Wrote PNG icons and favicon.ico to public/");
 
-  // Also sync to dist/client if it exists
-  if (fs.existsSync(distDir)) {
-    fs.copyFileSync(path.join(publicDir, "favicon.svg"), path.join(distDir, "favicon.svg"));
-    fs.copyFileSync(path.join(publicDir, "app-icon.svg"), path.join(distDir, "app-icon.svg"));
-    fs.copyFileSync(path.join(publicDir, "favicon.ico"), path.join(distDir, "favicon.ico"));
-    fs.copyFileSync(path.join(publicDir, "apple-touch-icon.png"), path.join(distDir, "apple-touch-icon.png"));
-    fs.copyFileSync(path.join(publicDir, "icon-192.png"), path.join(distDir, "icon-192.png"));
-    fs.copyFileSync(path.join(publicDir, "icon-512.png"), path.join(distDir, "icon-512.png"));
-    console.log("Synced all icon assets to dist/client/");
-  }
 }
 
 buildIcons().catch((err) => {

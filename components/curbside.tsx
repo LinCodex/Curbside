@@ -23,13 +23,11 @@ import {
   Ticket,
   Info,
   ArrowRight,
-  X,
   Check,
   Download,
   LogIn,
   FileText,
   ChevronDown,
-  ChevronUp,
   LoaderCircle,
   RefreshCw,
   Navigation,
@@ -37,7 +35,6 @@ import {
   CheckCircle2,
   Accessibility,
   LogOut,
-  Edit3,
   UserRound,
   Clock3,
 } from "lucide-react";
@@ -66,6 +63,10 @@ import MapPanelControls from "./map-panel-controls";
 import { CookieSettingsButton, useCookieConsent } from "./cookie-consent";
 import { NotificationSettings } from "./notification-settings";
 import MapTicketScroll from "./map-ticket-scroll";
+import TicketList from "./ticket-list";
+import VehicleData from "./vehicle-data";
+import Modal from "./modal";
+import { niceDate } from "@/lib/display-date";
 import AnnouncementSettings from "./announcement-settings";
 import { hasOnboarded, onboardingCookie } from "@/lib/onboarding";
 import {
@@ -88,15 +89,7 @@ const nav = [
   { id: "map", label: "Map", icon: MapIcon },
   { id: "account", label: "Account", icon: UserRound },
 ];
-const niceDate = (s?: string | null, locale = "en") =>
-  s
-    ? new Date(s.length === 10 ? s + "T12:00:00" : s).toLocaleDateString(
-        locale === "zh" ? "zh-CN" : "en-US",
-        { month: "short", day: "numeric", year: "numeric" },
-      )
-    : locale === "zh"
-      ? "未提供"
-      : "Not provided";
+
 export default function Curbside() {
   const { consent: cookieConsent, saveChoice: saveCookieChoice } =
     useCookieConsent();
@@ -2764,221 +2757,6 @@ export default function Curbside() {
           </div>
         )}
       </PopupPresence>
-    </div>
-  );
-}
-function VehicleData({ tickets }: { tickets: Violation[] }) {
-  const { tr, locale } = usePreferences();
-  const groups = new Map<
-    string,
-    {
-      values: Violation["vehicle"];
-      count: number;
-    }
-  >();
-  for (const ticket of tickets) {
-    const values = ticket.vehicle || {};
-    if (!Object.values(values).some(Boolean)) continue;
-    const key = JSON.stringify([
-      values.make,
-      values.year,
-      values.color,
-      values.body,
-    ]);
-    const previous = groups.get(key);
-    groups.set(key, { values, count: (previous?.count || 0) + 1 });
-  }
-  return (
-    <section
-      className="vehicle-data"
-      aria-label={tr("City-reported vehicle history")}
-    >
-      <h3>{tr("City-reported vehicle history")}</h3>
-      <p className="small muted">
-        {tr(
-          "Attributes reported on tickets may describe previous vehicles using this plate.",
-        )}
-      </p>
-      {groups.size ? (
-        <div className="vehicle-history-list">
-          {Array.from(groups.entries()).map(([key, { values, count }]) => (
-            <div className="vehicle-history-row" key={key}>
-              <div>
-                {(["make", "year", "color", "body"] as const).map((field) => (
-                  <span key={field}>
-                    <small>{tr(field)}</small>
-                    <strong>
-                      {values[field]
-                        ? tr(String(values[field]))
-                        : tr("Not provided")}
-                    </strong>
-                  </span>
-                ))}
-              </div>
-              <small>
-                {count.toLocaleString(locale)} {tr("tickets")}
-              </small>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="small muted">
-          {tr("No vehicle attributes were reported.")}
-        </p>
-      )}
-    </section>
-  );
-}
-function TicketList({
-  tickets,
-  onSelect,
-  activeId,
-  showPlate = false,
-}: {
-  tickets: any[];
-  onSelect: (t: any) => void;
-  activeId?: string;
-  showPlate?: boolean;
-}) {
-  const { tr, locale, detailMode } = usePreferences();
-  return (
-    <div className="ticket-list">
-      {tickets.map((t) => (
-        <button
-          className={"ticket " + (activeId === t.id ? "ticket-selected" : "")}
-          aria-pressed={activeId === undefined ? undefined : activeId === t.id}
-          key={t.id}
-          onClick={() => onSelect(t)}
-        >
-          <div className={"ticket-symbol " + (t.due === 0 ? "resolved" : "")}>
-            <Ticket size={18} />
-          </div>
-          <div className="ticket-main">
-            <div className="ticket-reference">
-              {showPlate && (
-                <span className="ticket-plate-label">
-                  {t.plate} · {t.state}
-                </span>
-              )}
-              {detailMode === "geek" && (
-                <>
-                  <span className="mono">{t.id}</span>
-                  <span aria-hidden="true">·</span>
-                </>
-              )}
-              <span>{niceDate(t.issued, locale)}</span>
-            </div>
-            <h3>{tr(t.description)}</h3>
-            <p>
-              {t.location.label ? (
-                <>
-                  <MapPin size={10} />
-                  <span>{t.location.label}</span>
-                </>
-              ) : (
-                tr("Location not provided")
-              )}
-            </p>
-          </div>
-          <div className="ticket-cost">
-            <div>
-              <strong>{tr(money(t.due))}</strong>
-              <p>
-                {t.localStatus
-                  ? tr("Marked ") + tr(t.localStatus)
-                  : t.due === 0
-                    ? tr("No balance")
-                    : t.due == null
-                      ? tr("Status unknown")
-                      : tr("Outstanding")}
-              </p>
-            </div>
-            <ChevronRight size={15} />
-          </div>
-        </button>
-      ))}
-    </div>
-  );
-}
-let modalLocks = 0;
-let previousBodyOverflow = "";
-function Modal({
-  title,
-  close,
-  children,
-  motion,
-}: {
-  title: string;
-  close: () => void;
-  children: React.ReactNode;
-  motion?: "up";
-}) {
-  const { tr, locale, resolvedTheme } = usePreferences();
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const last = document.activeElement as HTMLElement;
-    const dialog = ref.current;
-    ref.current?.focus();
-    const key = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-      if (e.key === "Tab") {
-        const els = ref.current?.querySelectorAll<HTMLElement>(
-          'button:not(:disabled),a,input,select,textarea,[tabindex="0"]',
-        );
-        if (!els?.length) return;
-        const first = els[0],
-          last = els[els.length - 1];
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
-      }
-    };
-    document.addEventListener("keydown", key);
-    if (modalLocks++ === 0) {
-      previousBodyOverflow = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-    }
-    return () => {
-      document.removeEventListener("keydown", key);
-      if (--modalLocks === 0)
-        document.body.style.overflow = previousBodyOverflow;
-      // A new popup may already own focus while this one finishes closing.
-      if (
-        dialog?.contains(document.activeElement) ||
-        document.activeElement === document.body
-      )
-        last?.focus();
-    };
-  }, []);
-  return (
-    <div className="modal-backdrop" onClick={close}>
-      <div
-        className="sheet"
-        data-motion={motion}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        tabIndex={-1}
-        ref={ref}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="sheet-handle" />
-        <div className="sheet-head">
-          <h2>{title}</h2>
-          <button
-            className="round-control"
-            onClick={close}
-            aria-label={tr("Close")}
-          >
-            <X size={21} />
-          </button>
-        </div>
-        {children}
-      </div>
     </div>
   );
 }

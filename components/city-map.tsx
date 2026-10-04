@@ -7,7 +7,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { MapCredits } from "./map-credits";
 
 import type { Violation } from "@/lib/domain";
 import { hasPoint, locationRing } from "@/lib/map-locations";
@@ -680,7 +679,6 @@ export default function CityMap({
         </svg>
       )}
       <div className="map-vignette" />
-      <MapCredits provider={token && !failed ? "mapbox" : "nyc"} />
       {interactive && failed && (
         <div className="map-provider-status" role="status">
           <span>{tr(failureReason)}</span>
