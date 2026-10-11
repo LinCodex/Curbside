@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.1 — 2026-10-11
+
+Customer-facing notes for this release also appear in Account → What’s new (`lib/changelog.ts`).
+
+- Ticket details: each ticket details sheet now includes an interactive button to view/show the official summons image when one is available (with an inline image preview and link), or displays a disabled notice indicating that the summons image is not available when no image was provided by NYC.
+
+### Validation
+
+Regression tests, TypeScript typecheck, and production build verified.
+
 ## 1.2.0 — 2026-10-11
 
 Customer-facing notes for this release also appear in Account → What’s new (`lib/changelog.ts`).

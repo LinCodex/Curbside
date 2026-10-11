@@ -10,6 +10,17 @@ export type ChangelogRelease = {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.2.1",
+    date: "2026-10-11",
+    title: { en: "Summons image in ticket details", zh: "罚单详情中新增传票影像" },
+    changes: [
+      {
+        en: "Ticket details now include a button to show the official summons image when available, or indicate when one is not available.",
+        zh: "罚单详情现在包含一个按钮，可在有影像时显示官方罚单影像，并在无影像时提示不可用。",
+      },
+    ],
+  },
+  {
     version: "1.2.0",
     date: "2026-10-11",
     title: { en: "Smoother start and automatic updates", zh: "上手更顺畅，自动更新" },

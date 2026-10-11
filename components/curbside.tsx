@@ -175,6 +175,8 @@ export default function Curbside() {
   const [tutorialOpen, setTutorialOpen] = useState<"auto" | "replay" | null>(
     null,
   );
+  const [showSummonsImage, setShowSummonsImage] = useState(false);
+  const [summonsImageFailed, setSummonsImageFailed] = useState(false);
   // Rewriting the value mid-composition restarts iOS pinyin input and duplicates it.
   const plateComposing = useRef(false);
   const [resumedSave, setResumedSave] = useState<PendingSave | null>(null);
@@ -955,6 +957,8 @@ export default function Curbside() {
   );
   const openTicket = useCallback((t: Violation) => {
     setSelected(t);
+    setShowSummonsImage(false);
+    setSummonsImageFailed(false);
     setSheet("ticket");
   }, []);
   const searchForm = (
@@ -2871,17 +2875,58 @@ export default function Curbside() {
                     </div>
                   ))}
                 </div>
-                {selected.image && (
-                  <a
-                    className="button"
-                    href={selected.image}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {tr("View official summons image")}
-                    <ArrowUpRight size={14} />
-                  </a>
-                )}
+                <div className="ticket-summons-action">
+                  {selected.image ? (
+                    <button
+                      type="button"
+                      className="button"
+                      onClick={() => setShowSummonsImage((v) => !v)}
+                      aria-expanded={showSummonsImage}
+                    >
+                      <FileText size={15} />
+                      {showSummonsImage
+                        ? tr("Hide summons image")
+                        : tr("Show summons image")}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="button"
+                      disabled
+                      aria-disabled="true"
+                      aria-label={tr("Summons image not available")}
+                    >
+                      <FileText size={15} />
+                      {tr("Summons image: Not available")}
+                    </button>
+                  )}
+                  {showSummonsImage && selected.image && (
+                    <div className="ticket-summons-preview">
+                      <img
+                        src={selected.image}
+                        alt={tr("Official summons image")}
+                        loading="lazy"
+                        onError={() => setSummonsImageFailed(true)}
+                      />
+                      {summonsImageFailed && (
+                        <p className="small muted">
+                          {tr(
+                            "Summons image preview unavailable in browser.",
+                          )}
+                        </p>
+                      )}
+                      <a
+                        className="text-link"
+                        href={selected.image}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {tr("View official summons image")}
+                        <ArrowUpRight size={14} />
+                      </a>
+                    </div>
+                  )}
+                </div>
                 <a
                   className="primary-action"
                   href="https://www.nyc.gov/main/services/parking-and-camera-tickets"

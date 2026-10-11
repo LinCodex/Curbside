@@ -1438,5 +1438,11 @@
   "vs previous 30 days": "相比前 30 天",
   "vs previous 12 months": "相比前 12 个月",
   "Legal pages": "法律页面",
-  "TicketSafe counts screens opened in the app so we can see which parts are used. These counts do not use cookies or advertising identifiers, and they are separate from optional Vercel analytics. A visit is stored as an hourly total for that screen. When you are signed in with a confirmed account, we also store how many screens that account opened, when it last opened one and which screen that was. We do not store the web address, device, IP address or the page you came from. Do Not Track and Global Privacy Control turn this counting off. Hourly totals are removed after 25 months. Per-account daily counts are removed after 90 days, and the rest of an account's counts are removed when the account is deleted.": "罚单卫士会统计应用内打开的页面，以便了解哪些部分被使用。这些统计不使用 Cookie 或广告标识符，并且与可选的 Vercel 分析相互独立。一次访问只按该页面的每小时合计保存。使用已验证账户登录时，我们还会保存该账户打开了多少页面、最近一次打开的时间以及打开的是哪个页面。我们不保存网址、设备、IP 地址或来源页面。开启“请勿跟踪”或全局隐私控制后，这项统计会关闭。每小时合计在 25 个月后删除。按账户的每日计数在 90 天后删除，该账户的其余计数在账户删除时一并删除。"
+  "TicketSafe counts screens opened in the app so we can see which parts are used. These counts do not use cookies or advertising identifiers, and they are separate from optional Vercel analytics. A visit is stored as an hourly total for that screen. When you are signed in with a confirmed account, we also store how many screens that account opened, when it last opened one and which screen that was. We do not store the web address, device, IP address or the page you came from. Do Not Track and Global Privacy Control turn this counting off. Hourly totals are removed after 25 months. Per-account daily counts are removed after 90 days, and the rest of an account's counts are removed when the account is deleted.": "罚单卫士会统计应用内打开的页面，以便了解哪些部分被使用。这些统计不使用 Cookie 或广告标识符，并且与可选的 Vercel 分析相互独立。一次访问只按该页面的每小时合计保存。使用已验证账户登录时，我们还会保存该账户打开了多少页面、最近一次打开的时间以及打开的是哪个页面。我们不保存网址、设备、IP 地址或来源页面。开启“请勿跟踪”或全局隐私控制后，这项统计会关闭。每小时合计在 25 个月后删除。按账户的每日计数在 90 天后删除，该账户的其余计数在账户删除时一并删除。",
+  "Show summons image": "显示罚单影像",
+  "Hide summons image": "隐藏罚单影像",
+  "Summons image: Not available": "罚单影像：不可用",
+  "Summons image not available": "暂无罚单影像",
+  "Official summons image": "官方罚单影像",
+  "Summons image preview unavailable in browser.": "浏览器中无法预览影像，请通过官方链接查看。"
 }

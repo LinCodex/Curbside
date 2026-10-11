@@ -81,3 +81,17 @@ test("backup map zoom keeps the gesture point fixed and the map filling the fram
   assert.equal(panned.y, -1150);
   assert.deepEqual(clampCamera({ k: 0.5, x: 20, y: 20 }, box), { k: 1, x: 0, y: 0 });
 });
+
+test("ticket details summons image action is bilingual and indicates availability", () => {
+  const zh = JSON.parse(readFileSync("lib/zh.json", "utf8"));
+  assert.equal(zh["Show summons image"], "显示罚单影像");
+  assert.equal(zh["Hide summons image"], "隐藏罚单影像");
+  assert.equal(zh["Summons image: Not available"], "罚单影像：不可用");
+  assert.equal(zh["Summons image not available"], "暂无罚单影像");
+
+  const curbsideSource = readFileSync("components/curbside.tsx", "utf8");
+  assert.match(curbsideSource, /ticket-summons-action/);
+  assert.match(curbsideSource, /ticket-summons-preview/);
+  assert.match(curbsideSource, /selected\.image/);
+  assert.match(curbsideSource, /Summons image: Not available/);
+});

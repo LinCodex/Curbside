@@ -361,7 +361,8 @@ html[data-theme="light"] :is(.map-selection, .map-results .ticket-selected) {
 html[data-theme="light"] .map-results-compact .map-selection {
   background: none;
 }
-html[data-theme="light"] :is(.ticket-location, .ticket-map-preview) {
+html[data-theme="light"]
+  :is(.ticket-location, .ticket-map-preview, .ticket-summons-preview) {
   background: #edf1f5;
 }
 html[data-theme="light"] .badge {
