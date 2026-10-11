@@ -95,14 +95,10 @@ test("ticket details summons image action is bilingual and indicates availabilit
   const curbsideSource = readFileSync("components/curbside.tsx", "utf8");
   assert.match(curbsideSource, /ticket-summons-action/);
   assert.match(curbsideSource, /ticket-summons-preview/);
-  assert.match(curbsideSource, /ticket-summons-buttons/);
-  assert.match(curbsideSource, /ticket-summons-view/);
-  assert.match(curbsideSource, /detail-summons-pill/);
   assert.match(curbsideSource, /selected\.image/);
   assert.match(curbsideSource, /Summons image: Not available/);
 
   const polishSource = readFileSync("app/polish.css", "utf8");
-  assert.match(polishSource, /\.detail-summons-pill/);
   assert.match(polishSource, /\.summons-frame/);
   assert.match(polishSource, /@media \(max-width: 800px\) \{[\s\S]*?\.summons-frame/);
 });

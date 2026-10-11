@@ -365,17 +365,6 @@ html[data-theme="light"]
   :is(.ticket-location, .ticket-map-preview, .ticket-summons-preview) {
   background: #edf1f5;
 }
-html[data-theme="light"] .detail-summons-pill {
-  color: #1a56db;
-  background: #edf4ff;
-  border-color: #b9d5ff;
-}
-html[data-theme="light"] .detail-summons-pill:hover,
-html[data-theme="light"] .detail-summons-pill:focus-visible {
-  background: #dbeafe;
-  color: #1e40af;
-  border-color: #93c5fd;
-}
 html[data-theme="light"] .badge {
   color: #38536e;
   background: #e2eaf2;

@@ -2852,28 +2852,7 @@ export default function Curbside() {
                       }
                     >
                       <dt>{k}</dt>
-                      <dd>
-                        {k === tr("Summons") && summonsUrl ? (
-                          <div className="detail-summons-wrapper">
-                            <span className="mono">{v}</span>
-                            <a
-                              className="detail-summons-pill"
-                              href={summonsUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              aria-label={tr("View official summons image")}
-                            >
-                              <FileText size={12} />
-                              <span>{tr("View summons image")}</span>
-                              <ArrowUpRight size={12} />
-                            </a>
-                          </div>
-                        ) : v ? (
-                          tr(String(v))
-                        ) : (
-                          tr("Not provided")
-                        )}
-                      </dd>
+                      <dd>{v ? tr(String(v)) : tr("Not provided")}</dd>
                     </div>
                   ))}
                 </dl>
@@ -2905,31 +2884,17 @@ export default function Curbside() {
                 </div>
                 <div className="ticket-summons-action">
                   {summonsUrl ? (
-                    <div className="ticket-summons-buttons">
-                      <a
-                        className="button primary ticket-summons-view"
-                        href={summonsUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <FileText size={15} />
-                        <span>{tr("View summons image")}</span>
-                        <ArrowUpRight size={14} />
-                      </a>
-                      <button
-                        type="button"
-                        className="button ticket-summons-toggle"
-                        onClick={() => setShowSummonsImage((v) => !v)}
-                        aria-expanded={showSummonsImage}
-                      >
-                        <FileText size={15} />
-                        <span>
-                          {showSummonsImage
-                            ? tr("Hide summons image")
-                            : tr("Show summons image")}
-                        </span>
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      className="button"
+                      onClick={() => setShowSummonsImage((v) => !v)}
+                      aria-expanded={showSummonsImage}
+                    >
+                      <FileText size={15} />
+                      {showSummonsImage
+                        ? tr("Hide summons image")
+                        : tr("Show summons image")}
+                    </button>
                   ) : (
                     <button
                       type="button"
@@ -2950,13 +2915,8 @@ export default function Curbside() {
                         className="summons-frame"
                         loading="lazy"
                       />
-                      <p className="ticket-summons-mobile-hint small muted">
-                        {tr(
-                          "Mobile browsers that cannot display embedded PDFs can open the official summons directly.",
-                        )}
-                      </p>
                       <a
-                        className="button primary"
+                        className="button"
                         href={summonsUrl}
                         target="_blank"
                         rel="noreferrer"
