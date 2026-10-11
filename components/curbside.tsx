@@ -850,6 +850,25 @@ export default function Curbside() {
   }, [search]);
   const vehicles =
     account?.user?.id === auth.user?.id ? account?.vehicles || [] : [];
+  const vehiclePickerRef = useRef<HTMLDivElement>(null);
+  const [vehiclePickerHint, setVehiclePickerHint] = useState(false);
+  const vehiclePickerKey = vehicles.map((v: { id: string }) => v.id).join(" ");
+  useLayoutEffect(() => {
+    const el = vehiclePickerRef.current;
+    if (!el) return;
+    const update = () => {
+      const overflows = el.scrollWidth - el.clientWidth > 8;
+      setVehiclePickerHint(overflows && el.scrollLeft <= 1);
+    };
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => {
+      el.removeEventListener("scroll", update);
+      observer.disconnect();
+    };
+  }, [vehiclePickerKey, view]);
   const allVehicles = vehicleId === "all" && vehicles.length > 0;
   const allHistory = useMemo(
     () =>
@@ -1358,7 +1377,11 @@ export default function Curbside() {
                 <Plus size={18} />
                 {tr("Add vehicle")}
               </button>
-              <div className="segmented">
+              <div className="garage-vehicle-scroll">
+                <div
+                  className="segmented"
+                  ref={vehiclePickerRef}
+                >
                 <button
                   className={allVehicles ? "active" : ""}
                   aria-pressed={allVehicles}
@@ -1386,6 +1409,12 @@ export default function Curbside() {
                     {v.nickname}
                   </button>
                 ))}
+                </div>
+                {vehiclePickerHint && (
+                  <span className="garage-scroll-hint" aria-hidden="true">
+                    <ChevronRight size={16} />
+                  </span>
+                )}
               </div>
             </div>
             <div className="vehicle-identity">

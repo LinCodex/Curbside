@@ -296,18 +296,68 @@ html[data-theme="light"] .app .garage-add-action {
   }
 }
 
+.garage-vehicle-scroll {
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+}
+.garage-scroll-hint {
+  display: none;
+}
 @media (max-width: 800px) {
   .garage-toolbar {
     flex-wrap: wrap;
     gap: 10px;
   }
+  .garage-vehicle-scroll {
+    flex: 1 1 auto;
+  }
   .garage-toolbar .segmented {
     max-width: 100%;
     min-width: 0;
     overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .garage-toolbar .segmented::-webkit-scrollbar {
+    display: none;
+    height: 0;
   }
   .garage-toolbar .segmented button {
     flex-shrink: 0;
     white-space: nowrap;
+  }
+  .garage-scroll-hint {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    width: 42px;
+    padding-right: 8px;
+    border-radius: 0 50px 50px 0;
+    background: linear-gradient(90deg, transparent, var(--panel) 58%);
+    color: var(--text);
+    pointer-events: none;
+  }
+  .garage-scroll-hint svg {
+    animation: garage-scroll-nudge 1s ease-in-out infinite;
+  }
+}
+@keyframes garage-scroll-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(5px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .garage-scroll-hint svg {
+    animation: none;
   }
 }
