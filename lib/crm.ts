@@ -113,6 +113,113 @@ export function escapeCrmHtml(value: string) {
       ]!,
   );
 }
+export function crmEmailLanguage(subject: string, message: string) {
+  return /[\u3400-\u9fff]/.test(subject + message) ? "zh" : "en";
+}
+
+function crmHref(raw: string, origin: URL) {
+  try {
+    const url = new URL(raw, origin);
+    if (url.protocol === "mailto:") return url.toString();
+    if (url.protocol === "https:" || url.origin === origin.origin)
+      return url.toString();
+  } catch {
+    /* Invalid links render as plain text. */
+  }
+  return null;
+}
+
+const inlinePattern =
+  /\[([^\]\n]{1,120})\]\(([^)\s]{1,2000})\)|\*\*([^*\n]{1,500})\*\*/g;
+const buttonPattern = /^\[button:\s*([^\]\n]{1,80})\]\(([^)\s]{1,2000})\)$/i;
+
+function crmInline(raw: string, origin: URL) {
+  let html = "";
+  let last = 0;
+  for (const match of raw.matchAll(inlinePattern)) {
+    html += escapeCrmHtml(raw.slice(last, match.index));
+    last = match.index + match[0].length;
+    if (match[3] !== undefined) {
+      html += `<strong>${escapeCrmHtml(match[3])}</strong>`;
+      continue;
+    }
+    const href = crmHref(match[2], origin);
+    html += href
+      ? `<a href="${escapeCrmHtml(href)}" style="color:#245bdc">${escapeCrmHtml(match[1])}</a>`
+      : escapeCrmHtml(match[0]);
+  }
+  return html + escapeCrmHtml(raw.slice(last));
+}
+
+function crmButton(label: string, href: string) {
+  return `<p style="margin:24px 0"><a href="${escapeCrmHtml(href)}" style="display:inline-block;padding:14px 24px;background:#245bdc;color:#fff;border-radius:12px;text-decoration:none;font-weight:700">${escapeCrmHtml(label)}</a></p>`;
+}
+
+// Administrators write plain text with a small, escaped formatting set:
+// "## heading", "- item", "**bold**", "[text](url)" and "[button: label](url)".
+export function crmMessageHtml(message: string, origin: URL) {
+  let html = "";
+  let paragraph: string[] = [];
+  let items: string[] = [];
+  let hasButton = false;
+  const flush = () => {
+    if (paragraph.length)
+      html += `<p style="margin:0 0 16px">${paragraph.join("<br>")}</p>`;
+    if (items.length)
+      html += `<ul style="margin:0 0 16px;padding-left:22px">${items.map((item) => `<li style="margin:0 0 6px">${item}</li>`).join("")}</ul>`;
+    paragraph = [];
+    items = [];
+  };
+  for (const raw of message.split(/\r?\n/)) {
+    const line = raw.trim();
+    const heading = line.match(/^##\s+(.+)$/);
+    const item = line.match(/^[-*]\s+(.+)$/);
+    const button = line.match(buttonPattern);
+    const buttonHref = button && crmHref(button[2], origin);
+    if (!line) flush();
+    else if (heading) {
+      flush();
+      html += `<h2 style="font-size:20px;line-height:1.35;margin:8px 0 12px">${crmInline(heading[1], origin)}</h2>`;
+    } else if (item) {
+      if (paragraph.length) {
+        html += `<p style="margin:0 0 16px">${paragraph.join("<br>")}</p>`;
+        paragraph = [];
+      }
+      items.push(crmInline(item[1], origin));
+    } else if (button && buttonHref) {
+      flush();
+      hasButton = true;
+      html += crmButton(button[1].trim(), buttonHref);
+    } else {
+      if (items.length) flush();
+      paragraph.push(crmInline(line, origin));
+    }
+  }
+  flush();
+  return { html, hasButton };
+}
+
+export function crmMessageText(message: string, origin: string) {
+  const base = new URL(origin);
+  return message
+    .split(/\r?\n/)
+    .map((line) => {
+      const button = line.trim().match(buttonPattern);
+      if (button) {
+        const href = crmHref(button[2], base);
+        return href ? `${button[1].trim()}: ${href}` : line;
+      }
+      return line
+        .replace(/^(\s*)##\s+/, "$1")
+        .replace(inlinePattern, (whole, text, url, bold) => {
+          if (bold !== undefined) return bold;
+          const href = crmHref(url, base);
+          return href ? `${text} (${href})` : whole;
+        });
+    })
+    .join("\n");
+}
+
 export function crmEmailHtml(
   subject: string,
   message: string,
@@ -122,5 +229,7 @@ export function crmEmailHtml(
   const safeOrigin = new URL(origin);
   if (safeOrigin.protocol !== "https:" && safeOrigin.hostname !== "localhost")
     throw new Error("Invalid app origin");
-  return `<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width"></head><body style="margin:0;background:#eef3f8;font-family:Arial,sans-serif;color:#182238"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:32px 16px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:580px;background:#fff;border-radius:24px"><tr><td style="padding:32px"><p style="margin:0 0 24px;color:#245bdc;font-weight:800;font-size:24px">TicketSafe</p><h1 style="font-size:26px;line-height:1.3;margin:0 0 20px">${escapeCrmHtml(subject)}</h1><div style="font-size:16px;line-height:1.7;white-space:pre-line">${escapeCrmHtml(message).replace(/\n/g, "<br>")}</div><p style="margin:28px 0"><a href="${escapeCrmHtml(safeOrigin.origin)}" style="display:inline-block;padding:14px 24px;background:#245bdc;color:#fff;border-radius:12px;text-decoration:none;font-weight:700">Open TicketSafe</a></p><p style="color:#68758b;font-size:12px;line-height:1.6;margin:24px 0 0">TicketSafe · 136-78 Roosevelt Ave, Flushing, NY 11354${unsubscribeUrl ? `<br><a href="${escapeCrmHtml(unsubscribeUrl)}" style="color:#68758b">Unsubscribe from announcements</a>` : "<br>This service message concerns your TicketSafe account."}</p></td></tr></table></td></tr></table></body></html>`;
+  const zh = crmEmailLanguage(subject, message) === "zh";
+  const body = crmMessageHtml(message, safeOrigin);
+  return `<!doctype html><html lang="${zh ? "zh-CN" : "en"}"><head><meta name="viewport" content="width=device-width"></head><body style="margin:0;background:#eef3f8;font-family:Arial,sans-serif;color:#182238"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:32px 16px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:580px;background:#fff;border-radius:24px"><tr><td style="padding:32px"><p style="margin:0 0 24px;color:#245bdc;font-weight:800;font-size:24px">TicketSafe</p><h1 style="font-size:26px;line-height:1.3;margin:0 0 20px">${escapeCrmHtml(subject)}</h1><div style="font-size:16px;line-height:1.7">${body.html}</div>${body.hasButton ? "" : crmButton(zh ? "打开罚单卫士" : "Open TicketSafe", safeOrigin.origin)}<p style="color:#68758b;font-size:12px;line-height:1.6;margin:24px 0 0">TicketSafe · 136-78 Roosevelt Ave, Flushing, NY 11354${unsubscribeUrl ? `<br><a href="${escapeCrmHtml(unsubscribeUrl)}" style="color:#68758b">${zh ? "退订产品公告" : "Unsubscribe from announcements"}</a>` : `<br>${zh ? "此服务邮件与您的罚单卫士账户相关。" : "This service message concerns your TicketSafe account."}`}</p></td></tr></table></td></tr></table></body></html>`;
 }

@@ -478,6 +478,84 @@ html[data-theme="light"] .crm-tag-error {
   line-height: 1.6;
   min-height: 120px;
 }
+.crm-template-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-soft);
+}
+.crm-template-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.crm-template-row > .crm-select-trigger,
+.crm-template-row > input {
+  flex: 1 1 200px;
+  width: auto;
+}
+.crm-template-language {
+  flex: 0 0 auto;
+}
+.crm-template-language > label {
+  padding: 8px 12px;
+}
+.crm-template-picker .crm-fine-print {
+  margin: 0;
+}
+.crm-message-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.crm-message-field > label {
+  font-size: 12px;
+  color: var(--muted);
+}
+.crm-format-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.crm-format-toolbar .crm-icon-button {
+  width: 36px;
+  height: 36px;
+  padding: 8px;
+  border-radius: 10px;
+}
+.crm-format-hint {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+}
+.crm-message-field textarea {
+  min-height: 220px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+.crm-draft-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.crm-draft-checks .crm-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  color: var(--text, inherit);
+}
+.crm-draft-checks .crm-notice svg {
+  flex-shrink: 0;
+  color: #b7791f;
+}
 .crm-email-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);

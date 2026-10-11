@@ -19,7 +19,24 @@ const compile = async (file) => {
 const { crmAdminHandler } = await compile(
   "supabase/functions/crm-admin/handler.ts",
 );
-const { validatedEmailInput, crmEmailHtml } = await compile("lib/crm.ts");
+const { validatedEmailInput, crmEmailHtml, crmMessageText } =
+  await compile("lib/crm.ts");
+const { CRM_TEMPLATES, unfilledPlaceholders } = await compile(
+  "lib/crm-templates.ts",
+);
+
+test("CRM templates are complete, within limits and flag unfilled fields", () => {
+  for (const template of CRM_TEMPLATES)
+    for (const language of ["en", "zh"]) {
+      const { subject, message } = template.content[language];
+      assert.ok(subject && subject.length <= 160 && !/[\r\n]/.test(subject));
+      assert.ok(message && message.length <= 10000);
+    }
+  assert.deepEqual(
+    unfilledPlaceholders("On [date] see [docs](/x)\n[button: Go](/) [date]"),
+    ["[date]"],
+  );
+});
 const master = "a9175af4-e1b0-4510-b261-8db6fdc67101",
   customer = "a9175af4-e1b0-4510-b261-8db6fdc67102",
   session = "a9175af4-e1b0-4510-b261-8db6fdc67201",
@@ -373,6 +390,29 @@ test("CRM email inputs reject header injection and templates escape administrato
   assert.ok(!html.includes("<script>"));
   assert.ok(html.includes("&lt;script&gt;"));
   assert.ok(html.includes("TicketSafe"));
+});
+
+test("CRM email formatting renders a safe subset and plain-text fallbacks", () => {
+  const origin = "https://app.example.invalid";
+  const html = crmEmailHtml(
+    "News",
+    "## Hello <b>\n- **one**\n- two\n[docs](https://example.com/a?b=1&c=2) [bad](javascript:alert(1))\n[button: Open garage](/?view=garage)",
+    origin,
+  );
+  assert.ok(html.includes("<h2"));
+  assert.ok(html.includes("Hello &lt;b&gt;"));
+  assert.ok(html.includes("<li style=\"margin:0 0 6px\"><strong>one</strong></li>"));
+  assert.ok(html.includes('href="https://example.com/a?b=1&amp;c=2"'));
+  assert.ok(!html.includes('href="javascript'));
+  assert.ok(html.includes(`href="${origin}/?view=garage"`));
+  assert.ok(!html.includes("Open TicketSafe"));
+  assert.ok(crmEmailHtml("Hi", "Plain", origin).includes("Open TicketSafe"));
+  const zh = crmEmailHtml("公告", "您好", origin, "https://u.example.invalid");
+  assert.ok(zh.includes('lang="zh-CN"') && zh.includes("退订产品公告"));
+  assert.equal(
+    crmMessageText("## Hi\n**Bold** [docs](/help)\n[button: Go](/)", origin),
+    `Hi\nBold docs (${origin}/help)\nGo: ${origin}/`,
+  );
 });
 
 test("support messages require the current confirmed profile; CRM inbox is private, rate-limited, and deletable", async () => {

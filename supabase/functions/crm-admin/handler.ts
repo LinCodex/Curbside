@@ -3,6 +3,7 @@ import { meetsPasswordRequirement } from "../../../lib/password-policy";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   crmEmailHtml,
+  crmMessageText,
   supportReplyEmail,
   uuid,
   validatedEmailInput,
@@ -652,7 +653,7 @@ export function crmAdminHandler(
                   unsubscribeUrl,
                 ),
                 text:
-                  delivery.message +
+                  crmMessageText(delivery.message, config.appOrigin!) +
                   "\n\nTicketSafe · 136-78 Roosevelt Ave, Flushing, NY 11354" +
                   (unsubscribeUrl
                     ? "\nUnsubscribe from announcements: " + unsubscribeUrl

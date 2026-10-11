@@ -44,6 +44,14 @@ import {
   CrmTicketTest,
 } from "./crm-tools";
 import {
+  CrmDraftChecks,
+  CrmFormatToolbar,
+  CrmTemplatePicker,
+} from "./crm-email-editor";
+import { crmEmailHtml } from "@/lib/crm";
+import { unfilledPlaceholders } from "@/lib/crm-templates";
+import dictionary from "@/lib/zh.json";
+import {
   crmClientRequest,
   type CrmAdmin,
   type CrmStats,
@@ -536,7 +544,9 @@ export default function CrmDashboard() {
   const account = useSupabaseAccount();
   const { locale, ready: preferencesReady } = usePreferences();
   const tr: Translate = (text) =>
-    locale === "zh" ? chinese[text] || text : text;
+    locale === "zh"
+      ? chinese[text] || (dictionary as Record<string, string>)[text] || text
+      : text;
   const [tab, setTab] = useState<Tab>("overview");
   const [selectedUser, setSelectedUser] = useState<{
     id: string;
@@ -1275,9 +1285,38 @@ function EmailWorkspace({
   clearUser: () => void;
   chooseUser: () => void;
 }) {
-  const [kind, setKind] = useState<"service" | "announcement">("service");
-  const [subject, setSubject] = useState("");
-  const [message, setMessage] = useState("");
+  const draftKey = `ticketsafe.crm-draft.${admin.userId}`;
+  const [initialDraft] = useState(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(draftKey) || "null");
+      return {
+        kind: saved?.kind === "announcement" ? "announcement" : "service",
+        subject: typeof saved?.subject === "string" ? saved.subject : "",
+        message: typeof saved?.message === "string" ? saved.message : "",
+      } as const;
+    } catch {
+      return { kind: "service", subject: "", message: "" } as const;
+    }
+  });
+  const [kind, setKind] = useState<"service" | "announcement">(
+    initialDraft.kind,
+  );
+  const [subject, setSubject] = useState(initialDraft.subject);
+  const [message, setMessage] = useState(initialDraft.message);
+  const messageField = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    try {
+      if (subject || message)
+        sessionStorage.setItem(
+          draftKey,
+          JSON.stringify({ kind, subject, message }),
+        );
+      else sessionStorage.removeItem(draftKey);
+    } catch {
+      /* Drafts stay in memory when storage is blocked. */
+    }
+  }, [draftKey, kind, subject, message]);
+  const placeholders = unfilledPlaceholders(subject + "\n" + message);
   const [preview, setPreview] = useState<{
     key: string;
     data: CrmPreview;
@@ -1309,6 +1348,20 @@ function EmailWorkspace({
   const key = JSON.stringify(input);
   const currentPreview = preview?.key === key ? preview.data : null;
   const currentDelivery = delivery?.key === key ? delivery : null;
+  let draftHtml = "";
+  if (input.message)
+    try {
+      draftHtml = crmEmailHtml(
+        input.subject || tr("Subject"),
+        input.message,
+        window.location.origin,
+        kind === "announcement"
+          ? "https://example.invalid/unsubscribe-preview"
+          : undefined,
+      );
+    } catch {
+      /* Non-HTTPS development hosts skip the draft preview. */
+    }
   const canPreview =
     !!input.subject &&
     !!input.message &&
@@ -1316,6 +1369,7 @@ function EmailWorkspace({
     !busy;
   const canSend =
     admin.role !== "support" &&
+    !placeholders.length &&
     !!currentPreview?.eligible &&
     currentPreview.recipientCount > 0 &&
     confirmedKey === key &&
@@ -1476,27 +1530,47 @@ function EmailWorkspace({
                 <p>{tr("Only current announcement opt-ins are included.")}</p>
               )}
             </div>
+            <CrmTemplatePicker
+              adminId={admin.userId}
+              draft={{ kind, subject, message }}
+              disabled={!!busy}
+              onApply={(draft) => {
+                setSubject(draft.subject);
+                setMessage(draft.message);
+              }}
+              tr={tr}
+            />
             <label>
               {tr("Subject")}
               <input
                 value={subject}
                 onChange={(event) => setSubject(event.target.value)}
-                maxLength={150}
+                maxLength={160}
                 required
                 disabled={!!busy}
               />
             </label>
-            <label>
-              {tr("Message")}
+            <div className="crm-message-field">
+              <label htmlFor="crm-email-message">{tr("Message")}</label>
+              <CrmFormatToolbar
+                textarea={messageField}
+                value={message}
+                onChange={setMessage}
+                disabled={!!busy}
+                tr={tr}
+              />
               <textarea
+                id="crm-email-message"
+                ref={messageField}
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
-                rows={8}
+                rows={12}
                 maxLength={10000}
                 required
                 disabled={!!busy}
               />
-            </label>
+              <CrmDraftChecks subject={subject} message={message} tr={tr} />
+            </div>
             <button className="crm-button crm-primary" disabled={!canPreview}>
               {busy === "preview" ? (
                 <LoaderCircle className="crm-spinner" size={16} />
@@ -1600,6 +1674,19 @@ function EmailWorkspace({
                 </div>
               )}
             </>
+          ) : draftHtml ? (
+            <>
+              <p className="crm-notice">
+                {tr("Draft preview. Select Preview email to check recipients.")}
+              </p>
+              <iframe
+                title={tr("Email preview")}
+                srcDoc={draftHtml}
+                sandbox=""
+                referrerPolicy="no-referrer"
+                className="crm-email-preview"
+              />
+            </>
           ) : (
             <div className="crm-empty">
               <Mail size={28} />
@@ -1635,7 +1722,17 @@ function EmailWorkspace({
                           : "Service message",
                       )}
                   </strong>
-                  <span>{formatDate(email.created_at, locale, tr)}</span>
+                  <span>
+                    {formatDate(email.created_at, locale, tr)} ·{" "}
+                    {tr(
+                      email.kind === "announcement"
+                        ? "Announcement"
+                        : "Service message",
+                    )}{" "}
+                    · {tr("Sent")}: {email.sent ?? 0}/
+                    {email.recipient_count ?? 0}
+                    {email.failed ? ` · ${tr("Failed")}: ${email.failed}` : ""}
+                  </span>
                 </div>
                 <span className="crm-tag">{tr(email.status || "Pending")}</span>
               </div>
