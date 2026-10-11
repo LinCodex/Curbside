@@ -1032,10 +1032,12 @@ export default function Curbside() {
           {tr(error)}
         </p>
       )}
-      <p className="search-footnote">
-        <LockKeyhole size={12} />
-        {tr("No account needed to search. Your plate isn’t a public profile.")}
-      </p>
+      {!auth.user && (
+        <p className="search-footnote">
+          <LockKeyhole size={12} />
+          {tr("No account needed to search. Your plate isn’t a public profile.")}
+        </p>
+      )}
       {config.hcaptchaKey && (
         <div className="search-security-footer">
           <span>
