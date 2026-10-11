@@ -45,6 +45,12 @@ import {
 } from "./crm-tools";
 import { CrmMailbox } from "./crm-mailbox";
 import {
+  CrmActivityBars,
+  CrmTrafficPanel,
+  PAGE_LABELS,
+  relativeTime,
+} from "./crm-traffic";
+import {
   CrmDraftChecks,
   CrmFormatToolbar,
   CrmTemplatePicker,
@@ -538,6 +544,15 @@ function formatDate(
     : tr("Never");
 }
 
+function dateTime(value: string | null | undefined, locale: string) {
+  return value && Number.isFinite(Date.parse(value))
+    ? new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : "en-US", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(new Date(value))
+    : undefined;
+}
+
 async function sendStorageKey(userId: string, draft: string) {
   const hash = await crypto.subtle.digest(
     "SHA-256",
@@ -721,7 +736,12 @@ export default function CrmDashboard() {
       <main className="crm-main" id="crm-main">
         <Feedback error={signOutError} tr={tr} />
         {tab === "overview" && (
-          <Overview client={account.client!} tr={tr} navigate={setTab} />
+          <Overview
+            client={account.client!}
+            tr={tr}
+            locale={locale}
+            navigate={setTab}
+          />
         )}
         {tab === "customers" && (
           <Customers
@@ -779,10 +799,12 @@ export default function CrmDashboard() {
 function Overview({
   client,
   tr,
+  locale,
   navigate,
 }: {
   client: SupabaseClient;
   tr: Translate;
+  locale: string;
   navigate: (tab: Tab) => void;
 }) {
   const result = useCrmData<CrmStats>(client, "stats");
@@ -851,6 +873,7 @@ function Overview({
           ))}
         </div>
       )}
+      <CrmTrafficPanel client={client} tr={tr} locale={locale} />
       <div className="crm-quick-actions">
         <button onClick={() => navigate("customers")}>
           <Users size={22} />
@@ -974,6 +997,25 @@ function Customers({
                   <strong>{user.email}</strong>
                   <span>
                     {tr("Joined")} {formatDate(user.created_at, locale, tr)}
+                    {" · "}
+                    {tr("Last sign-in")}{" "}
+                    {relativeTime(user.last_sign_in_at, locale, tr)}
+                  </span>
+                  <span>
+                    {tr("Last active")}{" "}
+                    {relativeTime(
+                      [user.last_view_at, user.last_seen_at]
+                        .filter(Boolean)
+                        .sort()
+                        .at(-1),
+                      locale,
+                      tr,
+                    )}
+                    {" · "}
+                    {new Intl.NumberFormat(
+                      locale === "zh" ? "zh-CN" : "en-US",
+                    ).format(user.page_views || 0)}{" "}
+                    {tr("page views")}
                   </span>
                   <div className="crm-customer-tags">
                     <span
@@ -1165,7 +1207,13 @@ function CustomerEditor({
         </div>
         <div>
           <dt>{tr("Last sign-in")}</dt>
-          <dd>{formatDate(detail.user.last_sign_in_at, locale, tr)}</dd>
+          <dd title={dateTime(detail.user.last_sign_in_at, locale)}>
+            {relativeTime(detail.user.last_sign_in_at, locale, tr)}
+          </dd>
+        </div>
+        <div>
+          <dt>{tr("Email verified")}</dt>
+          <dd>{formatDate(detail.user.email_confirmed_at, locale, tr)}</dd>
         </div>
         <div>
           <dt>{tr("Ticket emails")}</dt>
@@ -1175,7 +1223,60 @@ function CustomerEditor({
           <dt>{tr("Announcements")}</dt>
           <dd>{tr(detail.announcementEmails ? "Enabled" : "Disabled")}</dd>
         </div>
+        <div>
+          <dt>{tr("Saved vehicles")}</dt>
+          <dd>{detail.vehicles.length}</dd>
+        </div>
       </dl>
+      {detail.activity && (
+        <section className="crm-customer-activity">
+          <h3>{tr("Activity")}</h3>
+          <dl className="crm-detail-facts">
+            <div>
+              <dt>{tr("Last active")}</dt>
+              <dd title={dateTime(detail.activity.lastActiveAt, locale)}>
+                {relativeTime(detail.activity.lastActiveAt, locale, tr)}
+              </dd>
+            </div>
+            <div>
+              <dt>{tr("Last page")}</dt>
+              <dd>
+                {detail.activity.lastPage
+                  ? tr(PAGE_LABELS[detail.activity.lastPage])
+                  : tr("Never")}
+              </dd>
+            </div>
+            <div>
+              <dt>{tr("Page views")}</dt>
+              <dd>{detail.activity.pageViews}</dd>
+            </div>
+            <div>
+              <dt>{tr("Last 7 days")}</dt>
+              <dd>{detail.activity.views7d}</dd>
+            </div>
+            <div>
+              <dt>{tr("Last 30 days")}</dt>
+              <dd>{detail.activity.views30d}</dd>
+            </div>
+            <div>
+              <dt>{tr("First counted visit")}</dt>
+              <dd>{formatDate(detail.activity.firstViewAt, locale, tr)}</dd>
+            </div>
+            <div>
+              <dt>{tr("Signed-in devices")}</dt>
+              <dd>{detail.activity.activeSessions}</dd>
+            </div>
+          </dl>
+          <CrmActivityBars
+            daily={detail.activity.daily}
+            tr={tr}
+            locale={locale}
+          />
+          <p className="crm-activity-note">
+            {tr("Page views, last 30 days")}
+          </p>
+        </section>
+      )}
       <button className="crm-button" onClick={onEmail}>
         <Mail size={16} />
         {tr("Email this customer")}

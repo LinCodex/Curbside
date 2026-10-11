@@ -2342,6 +2342,59 @@ html[data-theme="light"] .app :is(.desktop-nav, .mobile-nav) {
   }
 }
 
+/* iOS Safari 26 copies the background of a fixed layer into the bottom
+   toolbar, which paints a solid grey bar the whole time the page moves.
+   A neutral backdrop-filter keeps the city backdrop out of that sample, so
+   the home-bar area stays a blur while scrolling. At the end of the scroll
+   the sample returns and the bar matches the page grey. */
+.safari-bottom-edge {
+  display: none;
+}
+@media (max-width: 800px) {
+  .app:not([data-view="map"]) .atlas {
+    -webkit-backdrop-filter: saturate(100%) blur(0px);
+    backdrop-filter: saturate(100%) blur(0px);
+  }
+  .safari-bottom-edge {
+    display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: -8px;
+    z-index: 80;
+    min-height: 12px;
+    pointer-events: none;
+    background-color: transparent;
+    -webkit-backdrop-filter: saturate(100%) blur(0px);
+    backdrop-filter: saturate(100%) blur(0px);
+  }
+  html[data-scrolled-bottom] .app:not([data-view="map"]) .atlas {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  html[data-scrolled-bottom] .safari-bottom-edge {
+    background-color: #e2e8ed;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  html[data-theme="dark"][data-scrolled-bottom] .safari-bottom-edge {
+    background-color: var(--bg);
+  }
+}
+@media (max-width: 800px) and (prefers-reduced-transparency: reduce) {
+  .app:not([data-view="map"]) .atlas,
+  .safari-bottom-edge {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .safari-bottom-edge {
+    background-color: #e2e8ed;
+  }
+  html[data-theme="dark"] .safari-bottom-edge {
+    background-color: var(--bg);
+  }
+}
+
 .legal-main {
   padding-block: 32px 40px;
 }

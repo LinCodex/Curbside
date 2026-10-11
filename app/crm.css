@@ -2109,3 +2109,312 @@ html[data-theme="light"] .crm-login-error {
     margin: 0 12px 12px;
   }
 }
+
+/* Overview: page views chart. */
+.crm-traffic {
+  margin-top: 16px;
+  padding: 22px 22px 18px;
+  border: 1px solid var(--line);
+  border-radius: 19px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.crm-traffic-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.crm-traffic-head h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+}
+.crm-traffic-head p {
+  margin: 4px 0 0;
+  max-width: 520px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.crm-traffic-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.crm-range {
+  display: flex;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-soft);
+}
+.crm-range button {
+  padding: 7px 13px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.crm-range button:hover {
+  color: var(--text);
+}
+.crm-range button.active {
+  background: var(--accent-soft);
+  color: var(--blue);
+  font-weight: 600;
+}
+.crm-traffic-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 20px 0 14px;
+  transition: opacity 0.2s;
+}
+.crm-traffic-summary.loading {
+  opacity: 0.55;
+}
+.crm-traffic-summary > div > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.crm-traffic-summary strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 28px;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: -1px;
+  font-variant-numeric: tabular-nums;
+}
+.crm-traffic-summary small {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.crm-traffic-summary small.up {
+  color: var(--green);
+}
+.crm-traffic-summary small.down {
+  color: #e5484d;
+}
+.crm-traffic-key {
+  display: inline-block;
+  width: 10px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent-fill);
+}
+.crm-traffic-key.signed {
+  background: var(--green);
+}
+.crm-traffic-chart {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: 220px auto;
+  column-gap: 10px;
+}
+.crm-traffic-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  margin: -6px 0;
+  color: var(--muted);
+  font-size: 10px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.crm-traffic-plot {
+  position: relative;
+  border-bottom: 1px solid var(--line);
+  touch-action: pan-y;
+  cursor: crosshair;
+}
+.crm-traffic-plot svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.crm-traffic-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+.crm-traffic-line {
+  fill: none;
+  stroke: var(--accent-fill);
+  stroke-width: 2.25;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.crm-traffic-line.signed {
+  stroke: var(--green);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+.crm-traffic-cursor {
+  stroke: var(--muted);
+  stroke-width: 1;
+  opacity: 0.6;
+}
+.crm-traffic-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--accent-fill);
+  pointer-events: none;
+}
+.crm-traffic-tooltip {
+  position: absolute;
+  top: 6px;
+  display: grid;
+  gap: 2px;
+  min-width: 120px;
+  margin-left: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel, var(--surface));
+  box-shadow: var(--shadow);
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.crm-traffic-tooltip.flip {
+  transform: translateX(calc(-100% - 24px));
+}
+.crm-traffic-tooltip strong {
+  font-size: 12px;
+}
+.crm-traffic-tooltip .signed {
+  color: var(--green);
+}
+.crm-traffic-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+.crm-traffic-labels {
+  position: relative;
+  grid-column: 2;
+  height: 24px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.crm-traffic-labels span {
+  position: absolute;
+  top: 7px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.crm-traffic-labels span.first {
+  transform: none;
+}
+.crm-traffic-labels span.last {
+  transform: translateX(-100%);
+}
+.crm-traffic-pages {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.crm-traffic-pages h3 {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+.crm-traffic-pages ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.crm-traffic-pages li {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) 64px;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+}
+.crm-traffic-pages li strong {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.crm-traffic-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  overflow: hidden;
+}
+.crm-traffic-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-fill);
+}
+.crm-customer-activity {
+  margin: 4px 0 18px;
+}
+.crm-customer-activity h3 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.crm-activity-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 48px;
+  margin-top: 12px;
+}
+.crm-activity-bars span {
+  flex: 1;
+  min-width: 0;
+  border-radius: 2px 2px 0 0;
+  background: var(--accent-fill);
+}
+.crm-activity-bars span.empty {
+  background: var(--line);
+}
+.crm-activity-note {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+@media (max-width: 760px) {
+  .crm-traffic {
+    padding: 16px 14px 12px;
+  }
+  .crm-traffic-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .crm-traffic-summary strong {
+    font-size: 22px;
+  }
+  .crm-traffic-chart {
+    grid-template-rows: 180px auto;
+  }
+  .crm-traffic-pages li {
+    grid-template-columns: 84px minmax(0, 1fr) 48px;
+  }
+}

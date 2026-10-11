@@ -58,6 +58,7 @@ const actions = new Set([
   "thread_status",
   "thread_delete",
   "thread_reply",
+  "traffic",
 ]);
 type Delivery = {
   id: string;

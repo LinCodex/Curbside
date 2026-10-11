@@ -49,6 +49,7 @@ import { useMapLocations } from "./use-map-locations";
 import { hasPoint, contextRadius } from "@/lib/map-locations";
 import { InstallGuide, PullToRefresh } from "./mobile-web-app";
 import { PLATE_TYPES } from "@/lib/plate-types";
+import { browserPrivacySignals, recordPageView } from "@/lib/page-views";
 import { FREE_ACCESS } from "@/lib/release";
 import { LEGAL_VERSION } from "@/lib/legal";
 import { useAccount } from "./account-provider";
@@ -607,6 +608,12 @@ export default function Curbside() {
       /* Searching still works when browser storage is blocked. */
     }
   }, [auth.loading, restoredOwner, searchOwner, results, notify, tr]);
+  const countedView = useRef("");
+  useEffect(() => {
+    if (auth.loading || !auth.client || countedView.current === view) return;
+    countedView.current = view;
+    recordPageView(auth.client, view, browserPrivacySignals());
+  }, [auth.loading, auth.client, view]);
   useEffect(() => {
     if (auth.loading || restoredOwner !== searchOwner) return;
     const query = new URLSearchParams(location.search);

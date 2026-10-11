@@ -13,6 +13,32 @@ export type CrmUser = {
   announcement_emails: boolean;
   role: CrmRole | null;
   last_seen_at: string | null;
+  page_views?: number;
+  last_view_at?: string | null;
+};
+export type CrmPage = "garage" | "search" | "map" | "timeline" | "account" | "legal";
+export type CrmCustomerActivity = {
+  pageViews: number;
+  views7d: number;
+  views30d: number;
+  firstViewAt: string | null;
+  lastViewAt: string | null;
+  lastPage: CrmPage | null;
+  lastActiveAt: string | null;
+  activeSessions: number;
+  daily: { day: string; views: number }[];
+};
+export type CrmTrafficRange = "day" | "week" | "month" | "year";
+export type CrmTraffic = {
+  range: CrmTrafficRange;
+  unit: "hour" | "day" | "month";
+  timeZone: string;
+  buckets: { start: string; views: number; signedIn: number }[];
+  total: number;
+  signedIn: number;
+  previous: number;
+  pages: { page: CrmPage; views: number }[];
+  activeCustomers: number;
 };
 export type CrmUsers = {
   users: CrmUser[];
@@ -38,6 +64,7 @@ export type CrmUserDetail = {
   tags: string[];
   ticketEmails: boolean;
   announcementEmails: boolean;
+  activity?: CrmCustomerActivity;
 };
 export type CrmStats = {
   users: number;

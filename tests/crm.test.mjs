@@ -103,6 +103,14 @@ insert into auth.sessions(id,user_id) values('${session}','${master}'),('${sessi
       "utf8",
     ),
   );
+  await db.exec(`create or replace function auth.uid() returns uuid language sql stable as $$
+    select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;`);
+  await db.exec(
+    fs.readFileSync(
+      "supabase/migrations/20261011210000_page_views.sql",
+      "utf8",
+    ),
+  );
   return db;
 }
 async function rpc(db, action, input = {}, actor = master, sid = session) {
@@ -1372,6 +1380,54 @@ test("thread replies send in-thread with a conversation reply-to address", async
     assert.equal(replayed.replayed, true);
     assert.equal(sent.length, 2, "a sent reply is never repeated");
     assert.equal((await rpc(db, "thread", { threadId })).thread.status, "replied");
+  } finally {
+    await db.close();
+  }
+});
+
+test("page views are hourly totals plus per-account activity", async () => {
+  const db = await database();
+  const asUser = (id) =>
+    db.exec(`select set_config('request.jwt.claim.sub', '${id}', false)`);
+  const view = (page) => db.query("select public.ticketsafe_page_view($1)", [page]);
+  try {
+    await db.exec("select set_config('request.jwt.claim.sub', '', false)");
+    await view("search");
+    await view("nope");
+    await asUser(customer);
+    await view("map");
+    await view("map");
+    const rows = (
+      await db.query("select page, views, signed_in_views from public.ticketsafe_page_views order by page")
+    ).rows;
+    assert.deepEqual(
+      rows.map((row) => [row.page, Number(row.views), Number(row.signed_in_views)]),
+      [
+        ["map", 2, 2],
+        ["search", 1, 0],
+      ],
+    );
+    const activity = (
+      await db.query("select page_views, last_page from public.ticketsafe_customer_activity where user_id=$1", [customer])
+    ).rows[0];
+    assert.equal(Number(activity.page_views), 2);
+    assert.equal(activity.last_page, "map");
+    const listed = await rpc(db, "users", { search: "customer@" });
+    assert.equal(Number(listed.users[0].page_views), 2);
+    const detail = await rpc(db, "user", { userId: customer });
+    assert.equal(Number(detail.activity.pageViews), 2);
+    assert.equal(detail.activity.lastPage, "map");
+    assert.equal(Number(detail.activity.views7d), 2);
+    assert.equal(detail.activity.daily.length, 30);
+    const week = await rpc(db, "traffic", { range: "week" });
+    assert.equal(week.buckets.length, 7);
+    assert.equal(Number(week.total), 3);
+    assert.equal(Number(week.signedIn), 2);
+    assert.equal(week.pages[0].page, "map");
+    assert.equal((await rpc(db, "traffic", { range: "day" })).buckets.length, 24);
+    assert.equal((await rpc(db, "traffic", { range: "year" })).buckets.length, 12);
+    await assert.rejects(rpc(db, "traffic", { range: "decade" }), /day, week, month or year/);
+    await assert.rejects(rpc(db, "traffic", {}, customer, session2), /Administrator access/);
   } finally {
     await db.close();
   }

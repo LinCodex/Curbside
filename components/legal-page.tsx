@@ -1,6 +1,8 @@
 "use client";
 import { usePreferences, PreferencesMenu } from "./preferences";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSupabaseAccount } from "./use-supabase-account";
+import { browserPrivacySignals, recordPageView } from "@/lib/page-views";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -95,6 +97,15 @@ export default function LegalPage({
     });
     return () => observer.disconnect();
   }, [title]);
+  const account = useSupabaseAccount();
+  const countedDoc = useRef<string | null>(null);
+  const countKey = activeDoc || "index";
+  useEffect(() => {
+    if (account.loading || !account.client || countedDoc.current === countKey)
+      return;
+    countedDoc.current = countKey;
+    recordPageView(account.client, "legal", browserPrivacySignals());
+  }, [account.loading, account.client, countKey]);
 
   return (
     <div className="legal-shell">
