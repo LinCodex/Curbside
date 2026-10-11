@@ -10,6 +10,49 @@ export type ChangelogRelease = {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.2.0",
+    date: "2026-10-11",
+    title: { en: "Smoother start and automatic updates", zh: "上手更顺畅，自动更新" },
+    changes: [
+      {
+        en: "New accounts start with new-ticket emails on during the welcome tour, with a Turn off button right there.",
+        zh: "新账户在欢迎导览中默认开启新罚单邮件，并可在导览中直接关闭。",
+      },
+      {
+        en: "The Home Screen app now updates itself to the newest version when you open it.",
+        zh: "主屏幕 App 打开时会自动更新到最新版本。",
+      },
+      {
+        en: "Typing a plate with a Chinese keyboard no longer repeats the pinyin.",
+        zh: "使用中文键盘输入车牌时，不再重复出现拼音。",
+      },
+      {
+        en: "Privacy and legal pages stay in Chinese when you switch between them.",
+        zh: "在隐私与法律页面之间切换时，页面会保持中文显示。",
+      },
+      {
+        en: "Email choices are ready as soon as you sign in, with no loading flash.",
+        zh: "登录后即可看到邮件选项，不再闪现加载状态。",
+      },
+      {
+        en: "The guided tour shows once per account, on any device.",
+        zh: "功能导览每个账户只自动显示一次，无论使用哪台设备。",
+      },
+      {
+        en: "A reminder to check your spam folder for the verification email.",
+        zh: "提醒您在垃圾邮件文件夹中查找验证邮件。",
+      },
+      {
+        en: "Safari’s top and bottom bars match the page in light and dark mode on iPhone.",
+        zh: "在 iPhone 上，Safari 顶部和底部栏会与页面的浅色或深色模式保持一致。",
+      },
+      {
+        en: "A cleaner footer with Help & support and Cookie settings side by side, and the floating Edit search button removed.",
+        zh: "页面底部更简洁：“帮助与支持”和“Cookie 设置”并排显示，并移除了悬浮的“修改查询”按钮。",
+      },
+    ],
+  },
+  {
     version: "1.1.0",
     date: "2026-10-11",
     title: { en: "Easier settings and navigation", zh: "设置与导航更简单" },

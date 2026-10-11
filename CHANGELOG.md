@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.2.0 — 2026-10-11
+
+Customer-facing notes for this release also appear in Account → What’s new (`lib/changelog.ts`).
+
+- Tutorial: the automatic first-run tour (once per account, stored in Auth user metadata `ticketsafe_tutorial_seen` with a local copy) turns new-ticket emails on when it opens; its ticket-alerts step offers Turn off / Turn on. Replaying the tour from Account never changes the setting. Privacy policy and terms wording updated to match; the terms consent version is unchanged.
+- Home Screen app updates: each deployment is stamped with `APP_BUILD_ID` (`VERCEL_DEPLOYMENT_ID`, else the commit SHA). `components/app-updater.tsx` compares it with `/api/version` (`no-store`) on launch, resume, focus and every 5 minutes, then updates the service worker and reloads once per new build, waiting while a field is focused. `/sw.js` is served `no-cache` and registered with `updateViaCache: "none"`.
+- Chinese input: the plate field no longer uppercases during IME composition, which duplicated pinyin on iPhone.
+- Language: the legal policy picker navigates client-side; the tab title stays translated; full page loads stay hidden until the saved Chinese locale renders (1.5 s fallback).
+- Email settings: the announcement preference is prefetched at sign-in so Account shows it without a spinner.
+- Sign-up: the verification step reminds users to check spam or junk.
+- iOS Safari: `theme-color` follows the light/dark page background.
+- UI: removed the floating Edit search button; footer Help & support and Cookie settings sit side by side; the no-account search note is hidden for signed-in users.
+- CRM: email templates (10 built-in, English/Chinese) plus shared team templates, a formatting toolbar, live preview and draft checks; Activity log tab; inbox status filter, search and open count; delivery review for uncertain sends; 20 of the 100 daily emails reserved for support replies; support-role deletes blocked and audited.
+
+### Backend deployment
+
+Applied `20261011170000_restrict_support_deletes` and `20261011180000_crm_portal_tools` and recorded both in the migration ledger. Deployed `crm-admin` v7 (`verify_jwt = false`, session checked in the handler). Rollback: redeploy the previous `crm-admin` bundle; the new table and functions are additive.
+
+### Validation
+
+115 regression tests and TypeScript passed; production build verified with a test deployment ID, including the version endpoint and reload behaviour.
+
 ## 1.1.0 — 2026-10-11
 
 Customer-facing notes for this release also appear in Account → What’s new (`lib/changelog.ts`).
