@@ -25,6 +25,8 @@ Deno.serve(
       mapboxToken: value("MAPBOX_PUBLIC_TOKEN"),
       mapboxConfigured: !!value("MAPBOX_PUBLIC_TOKEN"),
       captchaConfigured: !!value("HCAPTCHA_SECRET_KEY"),
+      inboundDomain: (value("INBOUND_DOMAIN") || "").toLowerCase() || undefined,
+      inboundConfigured: !!value("RESEND_WEBHOOK_SECRET"),
     },
     [
       origin,

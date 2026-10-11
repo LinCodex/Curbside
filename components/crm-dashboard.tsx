@@ -41,9 +41,9 @@ import CrmSelect from "./crm-select";
 import {
   CrmAccountActions,
   CrmDisplaySettings,
-  CrmInbox,
   CrmTicketTest,
 } from "./crm-tools";
+import { CrmMailbox } from "./crm-mailbox";
 import {
   CrmDraftChecks,
   CrmFormatToolbar,
@@ -592,7 +592,7 @@ export default function CrmDashboard() {
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "customers", label: "Customers", icon: Users },
     { id: "email", label: "Email", icon: Mail },
-    { id: "inbox", label: "Support inbox", icon: MessageSquare },
+    { id: "inbox", label: "Inbox", icon: MessageSquare },
     { id: "access", label: "Access", icon: ShieldCheck },
     { id: "activity", label: "Activity", icon: History },
     { id: "status", label: "Status", icon: Activity },
@@ -736,7 +736,7 @@ export default function CrmDashboard() {
           />
         )}
         {tab === "inbox" && (
-          <CrmInbox
+          <CrmMailbox
             client={account.client!}
             tr={tr}
             locale={locale}

@@ -19,6 +19,9 @@ type Config = EmailDeliveryConfig & {
   mapboxConfigured?: boolean;
   captchaConfigured?: boolean;
   mapboxToken?: string;
+  // Receiving domain for customer replies, e.g. reply.example.com.
+  inboundDomain?: string;
+  inboundConfigured?: boolean;
 };
 const actions = new Set([
   "support_create",
@@ -50,6 +53,11 @@ const actions = new Set([
   "templates",
   "template_save",
   "template_delete",
+  "threads",
+  "thread",
+  "thread_status",
+  "thread_delete",
+  "thread_reply",
 ]);
 type Delivery = {
   id: string;
@@ -336,6 +344,103 @@ export function crmAdminHandler(
         }
         return reply({ status: "completed", mailStatus: "accepted" });
       }
+      if (action === "threads") {
+        const result = await rpc("threads", input);
+        return reply({
+          ...result,
+          receiving: !!(config.inboundDomain && config.inboundConfigured),
+        });
+      }
+      if (action === "thread_reply") {
+        const replyText =
+          typeof input.reply === "string" ? input.reply.trim() : "";
+        const retry = uuid(input.retryMessageId);
+        if (
+          !uuid(input.threadId) ||
+          (!retry &&
+            (!uuid(input.idempotencyKey) ||
+              replyText.length < 1 ||
+              replyText.length > 10000))
+        )
+          throw new RequestError("Write a reply before sending.");
+        if (!emailDeliveryAvailable(config))
+          throw new RequestError(
+            "The verified email sender is not ready.",
+            503,
+          );
+        const prepared = await rpc("thread_reply_prepare", {
+          threadId: input.threadId,
+          reply: replyText,
+          idempotencyKey: input.idempotencyKey,
+          retryMessageId: retry ? input.retryMessageId : "",
+        });
+        const subject = /^\s*(re|回复)\s*[:：]/i.test(prepared.subject)
+          ? prepared.subject
+          : `${prepared.language === "zh" ? "回复" : "Re"}: ${prepared.subject}`;
+        const appOrigin = config.appOrigin || "https://curbside-eta.vercel.app";
+        const claimed = await rpc("thread_reply_claim", {
+          threadId: input.threadId,
+          messageId: prepared.messageId,
+          content: {
+            subject: subject.slice(0, 300),
+            html: crmEmailHtml(subject.slice(0, 300), prepared.reply, appOrigin),
+            text: crmMessageText(prepared.reply, appOrigin),
+            inReplyTo: prepared.inReplyTo || null,
+          },
+        });
+        if (!claimed.claimed) {
+          if (claimed.status === "completed")
+            return reply({ status: "completed", replayed: true });
+          throw new RequestError(
+            "Reply delivery needs review. Check Resend before sending again.",
+            503,
+          );
+        }
+        const content = claimed.content;
+        try {
+          const response = await sendFetch("https://api.resend.com/emails", {
+            method: "POST",
+            signal: AbortSignal.timeout(12000),
+            headers: {
+              Authorization: `Bearer ${config.apiKey}`,
+              "Content-Type": "application/json",
+              "Idempotency-Key": `ticketsafe-thread-reply/${prepared.messageId}`,
+            },
+            body: JSON.stringify({
+              from: "TicketSafe Support <support@ezrefillny.net>",
+              reply_to: config.inboundDomain
+                ? `support+${input.threadId}@${config.inboundDomain}`
+                : "support@ezrefillny.net",
+              to: [claimed.recipient],
+              subject: content.subject,
+              html: content.html,
+              text: content.text,
+              ...(content.inReplyTo
+                ? {
+                    headers: {
+                      "In-Reply-To": content.inReplyTo,
+                      References: content.inReplyTo,
+                    },
+                  }
+                : {}),
+            }),
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok || typeof payload.id !== "string")
+            throw new Error("Provider acceptance is unconfirmed");
+          await rpc("thread_reply_result", {
+            threadId: input.threadId,
+            messageId: prepared.messageId,
+            providerId: payload.id,
+          });
+        } catch {
+          throw new RequestError(
+            "Reply delivery needs review. Check Resend before sending again.",
+            503,
+          );
+        }
+        return reply({ status: "completed", messageId: prepared.messageId });
+      }
       if (["account_action", "ticket_test"].includes(action)) {
         const kind =
           action === "ticket_test" ? "ticket_test" : String(input.kind || "");
@@ -437,6 +542,9 @@ export function crmAdminHandler(
             },
             body: JSON.stringify({
               from: `TicketSafe <${config.from}>`,
+              ...(config.inboundDomain
+                ? { reply_to: `support@${config.inboundDomain}` }
+                : {}),
               to: [recipient],
               subject,
               html,
@@ -651,6 +759,9 @@ export function crmAdminHandler(
               },
               body: JSON.stringify({
                 from: `TicketSafe <${config.from}>`,
+                ...(config.inboundDomain
+                  ? { reply_to: `support@${config.inboundDomain}` }
+                  : {}),
                 to: [delivery.recipient],
                 subject: delivery.subject,
                 html: crmEmailHtml(

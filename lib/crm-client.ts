@@ -93,6 +93,57 @@ export type CrmSharedTemplate = {
   updated_at: string;
   updated_by: string | null;
 };
+export type CrmThreadKind = "support" | "feedback" | "bug" | "email";
+export type CrmThreadStatus = "open" | "replied" | "closed";
+export type CrmThreadSummary = {
+  id: string;
+  kind: CrmThreadKind;
+  customer_email: string;
+  customer_name: string | null;
+  subject: string;
+  status: CrmThreadStatus;
+  unread: boolean;
+  last_message_at: string;
+  has_account: boolean;
+  message_count: number;
+  last: { body: string; direction: "inbound" | "outbound" } | null;
+};
+export type CrmThreads = {
+  threads: CrmThreadSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+  needsReply: number;
+  unread: number;
+  receiving: boolean;
+};
+export type CrmThreadMessage = {
+  id: string;
+  direction: "inbound" | "outbound";
+  source: "app" | "email" | "portal";
+  from_email: string | null;
+  from_name: string | null;
+  body: string;
+  attachments: { filename: string; size: number; contentType: string }[];
+  status: "received" | "pending" | "sending" | "sent" | "failed";
+  created_at: string;
+  actor_email: string | null;
+  needs_review: boolean;
+  retryable: boolean;
+};
+export type CrmThread = {
+  thread: {
+    id: string;
+    kind: CrmThreadKind;
+    customer_email: string;
+    customer_name: string | null;
+    subject: string;
+    status: CrmThreadStatus;
+    user_id: string | null;
+    created_at: string;
+  };
+  messages: CrmThreadMessage[];
+};
 export type CrmAccess = {
   user_id: string;
   email: string;

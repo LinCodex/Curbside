@@ -14,14 +14,16 @@ Customer-facing notes for this release also appear in Account → What’s new (
 - iOS Safari: `theme-color` follows the light/dark page background.
 - UI: removed the floating Edit search button; footer Help & support and Cookie settings sit side by side; the no-account search note is hidden for signed-in users.
 - CRM: email templates (10 built-in, English/Chinese) plus shared team templates, a formatting toolbar, live preview and draft checks; Activity log tab; inbox status filter, search and open count; delivery review for uncertain sends; 20 of the 100 daily emails reserved for support replies; support-role deletes blocked and audited.
+- CRM inbox: the Support inbox tab is now a Gmail-style Inbox (`components/crm-mailbox.tsx`) with Needs reply / Unread / All mail / Closed folders, search, a reading pane and an in-thread composer. In-app support messages and customer email replies are threaded into `ticketsafe_crm_threads` / `ticketsafe_crm_thread_messages` (existing support messages backfilled; new ones added by trigger). Replies go out from `support@ezrefillny.net` with `Reply-To: support+<thread id>@INBOUND_DOMAIN`, `In-Reply-To`/`References` headers and the same durable claim, budget and idempotency rules as other CRM email. Account notices and campaigns also set `Reply-To: support@INBOUND_DOMAIN` when receiving is configured. Conversations expire 90 days after their last message; only admins and the master can delete them.
+- Email receiving: new `crm-inbound` function verifies the Resend (Svix) webhook signature, fetches the received email, strips quoted history and records it through `ticketsafe_crm_inbound` (deduplicated by Resend ID, 50 per sender and 1,000 total per day). Messages match a thread by the reply-address token, then by sender and subject within 30 days, else start a new thread. Attachment files are not stored, only their names and sizes. It returns 503 until `INBOUND_DOMAIN` and `RESEND_WEBHOOK_SECRET` are set.
 
 ### Backend deployment
 
-Applied `20261011170000_restrict_support_deletes` and `20261011180000_crm_portal_tools` and recorded both in the migration ledger. Deployed `crm-admin` v7 (`verify_jwt = false`, session checked in the handler) and `account-delete` v5 (gateway JWT verification kept). Rollback: redeploy the previous `crm-admin` bundle; the new table and functions are additive.
+Applied `20261011170000_restrict_support_deletes`, `20261011180000_crm_portal_tools` and `20261011200000_crm_conversations` and recorded them in the migration ledger. Deployed `crm-admin` v8 (`verify_jwt = false`, session checked in the handler), `crm-inbound` v1 (`verify_jwt = false`, webhook signature checked in the handler) and `account-delete` v5 (gateway JWT verification kept). Rollback: redeploy the previous `crm-admin` bundle; the new tables and functions are additive, and `support_reply` still works without them.
 
 ### Validation
 
-117 regression tests and TypeScript passed; production build verified with a test deployment ID, including the version endpoint and reload behaviour.
+123 regression tests and TypeScript passed; production build verified with a test deployment ID, including the version endpoint and reload behaviour.
 
 ## 1.1.0 — 2026-10-11
 

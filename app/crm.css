@@ -1706,3 +1706,406 @@ html[data-theme="light"] .crm-login-error {
     display: none;
   }
 }
+
+/* Inbox: Gmail-style list and reading pane. */
+.crm-mail-setup {
+  margin-top: 0;
+}
+.crm-mail-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 400px) minmax(0, 1fr);
+  min-height: min(760px, calc(100vh - 230px));
+  border: 1px solid var(--line);
+  border-radius: 19px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.crm-mail-list-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: 1px solid var(--line);
+}
+.crm-mail-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 14px 8px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--muted);
+}
+.crm-mail-search > input:not([type="checkbox"]):not([type="radio"]) {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  padding: 11px 0;
+  font-size: 14px;
+}
+.crm-mail-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 0 10px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.crm-mail-folders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.crm-mail-folders button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.crm-mail-folders button:hover {
+  background: var(--accent-soft);
+}
+.crm-mail-folders button.active {
+  background: var(--accent-soft);
+  color: var(--text);
+  font-weight: 600;
+}
+.crm-mail-count {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-fill);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+.crm-mail-pager {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+.crm-mail-pager > span {
+  margin-right: 4px;
+  white-space: nowrap;
+}
+.crm-mail-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.crm-mail-icon:hover:not(:disabled) {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.crm-mail-icon:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.crm-mail-list {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+.crm-mail-row {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.crm-mail-row:hover {
+  background: var(--surface-soft);
+  box-shadow: inset 3px 0 0 var(--line);
+}
+.crm-mail-row.selected {
+  background: var(--accent-soft);
+  box-shadow: inset 3px 0 0 var(--accent-fill);
+}
+.crm-mail-row.unread .crm-mail-sender,
+.crm-mail-row.unread .crm-mail-subject,
+.crm-mail-row.unread time {
+  color: var(--text);
+  font-weight: 700;
+}
+.crm-mail-avatar {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent-fill) 22%, transparent);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 15px;
+}
+.crm-mail-avatar.outbound {
+  background: var(--accent-fill);
+  color: #fff;
+}
+.crm-mail-row-main {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.crm-mail-row-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.crm-mail-sender,
+.crm-mail-subject,
+.crm-mail-snippet {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crm-mail-sender {
+  color: var(--text);
+  font-size: 14px;
+}
+.crm-mail-thread-count {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.crm-mail-row-top time {
+  flex-shrink: 0;
+  font-size: 12px;
+}
+.crm-mail-subject {
+  color: var(--text);
+  font-size: 13px;
+}
+.crm-mail-snippet {
+  font-size: 13px;
+}
+.crm-mail-row-tags {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+.crm-mail-row-tags .crm-tag {
+  padding: 1px 6px;
+  font-size: 11px;
+}
+.crm-mail-reader {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.crm-mail-placeholder {
+  flex: 1;
+  justify-content: center;
+}
+.crm-mail-reader-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.crm-mail-back {
+  display: none;
+}
+.crm-mail-reader-title {
+  flex: 1;
+  min-width: 0;
+}
+.crm-mail-reader-title h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.crm-mail-reader-title span {
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.crm-mail-reader-actions {
+  display: flex;
+  gap: 2px;
+}
+.crm-mail-confirm {
+  margin: 12px 20px 0;
+}
+.crm-mail-messages {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  flex: 1;
+  padding: 16px 20px;
+  overflow-y: auto;
+}
+.crm-mail-message {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.crm-mail-message.outbound {
+  background: var(--accent-soft);
+}
+.crm-mail-message > header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.crm-mail-message-from {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.crm-mail-message-from strong {
+  font-size: 14px;
+}
+.crm-mail-message-from span,
+.crm-mail-message > header time {
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.crm-mail-message > header time {
+  flex-shrink: 0;
+}
+.crm-mail-body {
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.crm-mail-quoted-toggle {
+  display: inline-flex;
+  margin-top: 8px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  cursor: pointer;
+}
+.crm-mail-quoted {
+  margin-top: 8px;
+  padding-left: 12px;
+  border-left: 2px solid var(--line);
+  color: var(--muted);
+}
+.crm-mail-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+.crm-mail-attachments li {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.crm-mail-attachments .crm-mail-attachment-note {
+  border: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.crm-mail-delivery {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+.crm-mail-compose {
+  display: grid;
+  gap: 8px;
+  margin: 0 20px 20px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+.crm-mail-compose label {
+  color: var(--muted);
+  font-size: 13px;
+}
+.crm-mail-compose textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+.crm-mail-compose-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.crm-mail-hint {
+  color: var(--muted);
+  font-size: 12px;
+}
+@media (max-width: 900px) {
+  .crm-mail-layout {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+  .crm-mail-list-pane {
+    border-right: 0;
+  }
+  .crm-mail-reader {
+    display: none;
+  }
+  .crm-mail.reading .crm-mail-list-pane {
+    display: none;
+  }
+  .crm-mail.reading .crm-mail-reader {
+    display: flex;
+  }
+  .crm-mail-back {
+    display: inline-flex;
+  }
+  .crm-mail-reader-head,
+  .crm-mail-messages {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .crm-mail-compose {
+    margin: 0 12px 12px;
+  }
+}

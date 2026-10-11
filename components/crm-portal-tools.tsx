@@ -23,6 +23,7 @@ const ACTION_LABELS: Record<string, string> = {
   delete_account: "Deleted an account",
   ticket_test: "Sent a latest-ticket email",
   support_delete: "Deleted a support message",
+  thread_delete: "Deleted a conversation",
   delivery_resolve: "Settled an uncertain delivery",
   template_save: "Saved an email template",
   template_delete: "Deleted an email template",

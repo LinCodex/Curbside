@@ -97,6 +97,12 @@ insert into auth.sessions(id,user_id) values('${session}','${master}'),('${sessi
       "utf8",
     ),
   );
+  await db.exec(
+    fs.readFileSync(
+      "supabase/migrations/20261011200000_crm_conversations.sql",
+      "utf8",
+    ),
+  );
   return db;
 }
 async function rpc(db, action, input = {}, actor = master, sid = session) {
@@ -1159,6 +1165,213 @@ test("CRM uncertain deliveries can be settled once, and campaigns keep a reserve
       1,
     );
     assert.equal((await rpc(db, "emails")).budgetUsed, 80);
+  } finally {
+    await db.close();
+  }
+});
+
+const inbound = async (db, payload) =>
+  (await db.query("select public.ticketsafe_crm_inbound($1) r", [payload]))
+    .rows[0].r;
+
+test("support messages and email replies become threaded conversations", async () => {
+  const db = await database();
+  try {
+    await rpc(
+      db,
+      "support_create",
+      { expectedUserId: customer, kind: "support", subject: "Map question", message: "Where is the pin?" },
+      customer,
+      session2,
+    );
+    let list = await rpc(db, "threads");
+    assert.equal(list.total, 1);
+    assert.equal(list.needsReply, 1);
+    const threadId = list.threads[0].id;
+    assert.equal(list.threads[0].kind, "support");
+    assert.equal(list.threads[0].unread, true);
+    const opened = await rpc(db, "thread", { threadId });
+    assert.equal(opened.messages[0].body, "Where is the pin?");
+    assert.equal((await rpc(db, "threads")).unread, 0);
+
+    const tokened = await inbound(db, {
+      providerId: "recv-1",
+      threadId,
+      fromEmail: "Customer@Example.invalid",
+      fromName: "Pat",
+      subject: "Re: Map question",
+      body: "Thanks, found it.\n\nOn Mon, TicketSafe wrote:\n> old",
+      messageId: "<abc@mail.example>",
+      attachments: [{ filename: "shot.png", size: 10, contentType: "image/png" }],
+    });
+    assert.equal(tokened.threadId, threadId);
+    assert.deepEqual(
+      await inbound(db, { providerId: "recv-1", fromEmail: "customer@example.invalid", body: "again" }),
+      { duplicate: true },
+    );
+    const grouped = await inbound(db, {
+      providerId: "recv-2",
+      fromEmail: "customer@example.invalid",
+      subject: "RE: Fwd: map question",
+      body: "One more thing.",
+    });
+    assert.equal(grouped.threadId, threadId, "a matching subject from the same sender joins the thread");
+    const fresh = await inbound(db, {
+      providerId: "recv-3",
+      fromEmail: "stranger@example.invalid",
+      subject: "回复：Hello",
+      body: "Who is this?",
+    });
+    assert.notEqual(fresh.threadId, threadId);
+    list = await rpc(db, "threads", { filter: "all" });
+    assert.equal(list.total, 2);
+    const stranger = list.threads.find((item) => item.id === fresh.threadId);
+    assert.equal(stranger.subject, "Hello");
+    assert.equal(stranger.kind, "email");
+    assert.equal(stranger.has_account, false);
+    const full = await rpc(db, "thread", { threadId });
+    assert.equal(full.messages.length, 3);
+    assert.equal(full.messages[1].from_email, "customer@example.invalid");
+    assert.equal(full.messages[1].attachments[0].filename, "shot.png");
+    assert.equal((await rpc(db, "threads", { search: "found it" })).total, 1);
+
+    const key = crypto.randomUUID();
+    const prepared = await rpc(db, "thread_reply_prepare", { threadId, reply: "Glad to help.", idempotencyKey: key });
+    assert.equal(prepared.recipient, "customer@example.invalid");
+    assert.equal(prepared.inReplyTo, "<abc@mail.example>");
+    assert.equal(
+      (await rpc(db, "thread_reply_prepare", { threadId, reply: "Glad to help.", idempotencyKey: key })).messageId,
+      prepared.messageId,
+      "the same send key never creates a second reply",
+    );
+    await assert.rejects(
+      rpc(db, "thread_reply_prepare", { threadId, reply: "Different", idempotencyKey: key }),
+      /different content/,
+    );
+    const claim = await rpc(db, "thread_reply_claim", {
+      threadId,
+      messageId: prepared.messageId,
+      content: { subject: "Re: Map question", html: "<p>x</p>", text: "x" },
+    });
+    assert.equal(claim.claimed, true);
+    assert.equal(
+      (await rpc(db, "thread_reply_claim", { threadId, messageId: prepared.messageId, content: {} })).status,
+      "review",
+      "an active lease blocks a duplicate send",
+    );
+    await rpc(db, "thread_reply_result", { threadId, messageId: prepared.messageId, providerId: "sent-1" });
+    assert.equal((await rpc(db, "thread", { threadId })).thread.status, "replied");
+    const support = await rpc(db, "support_messages");
+    assert.equal(support.messages[0].reply, "Glad to help.");
+
+    await rpc(db, "thread_status", { threadId, status: "closed" });
+    assert.equal((await rpc(db, "threads", { filter: "closed" })).total, 1);
+    await inbound(db, { providerId: "recv-4", threadId, fromEmail: "customer@example.invalid", body: "Reopen please" });
+    assert.equal((await rpc(db, "thread", { threadId })).thread.status, "open");
+
+    await rpc(db, "role_set", { userId: customer, role: "support" });
+    assert.equal((await rpc(db, "threads", { filter: "all" }, customer, session2)).total, 2);
+    await assert.rejects(
+      rpc(db, "thread_delete", { threadId }, customer, session2),
+      /Only admins/,
+    );
+    await rpc(db, "thread_delete", { threadId });
+    assert.equal((await rpc(db, "threads", { filter: "all" })).total, 1);
+    assert.equal((await rpc(db, "support_messages")).total, 0);
+    const audit = await rpc(db, "audit");
+    assert.equal(audit.entries[0].action, "thread_delete");
+  } finally {
+    await db.close();
+  }
+});
+
+test("thread replies send in-thread with a conversation reply-to address", async () => {
+  const db = await database();
+  const sent = [];
+  try {
+    const client = {
+      auth: {
+        getUser: async () => ({
+          data: { user: { id: master, email_confirmed_at: "2026-10-01", is_anonymous: false } },
+          error: null,
+        }),
+      },
+      rpc: async (_name, args) => {
+        try {
+          return {
+            data: await rpc(db, args.action, args.input, args.actor_id, args.session_id),
+            error: null,
+          };
+        } catch (error) {
+          return { data: null, error };
+        }
+      },
+    };
+    let fail = true;
+    const handler = crmAdminHandler(
+      client,
+      {
+        enabled: "true",
+        senderVerified: "true",
+        apiKey: "test-not-live",
+        from: "service@example.invalid",
+        signingSecret: "s".repeat(32),
+        appOrigin: "https://app.example.invalid",
+        supabaseUrl: "https://db.example.invalid",
+        inboundDomain: "reply.example.invalid",
+        inboundConfigured: true,
+      },
+      ["https://app.example.invalid"],
+      async (_url, options) => {
+        sent.push({ body: JSON.parse(options.body), key: options.headers["Idempotency-Key"] });
+        if (fail) {
+          fail = false;
+          throw new Error("network");
+        }
+        return Response.json({ id: "provider-" + sent.length });
+      },
+    );
+    const token =
+      "header." +
+      Buffer.from(JSON.stringify({ sub: master, session_id: session })).toString("base64url") +
+      ".signature";
+    const request = (input) =>
+      new Request("https://db.example.invalid/functions/v1/crm-admin", {
+        method: "POST",
+        headers: { Origin: "https://app.example.invalid", Authorization: "Bearer " + token },
+        body: JSON.stringify(input),
+      });
+    const { threadId } = await inbound(db, {
+      providerId: "recv-10",
+      fromEmail: "pat@example.invalid",
+      subject: "Refund?",
+      body: "Can I get help?",
+      messageId: "<m1@example.invalid>",
+    });
+    const listed = await (await handler(request({ action: "threads" }))).json();
+    assert.equal(listed.receiving, true);
+    assert.equal(listed.threads[0].id, threadId);
+    const draft = { action: "thread_reply", threadId, reply: "**Yes**, here is how.", idempotencyKey: crypto.randomUUID() };
+    const failed = await handler(request(draft));
+    assert.equal(failed.status, 503);
+    const pending = (await rpc(db, "thread", { threadId })).messages.at(-1);
+    assert.equal(pending.status, "sending");
+    await db.exec("update public.ticketsafe_crm_thread_messages set lease_until=now()-interval '1 second' where status='sending'");
+    assert.equal((await rpc(db, "thread", { threadId })).messages.at(-1).needs_review, true);
+    const retried = await handler(request({ action: "thread_reply", threadId, retryMessageId: pending.id }));
+    assert.equal((await retried.json()).status, "completed");
+    assert.equal(sent.length, 2);
+    assert.equal(sent[0].key, sent[1].key, "a retry reuses the provider idempotency key");
+    const body = sent[1].body;
+    assert.deepEqual(body.to, ["pat@example.invalid"]);
+    assert.equal(body.reply_to, `support+${threadId}@reply.example.invalid`);
+    assert.equal(body.subject, "Re: Refund?");
+    assert.equal(body.headers["In-Reply-To"], "<m1@example.invalid>");
+    assert.match(body.html, /<strong>Yes<\/strong>/);
+    const replayed = await (await handler(request(draft))).json();
+    assert.equal(replayed.replayed, true);
+    assert.equal(sent.length, 2, "a sent reply is never repeated");
+    assert.equal((await rpc(db, "thread", { threadId })).thread.status, "replied");
   } finally {
     await db.close();
   }
