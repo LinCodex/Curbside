@@ -218,6 +218,7 @@
   "Reductions": "减免",
   "Payments": "已付款",
   "View official summons image": "查看官方罚单影像",
+  "View summons image": "查看罚单影像",
   "Record sources": "记录来源",
   "Review the official notice for deadlines. Missing a record or a balance does not establish dismissal.": "请查阅官方通知以确认期限。记录或余额缺失不能证明罚单已撤销。",
   "This removes your saved vehicles, preferences, and eligible dispute records. It does not delete NYC public records or automatically cancel a paid subscription.": "这将移除已保存车辆、偏好及可删除的申诉记录。不会删除纽约市公开记录，也不会自动取消付费订阅。",
@@ -1444,5 +1445,6 @@
   "Summons image: Not available": "罚单影像：不可用",
   "Summons image not available": "暂无罚单影像",
   "Official summons image": "官方罚单影像",
-  "Summons image preview unavailable in browser.": "浏览器中无法预览影像，请通过官方链接查看。"
+  "Summons image preview unavailable in browser.": "浏览器中无法预览影像，请通过官方链接查看。",
+  "Mobile browsers that cannot display embedded PDFs can open the official summons directly.": "若移动端浏览器无法直接嵌入显示 PDF，可直接打开官方罚单。"
 }

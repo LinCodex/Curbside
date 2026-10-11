@@ -86,14 +86,25 @@ test("ticket details summons image action is bilingual and indicates availabilit
   const zh = JSON.parse(readFileSync("lib/zh.json", "utf8"));
   assert.equal(zh["Show summons image"], "显示罚单影像");
   assert.equal(zh["Hide summons image"], "隐藏罚单影像");
+  assert.equal(zh["View summons image"], "查看罚单影像");
+  assert.equal(zh["View official summons image"], "查看官方罚单影像");
   assert.equal(zh["Summons image: Not available"], "罚单影像：不可用");
   assert.equal(zh["Summons image not available"], "暂无罚单影像");
+  assert.ok(zh["Mobile browsers that cannot display embedded PDFs can open the official summons directly."]);
 
   const curbsideSource = readFileSync("components/curbside.tsx", "utf8");
   assert.match(curbsideSource, /ticket-summons-action/);
   assert.match(curbsideSource, /ticket-summons-preview/);
+  assert.match(curbsideSource, /ticket-summons-buttons/);
+  assert.match(curbsideSource, /ticket-summons-view/);
+  assert.match(curbsideSource, /detail-summons-pill/);
   assert.match(curbsideSource, /selected\.image/);
   assert.match(curbsideSource, /Summons image: Not available/);
+
+  const polishSource = readFileSync("app/polish.css", "utf8");
+  assert.match(polishSource, /\.detail-summons-pill/);
+  assert.match(polishSource, /\.summons-frame/);
+  assert.match(polishSource, /@media \(max-width: 800px\) \{[\s\S]*?\.summons-frame/);
 });
 
 test("NYC summons images are accepted and upgraded to https for nyc.gov domains", async () => {

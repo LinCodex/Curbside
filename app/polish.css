@@ -1142,14 +1142,62 @@ html[data-theme="light"] .legal-back-button:active {
 .ticket-location-caption .text-link {
   flex-shrink: 0;
 }
+.detail-summons-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.detail-summons-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #79a8ff;
+  background: #192333;
+  border: 1px solid #79a8ff33;
+  padding: 3px 8px;
+  border-radius: 999px;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+.detail-summons-pill:hover,
+.detail-summons-pill:focus-visible {
+  background: #23344f;
+  color: #a4c4ff;
+  border-color: #79a8ff66;
+}
 .ticket-summons-action {
   display: flex;
   flex-direction: column;
   gap: 10px;
   width: 100%;
 }
-.ticket-summons-action > .button {
+.ticket-summons-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   width: 100%;
+}
+@media (min-width: 600px) {
+  .ticket-summons-buttons {
+    flex-direction: row;
+  }
+  .ticket-summons-buttons > * {
+    flex: 1;
+  }
+}
+.ticket-summons-action .button,
+.ticket-summons-action .ticket-summons-view {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  min-height: 44px;
 }
 .ticket-summons-preview {
   display: flex;
@@ -1161,6 +1209,8 @@ html[data-theme="light"] .legal-back-button:active {
   background: #121619;
   border: 1px solid #ffffff16;
   text-align: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 .ticket-summons-preview img {
   width: 100%;
@@ -1177,9 +1227,26 @@ html[data-theme="light"] .legal-back-button:active {
   border: 1px solid #ffffff16;
   border-radius: 8px;
   background: #ffffff;
+  -webkit-overflow-scrolling: touch;
+}
+.ticket-summons-mobile-hint {
+  margin: 0;
+  line-height: 1.4;
+  font-size: 11px;
 }
 .ticket-summons-preview .button {
   width: 100%;
+  min-height: 44px;
+}
+@media (max-width: 800px) {
+  .ticket-summons-preview {
+    padding: 10px;
+    gap: 10px;
+  }
+  .ticket-summons-preview .summons-frame {
+    height: min(48dvh, 320px);
+    max-height: 340px;
+  }
 }
 @media (max-width: 800px) {
   html,

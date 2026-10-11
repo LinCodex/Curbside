@@ -10,6 +10,25 @@ export type ChangelogRelease = {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "1.2.2",
+    date: "2026-10-11",
+    title: { en: "Mobile summons image viewing", zh: "移动端官方传票影像查看支持" },
+    changes: [
+      {
+        en: "Added direct mobile-friendly actions to view official summons images directly in full screen.",
+        zh: "新增专为移动端优化的直接查看官方传票影像操作，支持全屏原图查看。",
+      },
+      {
+        en: "Added quick-access summons pill directly beside the summons number in ticket details.",
+        zh: "在罚单详情的传票编号旁新增快速查看胶囊按钮，无需向下滚动即可一键打开。",
+      },
+      {
+        en: "Optimized summons preview frame with responsive height and fallbacks for mobile browsers.",
+        zh: "优化了传票影像预览窗口的响应式高度，并为移动端浏览器提供了直接打开回退支持。",
+      },
+    ],
+  },
+  {
     version: "1.2.1",
     date: "2026-10-11",
     title: { en: "Summons image in ticket details", zh: "罚单详情中新增传票影像" },

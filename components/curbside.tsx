@@ -2755,8 +2755,14 @@ export default function Curbside() {
                 </button>
               </div>
             )}
-            {sheet === "ticket" && selected && (
-              <div className="stack">
+            {sheet === "ticket" && selected && (() => {
+              const summonsUrl = selected.image
+                ? selected.image.startsWith("http://")
+                  ? selected.image.replace(/^http:\/\//, "https://")
+                  : selected.image
+                : null;
+              return (
+                <div className="stack">
                 <div className="ticket-detail-title">
                   <span className="eyebrow">
                     {selected.plate} / {selected.state}
@@ -2845,7 +2851,28 @@ export default function Curbside() {
                       }
                     >
                       <dt>{k}</dt>
-                      <dd>{v ? tr(String(v)) : tr("Not provided")}</dd>
+                      <dd>
+                        {k === tr("Summons") && summonsUrl ? (
+                          <div className="detail-summons-wrapper">
+                            <span className="mono">{v}</span>
+                            <a
+                              className="detail-summons-pill"
+                              href={summonsUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              aria-label={tr("View official summons image")}
+                            >
+                              <FileText size={12} />
+                              <span>{tr("View summons image")}</span>
+                              <ArrowUpRight size={12} />
+                            </a>
+                          </div>
+                        ) : v ? (
+                          tr(String(v))
+                        ) : (
+                          tr("Not provided")
+                        )}
+                      </dd>
                     </div>
                   ))}
                 </dl>
@@ -2875,60 +2902,70 @@ export default function Curbside() {
                     </div>
                   ))}
                 </div>
-                {(() => {
-                  const summonsUrl = selected.image
-                    ? selected.image.startsWith("http://")
-                      ? selected.image.replace(/^http:\/\//, "https://")
-                      : selected.image
-                    : null;
-                  return (
-                    <div className="ticket-summons-action">
-                      {summonsUrl ? (
-                        <button
-                          type="button"
-                          className="button"
-                          onClick={() => setShowSummonsImage((v) => !v)}
-                          aria-expanded={showSummonsImage}
-                        >
-                          <FileText size={15} />
+                <div className="ticket-summons-action">
+                  {summonsUrl ? (
+                    <div className="ticket-summons-buttons">
+                      <a
+                        className="button primary ticket-summons-view"
+                        href={summonsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <FileText size={15} />
+                        <span>{tr("View summons image")}</span>
+                        <ArrowUpRight size={14} />
+                      </a>
+                      <button
+                        type="button"
+                        className="button ticket-summons-toggle"
+                        onClick={() => setShowSummonsImage((v) => !v)}
+                        aria-expanded={showSummonsImage}
+                      >
+                        <FileText size={15} />
+                        <span>
                           {showSummonsImage
                             ? tr("Hide summons image")
                             : tr("Show summons image")}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="button"
-                          disabled
-                          aria-disabled="true"
-                          aria-label={tr("Summons image not available")}
-                        >
-                          <FileText size={15} />
-                          {tr("Summons image: Not available")}
-                        </button>
-                      )}
-                      {showSummonsImage && summonsUrl && (
-                        <div className="ticket-summons-preview">
-                          <iframe
-                            src={summonsUrl}
-                            title={tr("Official summons image")}
-                            className="summons-frame"
-                            loading="lazy"
-                          />
-                          <a
-                            className="button"
-                            href={summonsUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            {tr("View official summons image")}
-                            <ArrowUpRight size={14} />
-                          </a>
-                        </div>
-                      )}
+                        </span>
+                      </button>
                     </div>
-                  );
-                })()}
+                  ) : (
+                    <button
+                      type="button"
+                      className="button"
+                      disabled
+                      aria-disabled="true"
+                      aria-label={tr("Summons image not available")}
+                    >
+                      <FileText size={15} />
+                      {tr("Summons image: Not available")}
+                    </button>
+                  )}
+                  {showSummonsImage && summonsUrl && (
+                    <div className="ticket-summons-preview">
+                      <iframe
+                        src={summonsUrl}
+                        title={tr("Official summons image")}
+                        className="summons-frame"
+                        loading="lazy"
+                      />
+                      <p className="ticket-summons-mobile-hint small muted">
+                        {tr(
+                          "Mobile browsers that cannot display embedded PDFs can open the official summons directly.",
+                        )}
+                      </p>
+                      <a
+                        className="button primary"
+                        href={summonsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {tr("View official summons image")}
+                        <ArrowUpRight size={14} />
+                      </a>
+                    </div>
+                  )}
+                </div>
                 <a
                   className="primary-action"
                   href="https://www.nyc.gov/main/services/parking-and-camera-tickets"
@@ -2974,7 +3011,8 @@ export default function Curbside() {
                   )}
                 </p>
               </div>
-            )}
+            );
+          })()}
 
             {sheet === "delete" && (
               <div className="stack">

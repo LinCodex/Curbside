@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.2.2 — 2026-10-11
+
+Customer-facing notes for this release also appear in Account → What’s new (`lib/changelog.ts`).
+
+- Mobile summons viewing: added dedicated, touch-friendly "View summons image" actions for mobile devices that open the official summons document directly in the browser's native PDF reader.
+- Quick summons link: added a quick-tap summons image pill directly alongside the summons number in ticket details, allowing instant mobile access without scrolling past the map and money table.
+- Responsive preview & fallback: embedded summons preview iframe now scales responsively on mobile screens (`height: min(48dvh, 320px)`), with an explicit tap-to-open fallback for mobile browsers that do not embed cross-origin PDFs.
+
+### Validation
+
+Regression tests, TypeScript typecheck, and production build verified.
+
 ## 1.2.1 — 2026-10-11
 
 Customer-facing notes for this release also appear in Account → What’s new (`lib/changelog.ts`).
