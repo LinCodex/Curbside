@@ -172,6 +172,8 @@ export default function Curbside() {
   const [supportRequest, setSupportRequest] = useState(0);
   const supportOpened = useCallback(() => setSupportRequest(0), []);
   const [tutorialOpen, setTutorialOpen] = useState(false);
+  // Rewriting the value mid-composition restarts iOS pinyin input and duplicates it.
+  const plateComposing = useRef(false);
   const [resumedSave, setResumedSave] = useState<PendingSave | null>(null);
   useEffect(() => {
     const openLinkedView = () => {
@@ -938,7 +940,21 @@ export default function Curbside() {
         <input
           id="plate"
           value={plate}
-          onChange={(e) => setPlate(e.target.value.toUpperCase())}
+          onChange={(e) =>
+            setPlate(
+              plateComposing.current ||
+                (e.nativeEvent as InputEvent).isComposing
+                ? e.target.value
+                : e.target.value.toUpperCase(),
+            )
+          }
+          onCompositionStart={() => {
+            plateComposing.current = true;
+          }}
+          onCompositionEnd={(e) => {
+            plateComposing.current = false;
+            setPlate(e.currentTarget.value.toUpperCase());
+          }}
           autoCapitalize="characters"
           autoComplete="off"
           spellCheck
