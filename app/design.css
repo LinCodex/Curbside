@@ -872,9 +872,11 @@ html[lang="zh-Hans"] .wordmark {
   gap: 8px;
 }
 .account-delete-link {
-  justify-self: start;
+  display: block;
+  justify-self: center;
+  margin: 4px auto 0;
   color: var(--muted);
-  margin-top: 4px;
+  text-align: center;
 }
 .view-map .map-results .dock-footer {
   padding-bottom: 0;
