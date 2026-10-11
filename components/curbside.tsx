@@ -361,7 +361,9 @@ export default function Curbside() {
   }, [auth.client, auth.user?.id, pendingSnapshots]);
   useEffect(() => {
     if ("serviceWorker" in navigator)
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
+      navigator.serviceWorker
+        .register("/sw.js", { updateViaCache: "none" })
+        .catch(() => {});
     const q = new URLSearchParams(location.search);
     const callbackHash = new URLSearchParams(location.hash.slice(1));
     const requestedView =
