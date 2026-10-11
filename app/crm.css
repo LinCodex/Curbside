@@ -2143,6 +2143,31 @@ html[data-theme="light"] .crm-login-error {
   align-items: center;
   gap: 6px;
 }
+.crm-email-switch {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 14px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface-soft);
+}
+.crm-email-switch button {
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.crm-email-switch button.active {
+  background: var(--accent-soft);
+  color: var(--blue);
+  font-weight: 600;
+}
 .crm-range {
   display: flex;
   padding: 3px;

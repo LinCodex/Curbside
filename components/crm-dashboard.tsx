@@ -25,7 +25,6 @@ import {
   LoaderCircle,
   LogOut,
   Mail,
-  MessageSquare,
   RefreshCw,
   Search,
   Send,
@@ -81,7 +80,6 @@ type Tab =
   | "access"
   | "status"
   | "debug"
-  | "inbox"
   | "activity";
 const chinese: Record<string, string> = {
   "Support & feedback": "支持与反馈",
@@ -572,6 +570,7 @@ export default function CrmDashboard() {
       ? chinese[text] || (dictionary as Record<string, string>)[text] || text
       : text;
   const [tab, setTab] = useState<Tab>("overview");
+  const [emailView, setEmailView] = useState<"inbox" | "send">("inbox");
   const [selectedUser, setSelectedUser] = useState<{
     id: string;
     email: string;
@@ -607,7 +606,6 @@ export default function CrmDashboard() {
     { id: "overview", label: "Overview", icon: LayoutDashboard },
     { id: "customers", label: "Customers", icon: Users },
     { id: "email", label: "Email", icon: Mail },
-    { id: "inbox", label: "Inbox", icon: MessageSquare },
     { id: "access", label: "Access", icon: ShieldCheck },
     { id: "activity", label: "Activity", icon: History },
     { id: "status", label: "Status", icon: Activity },
@@ -716,7 +714,10 @@ export default function CrmDashboard() {
               className={
                 tab === id ? "crm-nav-button active" : "crm-nav-button"
               }
-              onClick={() => setTab(id)}
+              onClick={() => {
+                if (id === "email") setEmailView("inbox");
+                setTab(id);
+              }}
               aria-current={tab === id ? "page" : undefined}
             >
               <Icon size={18} />
@@ -741,6 +742,10 @@ export default function CrmDashboard() {
             tr={tr}
             locale={locale}
             navigate={setTab}
+            compose={() => {
+              setEmailView("send");
+              setTab("email");
+            }}
           />
         )}
         {tab === "customers" && (
@@ -751,28 +756,50 @@ export default function CrmDashboard() {
             locale={locale}
             onEmail={(customer) => {
               setSelectedUser(customer);
+              setEmailView("send");
               setTab("email");
             }}
           />
         )}
-        {tab === "inbox" && (
-          <CrmMailbox
-            client={account.client!}
-            tr={tr}
-            locale={locale}
-            canDelete={admin.role !== "support"}
-          />
-        )}
         {tab === "email" && (
-          <EmailWorkspace
-            client={account.client!}
-            admin={admin}
-            tr={tr}
-            locale={locale}
-            selectedUser={selectedUser}
-            clearUser={() => setSelectedUser(null)}
-            chooseUser={() => setTab("customers")}
-          />
+          <section>
+            <div className="crm-email-switch" role="tablist" aria-label={tr("Email")}>
+              <button
+                role="tab"
+                aria-selected={emailView === "inbox"}
+                className={emailView === "inbox" ? "active" : ""}
+                onClick={() => setEmailView("inbox")}
+              >
+                {tr("Inbox")}
+              </button>
+              <button
+                role="tab"
+                aria-selected={emailView === "send"}
+                className={emailView === "send" ? "active" : ""}
+                onClick={() => setEmailView("send")}
+              >
+                {tr("Send email")}
+              </button>
+            </div>
+            {emailView === "inbox" ? (
+              <CrmMailbox
+                client={account.client!}
+                tr={tr}
+                locale={locale}
+                canDelete={admin.role !== "support"}
+              />
+            ) : (
+              <EmailWorkspace
+                client={account.client!}
+                admin={admin}
+                tr={tr}
+                locale={locale}
+                selectedUser={selectedUser}
+                clearUser={() => setSelectedUser(null)}
+                chooseUser={() => setTab("customers")}
+              />
+            )}
+          </section>
         )}
         {tab === "access" && (
           <AccessWorkspace
@@ -801,11 +828,13 @@ function Overview({
   tr,
   locale,
   navigate,
+  compose,
 }: {
   client: SupabaseClient;
   tr: Translate;
   locale: string;
   navigate: (tab: Tab) => void;
+  compose: () => void;
 }) {
   const result = useCrmData<CrmStats>(client, "stats");
   const reload = result.reload;
@@ -880,7 +909,7 @@ function Overview({
           <span>{tr("Manage customers")}</span>
           <ArrowRight size={18} />
         </button>
-        <button onClick={() => navigate("email")}>
+        <button onClick={compose}>
           <Mail size={22} />
           <span>{tr("Compose email")}</span>
           <ArrowRight size={18} />
