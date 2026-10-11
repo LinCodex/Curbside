@@ -77,6 +77,32 @@ class RequestError extends Error {
     super(message);
   }
 }
+// Production is reached through the stable alias and through Vercel’s
+// per-deployment and team hosts. Those hosts share one project and one
+// Supabase session, so a master signed in there is still the master.
+export function crmOriginAllowed(origin: string, allowedOrigins: string[]) {
+  if (allowedOrigins.includes(origin)) return true;
+  let url: URL;
+  try {
+    url = new URL(origin);
+  } catch {
+    return false;
+  }
+  const host = url.hostname;
+  if (
+    url.protocol === "http:" &&
+    (host === "localhost" || host === "127.0.0.1") &&
+    url.port === "3000"
+  )
+    return true;
+  if (url.protocol !== "https:") return false;
+  return (
+    host === "curbside-eta.vercel.app" ||
+    host === "ticketsafe.ezrefillny.net" ||
+    (host.startsWith("curbside-") &&
+      host.endsWith("-yangs-projects-008730dc.vercel.app"))
+  );
+}
 
 async function boundedBody(request: Request) {
   if (!request.body) throw new RequestError("A request is required.");
@@ -131,11 +157,11 @@ export function crmAdminHandler(
       "Access-Control-Allow-Methods": "POST,GET,OPTIONS",
       Vary: "Origin",
     };
-    if (origin && allowedOrigins.includes(origin))
+    if (origin && crmOriginAllowed(origin, allowedOrigins))
       headers["Access-Control-Allow-Origin"] = origin;
     const reply = (body: unknown, status = 200) =>
       new Response(JSON.stringify(body), { status, headers });
-    if (origin && !allowedOrigins.includes(origin))
+    if (origin && !crmOriginAllowed(origin, allowedOrigins))
       return reply({ error: "Origin is not allowed." }, 403);
     if (request.method === "OPTIONS") return reply({});
     try {

@@ -212,7 +212,12 @@ export async function crmClientRequest<T>(
       }
       if (context.status === 401)
         message = "Your session expired. Please sign in again.";
-      if (context.status === 403)
+      // Keep a specific server reason, such as an origin mismatch. The
+      // generic sentence is only for a 403 that did not explain itself.
+      if (
+        context.status === 403 &&
+        message === "CRM unavailable. Please try again."
+      )
         message = "This account does not have access to this action.";
     }
     throw new Error(message);

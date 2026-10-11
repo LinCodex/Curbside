@@ -377,6 +377,38 @@ test("CRM edge rejects foreign origins, invalid sessions and oversized bodies be
   );
   assert.equal(auth, 0);
   assert.equal(
+    (
+      await handler(
+        request(
+          '{"action":"stats"}',
+          "https://curbside-bdq06p422-yangs-projects-008730dc.vercel.app",
+          "bad-token",
+        ),
+      )
+    ).status,
+    401,
+  );
+  assert.equal(
+    (
+      await handler(
+        request(
+          '{"action":"stats"}',
+          "https://curbside-yangs-projects-008730dc.vercel.app",
+          "bad-token",
+        ),
+      )
+    ).status,
+    401,
+  );
+  assert.equal(
+    (
+      await handler(
+        request('{"action":"stats"}', "http://localhost:3000", "bad-token"),
+      )
+    ).status,
+    401,
+  );
+  assert.equal(
     (await handler(request('{"action":"stats"}', undefined, "bad-token")))
       .status,
     401,

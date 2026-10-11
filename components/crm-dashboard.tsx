@@ -226,6 +226,7 @@ const chinese: Record<string, string> = {
   "Access is checked securely for every request.":
     "每次请求都会安全验证访问权限。",
   "This account does not have access to this action.": "此账户无权执行此操作。",
+  "Origin is not allowed.": "此网站地址未获准访问管理工作台。",
   "Your session expired. Please sign in again.": "会话已过期，请重新登录。",
   "CRM unavailable. Please try again.": "管理服务暂不可用，请重试。",
   "CRM returned an invalid response.": "管理服务返回了无效响应。",
