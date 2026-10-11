@@ -724,7 +724,12 @@ export default function CrmDashboard() {
           />
         )}
         {tab === "inbox" && (
-          <CrmInbox client={account.client!} tr={tr} locale={locale} />
+          <CrmInbox
+            client={account.client!}
+            tr={tr}
+            locale={locale}
+            canDelete={admin.role !== "support"}
+          />
         )}
         {tab === "email" && (
           <EmailWorkspace

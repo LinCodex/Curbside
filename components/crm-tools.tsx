@@ -52,10 +52,12 @@ export function CrmInbox({
   client,
   tr,
   locale,
+  canDelete,
 }: {
   client: SupabaseClient;
   tr: Translate;
   locale: string;
+  canDelete: boolean;
 }) {
   const [kind, setKind] = useState("all");
   const [page, setPage] = useState(1);
@@ -297,17 +299,19 @@ export function CrmInbox({
                   <Mail size={16} />
                   {tr("Reply by email")}
                 </button>
-                <button
-                  className="crm-button"
-                  onClick={() => {
-                    setReplyId("");
-                    setConfirm(message.id);
-                  }}
-                  disabled={!!deleting || replying}
-                >
-                  <Trash2 size={16} />
-                  {tr("Delete message")}
-                </button>
+                {canDelete && (
+                  <button
+                    className="crm-button"
+                    onClick={() => {
+                      setReplyId("");
+                      setConfirm(message.id);
+                    }}
+                    disabled={!!deleting || replying}
+                  >
+                    <Trash2 size={16} />
+                    {tr("Delete message")}
+                  </button>
+                )}
               </div>
             )}
             {replyId === message.id && (

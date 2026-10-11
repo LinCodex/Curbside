@@ -85,6 +85,12 @@ insert into auth.sessions(id,user_id) values('${session}','${master}'),('${sessi
       "utf8",
     ),
   );
+  await db.exec(
+    fs.readFileSync(
+      "supabase/migrations/20261011170000_restrict_support_deletes.sql",
+      "utf8",
+    ),
+  );
   return db;
 }
 async function rpc(db, action, input = {}, actor = master, sid = session) {
@@ -468,8 +474,34 @@ test("support messages require the current confirmed profile; CRM inbox is priva
     assert.equal(inbox.total, 1);
     assert.equal(inbox.messages[0].kind, "feedback");
     assert.equal((await rpc(db, "support_messages", { kind: "bug" })).total, 0);
+    await rpc(db, "role_set", { userId: customer, role: "support" });
+    await assert.rejects(
+      rpc(
+        db,
+        "support_delete",
+        { messageId: inbox.messages[0].id },
+        customer,
+        session2,
+      ),
+      /Only admins/,
+    );
+    assert.equal((await rpc(db, "support_messages")).total, 1);
+    await assert.rejects(
+      rpc(db, "support_delete", { messageId: master }),
+      /Message not found/,
+    );
     await rpc(db, "support_delete", { messageId: inbox.messages[0].id });
     assert.equal((await rpc(db, "support_messages")).total, 0);
+    const audit = (
+      await db.query(
+        "select actor_id,target_id,detail from public.ticketsafe_crm_audit where action='support_delete'",
+      )
+    ).rows;
+    assert.equal(audit.length, 1);
+    assert.equal(audit[0].actor_id, master);
+    assert.equal(audit[0].target_id, customer);
+    assert.equal(audit[0].detail.kind, "feedback");
+    assert.equal(audit[0].detail.replied, false);
     for (const role of ["anon", "authenticated"]) {
       await db.exec("set role " + role);
       await assert.rejects(
