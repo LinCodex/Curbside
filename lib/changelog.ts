@@ -39,6 +39,10 @@ export const CHANGELOG: ChangelogRelease[] = [
         zh: "功能导览每个账户只自动显示一次，无论使用哪台设备。",
       },
       {
+        en: "Deleting your account now sends a confirmation email listing what was removed.",
+        zh: "删除账户后，您会收到一封确认邮件，列出已删除的内容。",
+      },
+      {
         en: "A reminder to check your spam folder for the verification email.",
         zh: "提醒您在垃圾邮件文件夹中查找验证邮件。",
       },

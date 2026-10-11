@@ -214,7 +214,9 @@ test("consent writes retain the deployed contract version and account deletion u
   assert.deepEqual(f.invoked, [
     [
       "account-delete",
-      { body: { confirmation: "DELETE_ACCOUNT", userId: owner } },
+      {
+        body: { confirmation: "DELETE_ACCOUNT", userId: owner, language: "en" },
+      },
     ],
   ]);
   assert.equal(f.signedOut, true);

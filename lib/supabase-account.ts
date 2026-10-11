@@ -155,7 +155,11 @@ export async function savedAccountRequest(
     if (input.confirmation !== "DELETE_ACCOUNT")
       throw new Error("Confirm account deletion before continuing.");
     const result = await client.functions.invoke("account-delete", {
-      body: { confirmation: "DELETE_ACCOUNT", userId: user.id },
+      body: {
+        confirmation: "DELETE_ACCOUNT",
+        userId: user.id,
+        language: input.language === "zh" ? "zh" : "en",
+      },
     });
     if (result.error || result.data?.ok !== true)
       throw new Error(

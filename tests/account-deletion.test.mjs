@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { accountDeletionHandler } from "../lib/account-deletion.ts";
+import {
+  accountDeletedEmail,
+  accountDeletionHandler,
+} from "../lib/account-deletion.ts";
 const origin = "https://example.com";
 const id = "193a2604-3ba1-4b61-9e9a-5276512dc001";
 const session = "193a2604-3ba1-4b61-9e9a-5276512dc002";
@@ -13,6 +16,7 @@ function fixture({
   activeSession = true,
   anonymous = false,
   failure = false,
+  notice,
 } = {}) {
   const deleted = [];
   const admin = {
@@ -23,6 +27,7 @@ function fixture({
             value === token
               ? {
                   id,
+                  email: "driver@example.com",
                   email_confirmed_at: confirmed ? "2026-01-01" : undefined,
                   is_anonymous: anonymous,
                 }
@@ -48,7 +53,7 @@ function fixture({
       return { data: activeSession, error: null };
     },
   };
-  return { handler: accountDeletionHandler(admin, [origin]), deleted };
+  return { handler: accountDeletionHandler(admin, [origin], notice), deleted };
 }
 const request = (
   body = { confirmation: "DELETE_ACCOUNT", userId: id },
@@ -98,8 +103,53 @@ test("permanent deletion requires explicit confirmation and a live confirmed acc
   assert.deepEqual(f.deleted, [id]);
 });
 test("deletion failures never report success or expose provider details", async () => {
-  const f = fixture({ failure: true });
+  const sent = [];
+  const f = fixture({
+    failure: true,
+    notice: async () => async () => sent.push("mail"),
+  });
   const response = await f.handler(request());
   assert.equal(response.status, 503);
   assert.doesNotMatch(await response.text(), /provider detail/);
+  assert.deepEqual(sent, []);
+});
+test("a confirmation email is prepared before deletion and sent only after it succeeds", async () => {
+  const events = [];
+  let f;
+  f = fixture({
+    notice: async (user, language) => {
+      events.push(["prepare", user.email, language, [...f.deleted]]);
+      return async () => events.push(["send", [...f.deleted]]);
+    },
+  });
+  const body = { confirmation: "DELETE_ACCOUNT", userId: id, language: "zh" };
+  assert.deepEqual(await (await f.handler(request(body))).json(), {
+    ok: true,
+    emailed: true,
+  });
+  assert.deepEqual(events, [
+    ["prepare", "driver@example.com", "zh", []],
+    ["send", [id]],
+  ]);
+  const failing = fixture({
+    notice: async () => async () => {
+      throw new Error("provider down");
+    },
+  });
+  assert.deepEqual(
+    await (await failing.handler(request({ ...body, language: "fr" }))).json(),
+    { ok: true, emailed: false },
+  );
+  assert.deepEqual(failing.deleted, [id]);
+});
+test("the deletion email explains what was removed and what is kept", () => {
+  const en = accountDeletedEmail("en", "driver@example.com", "help@example.com");
+  assert.match(en.subject, /account was deleted/);
+  assert.match(en.message, /driver@example\.com/);
+  assert.match(en.message, /## What we removed[\s\S]*Saved cars/);
+  assert.match(en.message, /## What stays[\s\S]*Public NYC ticket records/);
+  assert.match(en.message, /\(mailto:help@example\.com\)/);
+  const zh = accountDeletedEmail("zh", "driver@example.com", "help@example.com");
+  assert.match(zh.subject, /账户已删除/);
+  assert.match(zh.message, /## 已删除的内容[\s\S]*## 保留的内容/);
 });

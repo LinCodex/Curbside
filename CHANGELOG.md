@@ -10,17 +10,18 @@ Customer-facing notes for this release also appear in Account → What’s new (
 - Language: the legal policy picker navigates client-side; the tab title stays translated; full page loads stay hidden until the saved Chinese locale renders (1.5 s fallback).
 - Email settings: the announcement preference is prefetched at sign-in so Account shows it without a spinner.
 - Sign-up: the verification step reminds users to check spam or junk.
+- Account deletion: after a self-service deletion succeeds, `account-delete` emails the former address (English or Chinese, from the displayed language) listing what was removed and what the privacy policy keeps. The message is built before deletion and sent after it, with a per-account Resend idempotency key; a failed send never reports the deletion as failed (`emailed: false`).
 - iOS Safari: `theme-color` follows the light/dark page background.
 - UI: removed the floating Edit search button; footer Help & support and Cookie settings sit side by side; the no-account search note is hidden for signed-in users.
 - CRM: email templates (10 built-in, English/Chinese) plus shared team templates, a formatting toolbar, live preview and draft checks; Activity log tab; inbox status filter, search and open count; delivery review for uncertain sends; 20 of the 100 daily emails reserved for support replies; support-role deletes blocked and audited.
 
 ### Backend deployment
 
-Applied `20261011170000_restrict_support_deletes` and `20261011180000_crm_portal_tools` and recorded both in the migration ledger. Deployed `crm-admin` v7 (`verify_jwt = false`, session checked in the handler). Rollback: redeploy the previous `crm-admin` bundle; the new table and functions are additive.
+Applied `20261011170000_restrict_support_deletes` and `20261011180000_crm_portal_tools` and recorded both in the migration ledger. Deployed `crm-admin` v7 (`verify_jwt = false`, session checked in the handler) and `account-delete` v5 (gateway JWT verification kept). Rollback: redeploy the previous `crm-admin` bundle; the new table and functions are additive.
 
 ### Validation
 
-115 regression tests and TypeScript passed; production build verified with a test deployment ID, including the version endpoint and reload behaviour.
+117 regression tests and TypeScript passed; production build verified with a test deployment ID, including the version endpoint and reload behaviour.
 
 ## 1.1.0 — 2026-10-11
 

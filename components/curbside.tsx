@@ -2967,6 +2967,7 @@ export default function Curbside() {
                     perform(async () => {
                       await api("account", "DELETE", {
                         confirmation: "DELETE_ACCOUNT",
+                        language: locale,
                       });
                       setAccount(null);
                       setResults(null);
