@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronRight,
   CircleCheck,
@@ -14,9 +14,21 @@ import { crmClientRequest } from "@/lib/crm-client";
 
 export default function SupportFeedback({
   onSignIn,
+  openRequest = 0,
+  onOpened,
 }: {
   onSignIn: () => void;
+  openRequest?: number;
+  onOpened?: () => void;
 }) {
+  const disclosure = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    if (!openRequest || !disclosure.current) return;
+    disclosure.current.open = true;
+    disclosure.current.scrollIntoView({ block: "start", behavior: "smooth" });
+    disclosure.current.querySelector("summary")?.focus({ preventScroll: true });
+    onOpened?.();
+  }, [openRequest, onOpened]);
   const { client, user } = useAccount();
   const { tr } = usePreferences();
   const [kind, setKind] = useState("support");
@@ -27,7 +39,11 @@ export default function SupportFeedback({
   const [error, setError] = useState("");
   const mountedRequest = useRef(0);
   return (
-    <details className="glass form-card support-feedback">
+    <details
+      ref={disclosure}
+      id="support"
+      className="glass form-card support-feedback"
+    >
       <summary>
         <span className="account-profile-mark">
           <MessageSquare size={20} />

@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
+import { useRef } from "react";
 import { usePreferences } from "./preferences";
 
 export default function MapPanelControls({
@@ -34,8 +35,31 @@ export default function MapPanelControls({
     </button>
   );
 
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
+  const swipe = {
+    onTouchStart: (event: React.TouchEvent) => {
+      const touch = event.touches[0];
+      swipeStart.current =
+        event.touches.length === 1 ? { x: touch.clientX, y: touch.clientY } : null;
+    },
+    onTouchEnd: (event: React.TouchEvent) => {
+      const start = swipeStart.current;
+      const touch = event.changedTouches[0];
+      swipeStart.current = null;
+      if (!start || !touch) return;
+      const dx = touch.clientX - start.x;
+      const dy = touch.clientY - start.y;
+      if (Math.abs(dy) < 36 || Math.abs(dy) < Math.abs(dx) * 1.5) return;
+      if (dy > 0 !== collapsed) onToggle();
+    },
+    onTouchCancel: () => {
+      swipeStart.current = null;
+    },
+  };
+
   return (
-    <div className="map-panel-toolbar">
+    <div className="map-panel-toolbar" {...swipe}>
+      <span className="map-panel-grip" aria-hidden="true" />
       <div className="map-panel-heading">
         {selected ? (
           <>

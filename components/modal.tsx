@@ -41,12 +41,25 @@ export default function Modal({
       }
     };
     document.addEventListener("keydown", key);
+    // Keeps the focused field above the on-screen keyboard on short phones.
+    const revealField = () => {
+      const field = document.activeElement;
+      if (
+        window.innerWidth <= 800 &&
+        field instanceof HTMLElement &&
+        dialog?.contains(field) &&
+        field.matches("input,textarea,select")
+      )
+        field.scrollIntoView({ block: "center" });
+    };
+    window.visualViewport?.addEventListener("resize", revealField);
     if (modalLocks++ === 0) {
       previousBodyOverflow = document.body.style.overflow;
       document.body.style.overflow = "hidden";
     }
     return () => {
       document.removeEventListener("keydown", key);
+      window.visualViewport?.removeEventListener("resize", revealField);
       if (--modalLocks === 0)
         document.body.style.overflow = previousBodyOverflow;
       // A new popup may already own focus while this one finishes closing.

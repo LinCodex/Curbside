@@ -2785,6 +2785,12 @@ html[data-theme="light"] .legal-section-links a[aria-current="location"] {
     font-size: max(16px, 1em);
   }
 }
+/* Modal focuses its container so screen readers start in the dialog; the
+   container is not an interactive control, so it draws no focus ring. */
+.sheet[tabindex="-1"]:focus,
+.sheet[tabindex="-1"]:focus-visible {
+  outline: none;
+}
 .welcome-onboarding {
   display: grid;
   gap: 20px;

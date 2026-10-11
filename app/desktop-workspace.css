@@ -188,7 +188,7 @@ html[data-theme="light"] .app .garage-add-action {
   }
   .desktop-workspace .account-workspace-panels {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-rows: none;
     grid-auto-rows: max-content;
     align-content: start;
@@ -205,12 +205,8 @@ html[data-theme="light"] .app .garage-add-action {
     grid-column: 1;
     grid-row: 1;
   }
-  .desktop-workspace .account-notifications-card {
-    grid-column: 2;
-    grid-row: 1;
-  }
   .desktop-workspace .account-tools-card {
-    grid-column: 3;
+    grid-column: 2;
     grid-row: 1;
   }
   .desktop-workspace .account-page .account-layout > .form-card {
@@ -288,7 +284,7 @@ html[data-theme="light"] .app .garage-add-action {
     grid-row: auto;
   }
   .desktop-workspace .account-page .account-tools-card {
-    grid-column: 1 / -1;
+    grid-column: 2;
   }
   .desktop-workspace .account-page .account-legal-card {
     flex: 0 0 auto;

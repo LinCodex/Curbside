@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.1.0 — 2026-10-11
+
+Customer-facing notes for this release also appear in Account → What’s new (`lib/changelog.ts`).
+
+- Account: notification settings moved into a Notifications sheet directly under Account details. New-ticket and announcement email choices are cached per account in `localStorage`, so a refresh shows the saved state immediately while the server value loads.
+- Account: What’s new sheet listing every release, placed between Support & feedback and Privacy & legal. An App tour row replays the guided tour.
+- Guided tour after sign-in: highlights Garage, Search, Map, Account and Notifications with a blue outline, explains each, and ends with a shortcut to the Notifications sheet. Skip, Back and Escape are supported; completion is remembered per account.
+- Onboarding and all popups: removed the focus outline drawn around the dialog container itself.
+- Navigation: Garage/Search/Map/Account changes push browser history, so Back and Android back gestures return to the previous view.
+- Saving a searched plate as a guest is resumed after the account is confirmed and terms are accepted (24-hour, single-use local record of plate, state and plate type).
+- Mobile: swipe the map panel toolbar to collapse or expand it; pinch, drag, double-tap and wheel zoom on the backup SVG map; Edit search button when the search form scrolls away; Android `beforeinstallprompt` install button; focused fields in popups stay above the on-screen keyboard; tighter popups on short screens.
+- Support: Help & support link in the page footer opens the support form. Account data disclosure has a visible chevron.
+- Removed the empty `app/admin13678` directory.
+
 ## 1.0.0 — 2026-10-04
 
 This is the first documented production version. It captures the existing application and the cleanup below; it does not imply that every feature in the original product proposal has shipped. Earlier commits are unversioned development history. The application version is recorded in `package.json` and `package-lock.json`.

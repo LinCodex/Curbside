@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, LoaderCircle } from "lucide-react";
 import { crmRequest } from "@/lib/crm";
+import { readCachedSetting, writeCachedSetting } from "@/lib/settings-cache";
 import { useSupabaseAccount } from "./use-supabase-account";
 import { usePreferences } from "./preferences";
 
@@ -22,8 +23,14 @@ export default function AnnouncementSettings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
   const [retry, setRetry] = useState(0);
+  const cached = useMemo(
+    () => readCachedSetting("announcements", owner),
+    [owner],
+  );
   const enabled =
-    choice?.owner === owner ? choice.enabled : confirmedChoices.get(owner);
+    choice?.owner === owner
+      ? choice.enabled
+      : (confirmedChoices.get(owner) ?? cached);
   const loading = enabled === undefined;
   const checkbox = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -44,6 +51,7 @@ export default function AnnouncementSettings() {
         )
           return;
         confirmedChoices.set(owner, result.enabled === true);
+        writeCachedSetting("announcements", owner, result.enabled === true);
         setChoice({ owner, enabled: result.enabled === true });
         setError(false);
       })
@@ -71,6 +79,7 @@ export default function AnnouncementSettings() {
         { enabled: next, expectedUserId: owner },
       );
       confirmedChoices.set(owner, result.enabled === true);
+      writeCachedSetting("announcements", owner, result.enabled === true);
       if (currentOwner.current === owner)
         setChoice({ owner, enabled: result.enabled === true });
     } catch {

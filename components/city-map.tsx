@@ -11,6 +11,14 @@ import {
 import type { Violation } from "@/lib/domain";
 import { hasPoint, locationRing } from "@/lib/map-locations";
 import { ticketOverview } from "@/lib/map-overview";
+import {
+  IDENTITY_CAMERA,
+  clampCamera,
+  panCamera,
+  parseViewBox,
+  zoomCamera,
+  type SvgCamera,
+} from "@/lib/svg-camera";
 const EMPTY: Violation[] = [];
 const reduced = () =>
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -66,8 +74,35 @@ export default function CityMap({
     tr("The map could not load. Reported addresses remain available."),
   );
   const [paths, setPaths] = useState<any[]>([]),
-    [roads, setRoads] = useState<string[]>([]),
-    [zoom] = useState(1);
+    [roads, setRoads] = useState<string[]>([]);
+  const [camera, setCamera] = useState<SvgCamera>(IDENTITY_CAMERA);
+  const fallbackSvg = useRef<SVGSVGElement>(null);
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+  const gestureTravel = useRef(0);
+  const fallbackShown = !token || failed;
+  useEffect(() => {
+    const svg = fallbackSvg.current;
+    if (!svg || !interactive) return;
+    const wheel = (event: WheelEvent) => {
+      const matrix = svg.getScreenCTM();
+      if (!matrix) return;
+      event.preventDefault();
+      const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(
+        matrix.inverse(),
+      );
+      const box = parseViewBox(svg.getAttribute("viewBox") || "");
+      setCamera((current) =>
+        zoomCamera(
+          clampCamera(current, box),
+          point,
+          Math.exp(-event.deltaY * 0.0015),
+          box,
+        ),
+      );
+    };
+    svg.addEventListener("wheel", wheel, { passive: false });
+    return () => svg.removeEventListener("wheel", wheel);
+  }, [fallbackShown, interactive]);
   const fit = useCallback(() => {
     const map = instance.current;
     if (!map) return;
@@ -584,6 +619,88 @@ export default function CityMap({
         return `${minX} ${minY} ${Math.max(...xs) - minX + 100} ${Math.max(...ys) - minY + 100}`;
       })()
     : "0 0 1100 1150";
+  const fallbackBox = parseViewBox(fallbackBounds);
+  const fallbackCamera = clampCamera(camera, fallbackBox);
+  const releasePointer = (event: React.PointerEvent) => {
+    pointers.current.delete(event.pointerId);
+  };
+  const gestures = interactive
+    ? {
+        onPointerDown: (event: React.PointerEvent) => {
+          if (!pointers.current.size) gestureTravel.current = 0;
+          pointers.current.set(event.pointerId, {
+            x: event.clientX,
+            y: event.clientY,
+          });
+        },
+        onPointerMove: (event: React.PointerEvent<SVGSVGElement>) => {
+          const previous = pointers.current.get(event.pointerId);
+          const matrix = event.currentTarget.getScreenCTM();
+          if (!previous || !matrix) return;
+          const next = { x: event.clientX, y: event.clientY };
+          pointers.current.set(event.pointerId, next);
+          if (pointers.current.size === 1) {
+            const dx = next.x - previous.x;
+            const dy = next.y - previous.y;
+            gestureTravel.current += Math.abs(dx) + Math.abs(dy);
+            if (gestureTravel.current < 6) return;
+            setCamera((current) =>
+              panCamera(
+                clampCamera(current, fallbackBox),
+                dx / matrix.a,
+                dy / matrix.d,
+                fallbackBox,
+              ),
+            );
+            return;
+          }
+          const other = [...pointers.current].find(
+            ([id]) => id !== event.pointerId,
+          )?.[1];
+          if (!other) return;
+          const before = Math.hypot(previous.x - other.x, previous.y - other.y);
+          const after = Math.hypot(next.x - other.x, next.y - other.y);
+          if (!before) return;
+          gestureTravel.current = Infinity;
+          const middle = new DOMPoint(
+            (next.x + other.x) / 2,
+            (next.y + other.y) / 2,
+          ).matrixTransform(matrix.inverse());
+          setCamera((current) =>
+            zoomCamera(
+              clampCamera(current, fallbackBox),
+              middle,
+              after / before,
+              fallbackBox,
+            ),
+          );
+        },
+        onPointerUp: releasePointer,
+        onPointerCancel: releasePointer,
+        onPointerLeave: releasePointer,
+        onClickCapture: (event: React.MouseEvent) => {
+          if (gestureTravel.current < 6) return;
+          event.stopPropagation();
+          event.preventDefault();
+        },
+        onDoubleClick: (event: React.MouseEvent<SVGSVGElement>) => {
+          const matrix = event.currentTarget.getScreenCTM();
+          if (!matrix) return;
+          const point = new DOMPoint(
+            event.clientX,
+            event.clientY,
+          ).matrixTransform(matrix.inverse());
+          setCamera((current) =>
+            zoomCamera(
+              clampCamera(current, fallbackBox),
+              point,
+              current.k >= 7.9 ? 1 / 8 : 2,
+              fallbackBox,
+            ),
+          );
+        },
+      }
+    : {};
   return (
     <div
       className={
@@ -597,15 +714,15 @@ export default function CityMap({
       />
       {(!token || failed) && (
         <svg
+          ref={fallbackSvg}
           className="geography"
           viewBox={fallbackBounds}
           preserveAspectRatio="xMidYMid meet"
           aria-label={tr("NYC borough outlines")}
+          {...gestures}
         >
           <g
-            style={{
-              transform: `translate(550px,575px) scale(${zoom}) translate(-550px,-575px)`,
-            }}
+            transform={`translate(${fallbackCamera.x} ${fallbackCamera.y}) scale(${fallbackCamera.k})`}
           >
             {paths.map((p, i) => (
               <path

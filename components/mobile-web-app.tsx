@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ArrowDown,
   Check,
+  Download,
   LoaderCircle,
   PlusSquare,
   Share,
@@ -18,6 +19,11 @@ import {
   PULL_THRESHOLD,
 } from "@/lib/mobile";
 
+type InstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+};
+
 export function InstallGuide({
   manualRequest = 0,
   suppressAutomatic = false,
@@ -29,7 +35,10 @@ export function InstallGuide({
 
   const [open, setOpen] = useState(false),
     [ios, setIOS] = useState(false),
-    [standalone, setStandalone] = useState(false);
+    [standalone, setStandalone] = useState(false),
+    [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(
+      null,
+    );
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const installed =
@@ -57,6 +66,29 @@ export function InstallGuide({
   useEffect(() => {
     if (manualRequest) setOpen(true);
   }, [manualRequest]);
+  useEffect(() => {
+    const capture = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as InstallPromptEvent);
+    };
+    const installed = () => {
+      setInstallPrompt(null);
+      setStandalone(true);
+    };
+    window.addEventListener("beforeinstallprompt", capture);
+    window.addEventListener("appinstalled", installed);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", capture);
+      window.removeEventListener("appinstalled", installed);
+    };
+  }, []);
+  const install = async () => {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    setInstallPrompt(null);
+    if (outcome === "accepted") setOpen(false);
+  };
   useEffect(() => {
     if (open) dialog.current?.showModal();
     else dialog.current?.close();
@@ -114,6 +146,17 @@ export function InstallGuide({
                 "Open your garage like an app, with more room for what matters. No App Store download.",
               )}
             </p>
+            {installPrompt && !ios && (
+              <button
+                type="button"
+                className="primary-action install-now"
+                onClick={() => void install()}
+              >
+                <Download size={17} aria-hidden="true" />
+                {tr("Install TicketSafe")}
+              </button>
+            )}
+            {!installPrompt && (
             <ol className="install-steps">
               <li>
                 <Share size={20} />
@@ -149,7 +192,8 @@ export function InstallGuide({
                 </div>
               </li>
             </ol>
-            {!ios && (
+            )}
+            {!ios && !installPrompt && (
               <p className="small muted">
                 {tr(
                   "These steps are for iPhone and iPad. On Android, use your browser’s Install app or Add to Home screen option.",

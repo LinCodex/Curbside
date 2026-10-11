@@ -13,9 +13,12 @@ import {
   loadEmailNotificationSettings,
   saveEmailNotificationSettings,
 } from "@/lib/email-notifications";
+import { readCachedSetting, writeCachedSetting } from "@/lib/settings-cache";
 
 function useNotificationState(client: SupabaseClient | null, userId?: string) {
-  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [enabled, setEnabled] = useState<boolean | null>(
+    () => readCachedSetting("ticket-alerts", userId) ?? null,
+  );
   const [available, setAvailable] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
@@ -46,8 +49,10 @@ function useNotificationState(client: SupabaseClient | null, userId?: string) {
       // Publish the subscription as soon as the DB answers; provider status is independent.
       const results = await Promise.allSettled([
         loadEmailNotificationSettings(client, userId).then((settings) => {
-          if (alive.current && request === revision.current)
+          if (alive.current && request === revision.current) {
+            writeCachedSetting("ticket-alerts", userId, settings.enabled);
             setEnabled(settings.enabled);
+          }
         }),
         client.functions
           .invoke("email-notifications", { body: { mode: "status" } })
@@ -87,6 +92,7 @@ function useNotificationState(client: SupabaseClient | null, userId?: string) {
         await saveEmailNotificationSettings(client, next, userId);
         const current = await client.auth.getUser();
         if (alive.current && current.data.user?.id === userId) {
+          writeCachedSetting("ticket-alerts", userId, next);
           setEnabled(next);
         }
       } catch {

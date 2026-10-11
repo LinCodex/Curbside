@@ -37,6 +37,9 @@ import {
   LogOut,
   UserRound,
   Clock3,
+  Bell,
+  Sparkles,
+  Compass,
 } from "lucide-react";
 import { CityBackdrop } from "./city-backdrop";
 import { TicketLocation } from "./ticket-location";
@@ -68,6 +71,16 @@ import VehicleData from "./vehicle-data";
 import Modal from "./modal";
 import { niceDate } from "@/lib/display-date";
 import AnnouncementSettings from "./announcement-settings";
+import Changelog from "./changelog";
+import AppTutorial, { tutorialDone } from "./app-tutorial";
+import EditSearchButton from "./edit-search-button";
+import { CURRENT_VERSION } from "@/lib/changelog";
+import {
+  clearPendingSave,
+  takePendingSave,
+  writePendingSave,
+  type PendingSave,
+} from "@/lib/pending-save";
 import { hasOnboarded, onboardingCookie } from "@/lib/onboarding";
 import {
   readSearchNavigation,
@@ -130,6 +143,37 @@ export default function Curbside() {
   const [restoredOwner, setRestoredOwner] = useState<string | null>(null);
   const searchOwner = auth.user?.id || "guest";
   const initialRouteView = useRef("");
+  const [dockHidden, setDockHidden] = useState(false);
+  const quietNavigation = useRef(false);
+  // Views live in ?view=, so each move gets a history entry and Back returns to it.
+  const pushView = useCallback((next: string) => {
+    const query = new URLSearchParams(location.search);
+    if (!quietNavigation.current && query.get("view") !== next) {
+      query.set("view", next);
+      window.history.pushState(
+        window.history.state,
+        "",
+        location.pathname + "?" + query.toString() + location.hash,
+      );
+    }
+    setView(next);
+  }, []);
+  useEffect(() => {
+    const restoreView = () => {
+      const linked = new URLSearchParams(location.search).get("view");
+      if (!nav.some((item) => item.id === linked)) return;
+      setView(linked!);
+      setSheet(null);
+      setError("");
+      setDockHidden(false);
+    };
+    window.addEventListener("popstate", restoreView);
+    return () => window.removeEventListener("popstate", restoreView);
+  }, []);
+  const [supportRequest, setSupportRequest] = useState(0);
+  const supportOpened = useCallback(() => setSupportRequest(0), []);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [resumedSave, setResumedSave] = useState<PendingSave | null>(null);
   useEffect(() => {
     const openLinkedView = () => {
       const linkedView = window.location.hash.slice(1);
@@ -142,7 +186,6 @@ export default function Curbside() {
   useLayoutEffect(() => {
     currentAuthId.current = auth.user?.id;
   }, [auth.user?.id]);
-  const [dockHidden, setDockHidden] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const challenge = useRef("");
   const searchChallenge = useRef<ChallengeHandle>(null);
@@ -234,6 +277,43 @@ export default function Curbside() {
       setAuthOpen(true);
     }
   };
+  useEffect(() => {
+    if (sheet) return;
+    const ready =
+      account?.user?.legalAccepted &&
+      !authOpen &&
+      !auth.recovering &&
+      !onboardingOpen &&
+      !tutorialOpen;
+    let alive = true;
+    // Deferred so a Strict Mode remount cannot consume the pending save twice.
+    queueMicrotask(() => {
+      if (!alive) return;
+      setResumedSave(null);
+      if (!ready) return;
+      let pending: PendingSave | null = null;
+      try {
+        pending = takePendingSave(localStorage);
+      } catch {
+        /* Storage can be unavailable in restricted browser modes. */
+      }
+      const alreadySaved =
+        pending &&
+        account.vehicles?.some(
+          (vehicle: { plate: string; state: string; plate_type?: string }) =>
+            vehicle.plate === pending.plate &&
+            vehicle.state === pending.state &&
+            (vehicle.plate_type || "") === pending.plateType,
+        );
+      if (pending && !alreadySaved) {
+        setResumedSave(pending);
+        setSheet("save");
+      } else if (!tutorialDone(account.user.id)) setTutorialOpen(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [account, authOpen, auth.recovering, onboardingOpen, sheet, tutorialOpen]);
   const pendingSnapshots = !!account?.vehicles?.some(
     (vehicle: any) =>
       !vehicle.snapshot || vehicle.snapshot_status === "checking",
@@ -595,6 +675,11 @@ export default function Curbside() {
       notify(tr("Could not sign out. Please try again."));
       return;
     }
+    try {
+      clearPendingSave(localStorage);
+    } catch {
+      /* Storage can be unavailable in restricted browser modes. */
+    }
     setAccount(null);
     setResults(null);
     setSelected(null);
@@ -630,7 +715,7 @@ export default function Curbside() {
         setPlate(p.plate);
         setState(p.state);
         setPlateType(p.plateType);
-        setView("search");
+        pushView("search");
         setSheet(null);
         return {
           count: saved.tickets.length,
@@ -685,7 +770,7 @@ export default function Curbside() {
         setPlate(p.plate);
         setState(p.state);
         setPlateType(p.plateType);
-        setView("search");
+        pushView("search");
         setSheet(null);
         return {
           count: j.tickets.length,
@@ -703,7 +788,7 @@ export default function Curbside() {
         (window as any).turnstile?.reset();
       }
     },
-    [tr, account?.vehicles, config.hcaptchaKey, rememberVerification],
+    [tr, account?.vehicles, config.hcaptchaKey, rememberVerification, pushView],
   );
   useEffect(() => {
     const context = (document as any).modelContext;
@@ -946,6 +1031,8 @@ export default function Curbside() {
       )}
     </form>
   );
+  const saveTarget = (sheet === "save" && resumedSave) ||
+    results?.query || { plate, state, plateType };
   const saveVehicle = async (e: any) => {
     e.preventDefault();
     if (busy) return;
@@ -956,16 +1043,18 @@ export default function Curbside() {
     const data = Object.fromEntries(new FormData(e.currentTarget));
     await perform(async () => {
       await api("vehicles", "POST", {
-        ...(results?.query || { plate, state, plateType }),
+        plate: saveTarget.plate,
+        state: saveTarget.state,
+        plateType: saveTarget.plateType,
         ...data,
       });
       await refresh();
       setSheet(null);
-      setView("garage");
+      pushView("garage");
     }, tr("Vehicle saved to your garage."));
   };
   const go = (v: string) => {
-    setView(v);
+    pushView(v);
     setError("");
     setSheet(null);
     setDockHidden(false);
@@ -1019,6 +1108,7 @@ export default function Curbside() {
           auth.setConfiguration(await response.json());
           if (results && ["search", "map"].includes(view)) {
             const current = view;
+            quietNavigation.current = true;
             try {
               const result = await search({ ...results.query, history });
               if (result.unavailable)
@@ -1026,6 +1116,7 @@ export default function Curbside() {
                   tr("City data is unavailable. Please try again later."),
                 );
             } finally {
+              quietNavigation.current = false;
               setView(current);
             }
           }
@@ -1078,6 +1169,7 @@ export default function Curbside() {
             <button
               className={view === n.id ? "active" : ""}
               key={n.id}
+              data-tour={"nav-" + n.id}
               aria-current={view === n.id ? "page" : undefined}
               onClick={() => go(n.id)}
             >
@@ -1426,7 +1518,12 @@ export default function Curbside() {
               <h1>{tr("Search violations")}</h1>
             </div>
             <div className="search-layout">
-              <div className="glass form-card">{searchForm}</div>
+              <div className="glass form-card" id="search-form-card">
+                {searchForm}
+              </div>
+              {results && (
+                <EditSearchButton formId="search-form-card" inputId="plate" />
+              )}
               <div>
                 {!results ? (
                   <div className="glass empty">
@@ -1455,7 +1552,18 @@ export default function Curbside() {
                       </div>
                       <button
                         className="button"
-                        onClick={() => (account ? setSheet("save") : signIn())}
+                        onClick={() => {
+                          if (account) {
+                            setSheet("save");
+                            return;
+                          }
+                          try {
+                            writePendingSave(localStorage, results.query);
+                          } catch {
+                            /* Saving can be restarted after sign-in. */
+                          }
+                          signIn();
+                        }}
                       >
                         <Plus size={15} />
                         {tr("Save vehicle")}
@@ -1913,9 +2021,26 @@ export default function Curbside() {
                           <ChevronRight size={16} />
                         </button>
                       }
-                      <details>
+                      <button
+                        className="account-tool"
+                        data-tour="notifications"
+                        onClick={() => setSheet("notifications")}
+                      >
+                        <span className="account-tool-icon">
+                          <Bell size={19} />
+                        </span>
+                        <span>
+                          <strong>{tr("Notifications")}</strong>
+                          <small>
+                            {tr("New-ticket alerts and product update emails")}
+                          </small>
+                        </span>
+                        <ChevronRight size={16} />
+                      </button>
+                      <details className="account-data-disclosure">
                         <summary className="small muted">
                           {tr("Account data")}
+                          <ChevronDown size={14} aria-hidden="true" />
                         </summary>
                         <p className="small muted">
                           {tr(
@@ -1939,14 +2064,6 @@ export default function Curbside() {
                     </>
                   )}
                 </div>
-                {account && (
-                  <div className="glass form-card account-notifications-card">
-                    <NotificationSettings
-                      legalAccepted={account.user.legalAccepted === true}
-                    />
-                    <AnnouncementSettings key={auth.user?.id} />
-                  </div>
-                )}
                 <div className="glass form-card account-tools-card">
                   <h2>{tr("Your TicketSafe")}</h2>
                   <button
@@ -1977,6 +2094,21 @@ export default function Curbside() {
                     </span>
                     <ChevronRight size={16} />
                   </button>
+                  {account && (
+                    <button
+                      className="account-tool"
+                      onClick={() => setTutorialOpen(true)}
+                    >
+                      <span className="account-tool-icon">
+                        <Compass size={19} />
+                      </span>
+                      <span>
+                        <strong>{tr("App tour")}</strong>
+                        <small>{tr("A quick look at the main buttons")}</small>
+                      </span>
+                      <ChevronRight size={16} />
+                    </button>
+                  )}
 
                   <p className="account-free-note">
                     <Check size={13} />
@@ -1989,7 +2121,28 @@ export default function Curbside() {
               <SupportFeedback
                 key={auth.user?.id || "guest"}
                 onSignIn={signIn}
+                openRequest={supportRequest}
+                onOpened={supportOpened}
               />
+              <button
+                type="button"
+                className="glass form-card account-changelog-card"
+                onClick={() => setSheet("changelog")}
+              >
+                <span className="account-profile-mark">
+                  <Sparkles size={20} />
+                </span>
+                <span className="account-identity-heading">
+                  <span>
+                    <strong>{tr("What’s new")}</strong>
+                    <span>
+                      {tr("Version")} {CURRENT_VERSION} ·{" "}
+                      {tr("Changelog for every release")}
+                    </span>
+                  </span>
+                </span>
+                <ChevronRight size={18} aria-hidden="true" />
+              </button>
               <div
                 className="glass form-card account-legal-card"
                 style={{ marginTop: 20 }}
@@ -2088,6 +2241,16 @@ export default function Curbside() {
 
         <footer className="page-footer">
           <span>{tr("Independent service. Not affiliated with NYC.")}</span>
+          <button
+            type="button"
+            className="cookie-settings-link"
+            onClick={() => {
+              go("account");
+              setSupportRequest((n) => n + 1);
+            }}
+          >
+            {tr("Help & support")}
+          </button>
           <CookieSettingsButton />
         </footer>
       </main>
@@ -2109,6 +2272,7 @@ export default function Curbside() {
           <button
             key={n.id}
             className={view === n.id ? "active" : ""}
+            data-tour={"nav-" + n.id}
             aria-current={view === n.id ? "page" : undefined}
             onClick={() => go(n.id)}
           >
@@ -2165,6 +2329,15 @@ export default function Curbside() {
           </Modal>
         )}
       </PopupPresence>
+      {tutorialOpen && account?.user && (
+        <AppTutorial
+          userId={account.user.id}
+          view={view}
+          onView={go}
+          onClose={() => setTutorialOpen(false)}
+          onOpenNotifications={() => setSheet("notifications")}
+        />
+      )}
 
       <PopupPresence>
         {account &&
@@ -2231,7 +2404,11 @@ export default function Curbside() {
                 ? tr("Display settings")
                 : sheet === "account-details"
                   ? tr("Account details")
-                  : sheet === "ticket"
+                  : sheet === "notifications"
+                    ? tr("Notifications")
+                    : sheet === "changelog"
+                      ? tr("What’s new")
+                      : sheet === "ticket"
                     ? tr("Violation details")
                     : sheet === "save"
                       ? tr("Add to your garage")
@@ -2262,6 +2439,15 @@ export default function Curbside() {
                 }}
               />
             )}
+            {sheet === "notifications" && account && (
+              <div className="account-notifications-card">
+                <NotificationSettings
+                  legalAccepted={account.user.legalAccepted === true}
+                />
+                <AnnouncementSettings key={auth.user?.id} />
+              </div>
+            )}
+            {sheet === "changelog" && <Changelog />}
             {sheet === "preferences" && (
               <PreferencesPanel
                 onCancel={() => setSheet(null)}
@@ -2336,8 +2522,15 @@ export default function Curbside() {
             )}
             {sheet === "save" && (
               <form className="stack" onSubmit={saveVehicle}>
+                {resumedSave && (
+                  <p className="notice">
+                    {tr(
+                      "Your account is ready. Finish saving the plate you searched.",
+                    )}
+                  </p>
+                )}
                 <div className="eyebrow">
-                  {results?.query.state} / {results?.query.plate}
+                  {saveTarget.state} / {saveTarget.plate}
                 </div>
                 <label className="field">
                   {tr("Vehicle nickname")}
@@ -2580,7 +2773,7 @@ export default function Curbside() {
                     setMapSelection(ticket.id);
                     setMapFilter("all");
                     setSheet(null);
-                    setView("map");
+                    pushView("map");
                   }}
                 />
                 <div className="money-table">
