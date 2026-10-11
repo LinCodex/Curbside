@@ -778,33 +778,6 @@
   color: var(--text);
 }
 
-.edit-search-fab {
-  display: none;
-}
-@media (max-width: 800px) {
-  .edit-search-fab {
-    position: fixed;
-    right: 16px;
-    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
-    z-index: 60;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    min-height: 44px;
-    padding: 0 16px;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    background: var(--panel);
-    color: var(--text);
-    font: inherit;
-    font-size: 14px;
-    font-weight: 600;
-    box-shadow: 0 10px 30px #0006;
-    cursor: pointer;
-    animation: instrument-enter 180ms ease both;
-  }
-}
-
 .map-panel-grip {
   display: none;
 }
@@ -828,6 +801,14 @@
 }
 .city-map.map-interactive .geography:active {
   cursor: grabbing;
+}
+
+.page-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 4px 16px;
 }
 
 .install-guide .install-now {
@@ -857,8 +838,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .tutorial-highlight,
-  .tutorial-card,
-  .edit-search-fab {
+  .tutorial-card {
     transition: none;
     animation: none;
   }

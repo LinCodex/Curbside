@@ -73,7 +73,6 @@ import { niceDate } from "@/lib/display-date";
 import AnnouncementSettings from "./announcement-settings";
 import Changelog from "./changelog";
 import AppTutorial, { tutorialDone } from "./app-tutorial";
-import EditSearchButton from "./edit-search-button";
 import { CURRENT_VERSION } from "@/lib/changelog";
 import {
   clearPendingSave,
@@ -1528,9 +1527,6 @@ export default function Curbside() {
               <div className="glass form-card" id="search-form-card">
                 {searchForm}
               </div>
-              {results && (
-                <EditSearchButton formId="search-form-card" inputId="plate" />
-              )}
               <div>
                 {!results ? (
                   <div className="glass empty">
@@ -2248,17 +2244,19 @@ export default function Curbside() {
 
         <footer className="page-footer">
           <span>{tr("Independent service. Not affiliated with NYC.")}</span>
-          <button
-            type="button"
-            className="cookie-settings-link"
-            onClick={() => {
-              go("account");
-              setSupportRequest((n) => n + 1);
-            }}
-          >
-            {tr("Help & support")}
-          </button>
-          <CookieSettingsButton />
+          <div className="page-footer-links">
+            <button
+              type="button"
+              className="cookie-settings-link"
+              onClick={() => {
+                go("account");
+                setSupportRequest((n) => n + 1);
+              }}
+            >
+              {tr("Help & support")}
+            </button>
+            <CookieSettingsButton />
+          </div>
         </footer>
       </main>
       <div
