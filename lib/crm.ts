@@ -24,7 +24,13 @@ export type CrmAction =
   | "ticket_test"
   | "presence"
   | "announcement_preferences"
-  | "announcement_preferences_save";
+  | "announcement_preferences_save"
+  | "audit"
+  | "delivery_review"
+  | "delivery_resolve"
+  | "templates"
+  | "template_save"
+  | "template_delete";
 export async function crmRequest<T = Record<string, unknown>>(
   client: SupabaseClient,
   action: CrmAction,

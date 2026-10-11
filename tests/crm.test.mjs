@@ -91,6 +91,12 @@ insert into auth.sessions(id,user_id) values('${session}','${master}'),('${sessi
       "utf8",
     ),
   );
+  await db.exec(
+    fs.readFileSync(
+      "supabase/migrations/20261011180000_crm_portal_tools.sql",
+      "utf8",
+    ),
+  );
   return db;
 }
 async function rpc(db, action, input = {}, actor = master, sid = session) {
@@ -255,7 +261,7 @@ test("CRM delivery claims enforce durable caps, consent checks and idempotency w
       /different content/,
     );
     await db.exec(
-      "insert into public.ticketsafe_crm_budget values(current_date,99)",
+      "insert into public.ticketsafe_crm_budget values(current_date,79)",
     );
     const claim = await rpc(db, "email_claim", created);
     assert.equal(claim.deliveries.length, 1);
@@ -287,7 +293,7 @@ test("CRM delivery claims enforce durable caps, consent checks and idempotency w
     assert.equal(
       (await rpc(db, "email_claim", second)).deliveries.length,
       0,
-      "global provider limit persists",
+      "campaign share of the provider limit persists",
     );
     await db.exec("update public.ticketsafe_crm_budget set attempts=0");
     await rpc(
@@ -366,7 +372,7 @@ test("CRM edge rejects foreign origins, invalid sessions and oversized bodies be
     (
       await handler(
         request(
-          JSON.stringify({ action: "stats", padding: "x".repeat(21000) }),
+          JSON.stringify({ action: "stats", padding: "x".repeat(49000) }),
         ),
       )
     ).status,
@@ -987,6 +993,172 @@ test("account changes apply immediately and email the customer without repeating
     ).rows[0];
     assert.equal(recorded.provider_id, "test-provider-id");
     assert.equal(recorded.status, "sent");
+  } finally {
+    await db.close();
+  }
+});
+
+test("CRM portal tools: inbox status and search, shared templates, activity log and permissions", async () => {
+  const db = await database();
+  try {
+    await rpc(
+      db,
+      "support_create",
+      {
+        expectedUserId: customer,
+        kind: "bug",
+        subject: "Map broken",
+        message: "The map is blank",
+      },
+      customer,
+      session2,
+    );
+    let inbox = await rpc(db, "support_messages", { status: "open" });
+    assert.equal(inbox.total, 1);
+    assert.equal(inbox.open, 1);
+    assert.equal((await rpc(db, "support_messages", { status: "replied" })).total, 0);
+    assert.equal((await rpc(db, "support_messages", { search: "CUSTOMER@" })).total, 1);
+    assert.equal((await rpc(db, "support_messages", { search: "blank" })).total, 1);
+    assert.equal((await rpc(db, "support_messages", { search: "nothing" })).total, 0);
+    await db.query(
+      "update public.ticketsafe_support_messages set reply='Fixed',replied_at=now()",
+    );
+    inbox = await rpc(db, "support_messages", { status: "replied" });
+    assert.equal(inbox.total, 1);
+    assert.equal(inbox.open, 0);
+
+    const saved = await rpc(db, "template_save", {
+      kind: "service",
+      name: "Hello",
+      subject: "Hi",
+      message: "Body",
+    });
+    await rpc(db, "template_save", {
+      kind: "service",
+      name: "hello",
+      subject: "Hi again",
+      message: "Body 2",
+    });
+    let templates = (await rpc(db, "templates")).templates;
+    assert.equal(templates.length, 1);
+    assert.equal(templates[0].id, saved.id);
+    assert.equal(templates[0].subject, "Hi again");
+    await assert.rejects(
+      rpc(db, "template_save", { kind: "service", name: "Bad", subject: "a\nb", message: "x" }),
+      /size limits/,
+    );
+
+    await rpc(db, "role_set", { userId: customer, role: "support" });
+    assert.equal((await rpc(db, "templates", {}, customer, session2)).templates.length, 1);
+    for (const [action, input] of [
+      ["template_save", { kind: "service", name: "X", subject: "X", message: "X" }],
+      ["template_delete", { templateId: saved.id }],
+      ["audit", {}],
+      ["delivery_review", {}],
+    ])
+      await assert.rejects(rpc(db, action, input, customer, session2), /Only admins/);
+    assert.equal((await rpc(db, "support_messages", {}, customer, session2)).total, 1);
+
+    await rpc(db, "template_delete", { templateId: saved.id });
+    templates = (await rpc(db, "templates")).templates;
+    assert.equal(templates.length, 0);
+    await assert.rejects(rpc(db, "template_delete", { templateId: saved.id }), /not found/);
+
+    const all = await rpc(db, "audit");
+    const actions = all.entries.map((entry) => entry.action);
+    assert.ok(actions.includes("template_save") && actions.includes("template_delete"));
+    assert.ok(actions.includes("role_set"));
+    const access = await rpc(db, "audit", { filter: "access" });
+    assert.ok(access.entries.every((entry) => entry.action === "role_set" || entry.action === "role_remove"));
+    assert.equal(access.entries[0].actor_email, "ylin20001@gmail.com");
+    assert.equal(access.entries[0].target_email, "customer@example.invalid");
+  } finally {
+    await db.close();
+  }
+});
+
+test("CRM uncertain deliveries can be settled once, and campaigns keep a reserve for support replies", async () => {
+  const db = await database();
+  try {
+    await rpc(
+      db,
+      "support_create",
+      { expectedUserId: customer, kind: "support", subject: "Q", message: "Help" },
+      customer,
+      session2,
+    );
+    const message = (await rpc(db, "support_messages")).messages[0];
+    const campaign = (
+      await db.query(
+        `insert into public.ticketsafe_crm_campaigns(actor_id,idempotency_key,fingerprint,kind,subject,message,support_context)
+         values($1,$2,'f','service','Q','Our answer',$3) returning id`,
+        [master, key, { messageId: message.id }],
+      )
+    ).rows[0].id;
+    const delivery = (
+      await db.query(
+        `insert into public.ticketsafe_crm_deliveries(campaign_id,user_id,recipient,status)
+         values($1,$2,'customer@example.invalid','sending') returning id`,
+        [campaign, customer],
+      )
+    ).rows[0].id;
+    const review = await rpc(db, "delivery_review");
+    assert.equal(review.deliveries.length, 1);
+    assert.equal(review.deliveries[0].support_reply, true);
+    await assert.rejects(
+      rpc(db, "delivery_resolve", { deliveryId: delivery, outcome: "sent" }),
+      /Confirm/,
+    );
+    await rpc(db, "delivery_resolve", {
+      deliveryId: delivery,
+      outcome: "sent",
+      confirm: true,
+      providerId: "re_123",
+    });
+    const row = (
+      await db.query("select status,provider_id,sent_at from public.ticketsafe_crm_deliveries where id=$1", [delivery])
+    ).rows[0];
+    assert.equal(row.status, "sent");
+    assert.equal(row.provider_id, "re_123");
+    assert.ok(row.sent_at);
+    assert.equal((await rpc(db, "support_messages")).messages[0].reply, "Our answer");
+    await assert.rejects(
+      rpc(db, "delivery_resolve", { deliveryId: delivery, outcome: "failed", confirm: true }),
+      /no longer needs review/,
+    );
+    assert.equal((await rpc(db, "delivery_review")).deliveries.length, 0);
+    assert.equal((await rpc(db, "audit", { filter: "email" })).entries[0].action, "delivery_resolve");
+
+    await db.query("update auth.users set email_confirmed_at=now()");
+    await db.query(
+      "insert into public.ticketsafe_announcement_settings(user_id,enabled) values($1,true),($2,true)",
+      [master, customer],
+    );
+    const created = await rpc(db, "email_create", {
+      kind: "announcement",
+      subject: "News",
+      message: "Hello",
+      confirm: true,
+      idempotencyKey: "a9175af4-e1b0-4510-b261-8db6fdc67302",
+      fingerprint: "x",
+    });
+    await db.query(
+      "insert into public.ticketsafe_crm_budget(day,attempts) values(current_date,80) on conflict(day) do update set attempts=80",
+    );
+    assert.deepEqual(
+      (await rpc(db, "email_claim", { campaignId: created.campaignId })).deliveries,
+      [],
+    );
+    const progress = await rpc(db, "email_progress", { campaignId: created.campaignId });
+    assert.equal(progress.remaining, 2);
+    assert.equal(progress.budgetUsed, 80);
+    assert.equal(progress.campaignLimit, 80);
+    await db.query("update public.ticketsafe_crm_budget set attempts=79");
+    assert.equal(
+      (await rpc(db, "email_claim", { campaignId: created.campaignId })).deliveries.length,
+      1,
+    );
+    assert.equal((await rpc(db, "emails")).budgetUsed, 80);
   } finally {
     await db.close();
   }

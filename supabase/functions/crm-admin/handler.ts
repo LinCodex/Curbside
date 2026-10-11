@@ -44,6 +44,12 @@ const actions = new Set([
   "presence",
   "announcement_preferences",
   "announcement_preferences_save",
+  "audit",
+  "delivery_review",
+  "delivery_resolve",
+  "templates",
+  "template_save",
+  "template_delete",
 ]);
 type Delivery = {
   id: string;
@@ -73,7 +79,8 @@ async function boundedBody(request: Request) {
       const { value, done } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > 20000) {
+      // A full 10,000-character Chinese message is about 30 KB of UTF-8.
+      if (size > 48000) {
         await reader.cancel();
         throw new RequestError("Request is too large.", 413);
       }

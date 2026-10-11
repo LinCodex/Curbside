@@ -47,7 +47,12 @@ type SupportMessage = {
   replied_at: string | null;
   created_at: string;
 };
-type InboxResult = { messages: SupportMessage[]; page: number; total: number };
+type InboxResult = {
+  messages: SupportMessage[];
+  page: number;
+  total: number;
+  open?: number;
+};
 export function CrmInbox({
   client,
   tr,
@@ -60,6 +65,9 @@ export function CrmInbox({
   canDelete: boolean;
 }) {
   const [kind, setKind] = useState("all");
+  const [status, setStatus] = useState("all");
+  const [searchDraft, setSearchDraft] = useState("");
+  const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [data, setData] = useState<InboxResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -125,7 +133,12 @@ export function CrmInbox({
   };
   useEffect(() => {
     let active = true;
-    crmClientRequest<InboxResult>(client, "support_messages", { page, kind })
+    crmClientRequest<InboxResult>(client, "support_messages", {
+      page,
+      kind,
+      status,
+      search,
+    })
       .then((value) => {
         if (active) setData(value);
       })
@@ -143,7 +156,14 @@ export function CrmInbox({
     return () => {
       active = false;
     };
-  }, [client, page, kind, revision]);
+  }, [client, page, kind, status, search, revision]);
+  const refilter = () => {
+    setLoading(true);
+    setError("");
+    setData(null);
+    setConfirm("");
+    setPage(1);
+  };
   const remove = async (id: string) => {
     setDeleting(id);
     setError("");
@@ -171,6 +191,11 @@ export function CrmInbox({
       <div className="crm-page-heading">
         <div>
           <h1>{tr("Support inbox")}</h1>
+          {typeof data?.open === "number" && data.open > 0 && (
+            <span className="crm-tag crm-open-count">
+              {data.open} {tr("need a reply")}
+            </span>
+          )}
           <p>
             {tr(
               "Private support questions and feedback. Messages expire after 90 days. Replies are emailed from support@ezrefillny.net and include the customer's message.",
@@ -190,12 +215,8 @@ export function CrmInbox({
           label={tr("Message type")}
           value={kind}
           onChange={(value) => {
-            setLoading(true);
-            setError("");
-            setData(null);
-            setConfirm("");
-            setKind(value);
-            setPage(1);
+            refilter();
+            setKind(value || "all");
           }}
           options={[
             { value: "all", label: tr("All messages") },
@@ -204,6 +225,42 @@ export function CrmInbox({
             { value: "bug", label: tr("Report a problem") },
           ]}
         />
+        <CrmSelect
+          label={tr("Reply status")}
+          value={status}
+          onChange={(value) => {
+            refilter();
+            setStatus(value || "all");
+          }}
+          options={[
+            { value: "all", label: tr("Any status") },
+            { value: "open", label: tr("Needs a reply") },
+            { value: "replied", label: tr("Replied") },
+          ]}
+        />
+        <form
+          className="crm-inbox-search"
+          role="search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const next = searchDraft.trim();
+            if (next === search) return;
+            refilter();
+            setSearch(next);
+          }}
+        >
+          <input
+            type="search"
+            value={searchDraft}
+            onChange={(event) => setSearchDraft(event.target.value)}
+            maxLength={100}
+            placeholder={tr("Search email, subject or message")}
+            aria-label={tr("Search messages")}
+          />
+          <button className="crm-button" type="submit" disabled={loading}>
+            {tr("Search")}
+          </button>
+        </form>
       </div>
       {error && (
         <p className="crm-error crm-feedback" role="alert">
@@ -233,6 +290,13 @@ export function CrmInbox({
                       ? "Product feedback"
                       : "Report a problem",
                 )}
+              </span>
+              <span
+                className={
+                  message.replied_at ? "crm-tag" : "crm-tag crm-tag-open"
+                }
+              >
+                {tr(message.replied_at ? "Replied" : "Needs a reply")}
               </span>
               <time dateTime={message.created_at}>
                 {new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : "en-US", {

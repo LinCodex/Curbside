@@ -1502,8 +1502,94 @@ html[data-theme="light"] .crm-login-error {
   font-size: 12px;
 }
 .crm-inbox-filter {
-  max-width: 260px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
   margin-bottom: 20px;
+}
+.crm-inbox-filter > .crm-select-trigger {
+  flex: 0 1 220px;
+  width: auto;
+}
+.crm-inbox-search {
+  display: flex;
+  flex: 1 1 280px;
+  gap: 8px;
+}
+.crm-inbox-search input {
+  flex: 1;
+  min-width: 0;
+}
+.crm-message-meta {
+  justify-content: flex-start;
+}
+.crm-message-meta time {
+  margin-left: auto;
+}
+.crm-tag-open,
+.crm-open-count {
+  border-color: color-mix(in srgb, var(--blue) 40%, transparent);
+  background: var(--accent-soft);
+  color: var(--blue);
+  font-weight: 600;
+}
+.crm-open-count {
+  margin: 6px 0 2px;
+}
+.crm-review-panel {
+  margin-bottom: 22px;
+  border-color: color-mix(in srgb, #d69e2e 55%, var(--line));
+}
+.crm-review-panel h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.crm-review-panel h2 svg {
+  color: #b7791f;
+}
+.crm-review-row {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.crm-review-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.crm-review-summary > div {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.crm-review-summary strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.crm-review-summary span {
+  font-size: 11px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.crm-review-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+.crm-review-form > label:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.crm-history-row time.crm-tag {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .crm-inbox-list {
   display: grid;

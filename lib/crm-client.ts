@@ -63,6 +63,35 @@ export type CrmSendResult = {
   remaining: number;
   uncertain?: number;
   status: string;
+  budgetUsed?: number;
+  campaignLimit?: number;
+};
+export type CrmAuditEntry = {
+  id: number;
+  action: string;
+  detail: Record<string, unknown>;
+  created_at: string;
+  actor_email: string | null;
+  target_email: string | null;
+  has_target: boolean;
+};
+export type CrmReviewDelivery = {
+  id: string;
+  recipient: string;
+  provider_id: string | null;
+  subject: string;
+  kind: string;
+  created_at: string;
+  support_reply: boolean;
+};
+export type CrmSharedTemplate = {
+  id: string;
+  kind: "service" | "announcement";
+  name: string;
+  subject: string;
+  message: string;
+  updated_at: string;
+  updated_by: string | null;
 };
 export type CrmAccess = {
   user_id: string;

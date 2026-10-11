@@ -20,6 +20,7 @@ import {
   CircleHelp,
   CircleX,
   FlaskConical,
+  History,
   LayoutDashboard,
   LoaderCircle,
   LogOut,
@@ -48,6 +49,7 @@ import {
   CrmFormatToolbar,
   CrmTemplatePicker,
 } from "./crm-email-editor";
+import { CrmActivity, CrmDeliveryReview } from "./crm-portal-tools";
 import { crmEmailHtml } from "@/lib/crm";
 import { unfilledPlaceholders } from "@/lib/crm-templates";
 import dictionary from "@/lib/zh.json";
@@ -67,7 +69,14 @@ import {
 
 type Translate = (text: string) => string;
 type Tab =
-  "overview" | "customers" | "email" | "access" | "status" | "debug" | "inbox";
+  | "overview"
+  | "customers"
+  | "email"
+  | "access"
+  | "status"
+  | "debug"
+  | "inbox"
+  | "activity";
 const chinese: Record<string, string> = {
   "Support & feedback": "支持与反馈",
   "A question, an idea, or something to fix": "有疑问、有建议，或遇到了问题？",
@@ -585,6 +594,7 @@ export default function CrmDashboard() {
     { id: "email", label: "Email", icon: Mail },
     { id: "inbox", label: "Support inbox", icon: MessageSquare },
     { id: "access", label: "Access", icon: ShieldCheck },
+    { id: "activity", label: "Activity", icon: History },
     { id: "status", label: "Status", icon: Activity },
     { id: "debug", label: "Debug", icon: FlaskConical },
   ] as const;
@@ -683,7 +693,9 @@ export default function CrmDashboard() {
       <aside className="crm-sidebar">
         <div className="crm-sidebar-label">{tr("Workspace")}</div>
         <nav aria-label={tr("Admin workspace")}>
-          {menu.map(({ id, label, icon: Icon }) => (
+          {menu
+            .filter(({ id }) => id !== "activity" || admin.role !== "support")
+            .map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               className={
@@ -749,6 +761,9 @@ export default function CrmDashboard() {
             tr={tr}
             chooseUser={() => setTab("customers")}
           />
+        )}
+        {tab === "activity" && admin.role !== "support" && (
+          <CrmActivity client={account.client!} tr={tr} locale={locale} />
         )}
         {tab === "status" && (
           <StatusWorkspace client={account.client!} tr={tr} />
@@ -1343,6 +1358,9 @@ function EmailWorkspace({
     total: number;
     page: number;
     pageSize?: number;
+    budgetUsed?: number;
+    campaignLimit?: number;
+    dailyLimit?: number;
   }>(client, "emails", { page });
   const input = {
     kind,
@@ -1471,10 +1489,17 @@ function EmailWorkspace({
           {tr("New email")}
         </button>
       </PageHeading>
-      {admin.role === "support" && (
+      {admin.role === "support" ? (
         <p className="crm-notice">
           {tr("Support access can preview emails but cannot send them.")}
         </p>
+      ) : (
+        <CrmDeliveryReview
+          client={client}
+          tr={tr}
+          locale={locale}
+          onResolved={history.reload}
+        />
       )}
       <div className="crm-email-layout">
         <div className="crm-panel">
@@ -1536,7 +1561,8 @@ function EmailWorkspace({
               )}
             </div>
             <CrmTemplatePicker
-              adminId={admin.userId}
+              client={client}
+              canEdit={admin.role !== "support"}
               draft={{ kind, subject, message }}
               disabled={!!busy}
               onApply={(draft) => {
@@ -1668,6 +1694,15 @@ function EmailWorkspace({
                     {tr("Failed")}: {currentDelivery.result.failed} ·{" "}
                     {tr("Remaining")}: {currentDelivery.result.remaining}
                   </span>
+                  {currentDelivery.result.remaining > 0 &&
+                    (currentDelivery.result.budgetUsed ?? 0) >=
+                      (currentDelivery.result.campaignLimit ?? 80) && (
+                      <span>
+                        {tr(
+                          "Today's campaign allowance is used up. Select Continue sending tomorrow to reach the remaining recipients.",
+                        )}
+                      </span>
+                    )}
                   {!!currentDelivery.result.uncertain && (
                     <span>
                       {tr("Needs review")}: {currentDelivery.result.uncertain}.{" "}
@@ -1701,7 +1736,16 @@ function EmailWorkspace({
         </div>
       </div>
       <p className="crm-fine-print">
-        {tr("Up to 100 email attempts daily; 10 campaigns per admin daily.")}
+        {tr(
+          "Up to 100 email attempts daily. Announcements and service emails can use 80, keeping 20 for support replies and account notices. 10 campaigns per admin daily.",
+        )}
+        {typeof history.data?.budgetUsed === "number" && (
+          <>
+            {" "}
+            {tr("Used today:")} {history.data.budgetUsed}/
+            {history.data.dailyLimit ?? 100}.
+          </>
+        )}
       </p>
       <div className="crm-panel crm-history">
         <h2>{tr("Delivery history")}</h2>

@@ -1,38 +1,40 @@
 "use client";
 
-import { useState, type RefObject } from "react";
+import { useEffect, useState, type RefObject } from "react";
 import {
   Bold,
   Heading2,
   Link2,
   List,
+  LoaderCircle,
   RectangleHorizontal,
   Save,
   Trash2,
   TriangleAlert,
 } from "lucide-react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import CrmSelect from "./crm-select";
 import {
   CRM_TEMPLATES,
-  readSavedTemplates,
   unfilledPlaceholders,
-  writeSavedTemplates,
   type CrmEmailKind,
   type CrmTemplateLanguage,
-  type SavedCrmTemplate,
 } from "@/lib/crm-templates";
+import { crmClientRequest, type CrmSharedTemplate } from "@/lib/crm-client";
 
 type Translate = (text: string) => string;
 type Draft = { kind: CrmEmailKind; subject: string; message: string };
 
 export function CrmTemplatePicker({
-  adminId,
+  client,
+  canEdit,
   draft,
   disabled,
   onApply,
   tr,
 }: {
-  adminId: string;
+  client: SupabaseClient;
+  canEdit: boolean;
   draft: Draft;
   disabled: boolean;
   onApply: (draft: Draft) => void;
@@ -40,11 +42,25 @@ export function CrmTemplatePicker({
 }) {
   const [choice, setChoice] = useState("");
   const [language, setLanguage] = useState<CrmTemplateLanguage>("en");
-  const [saved, setSaved] = useState<SavedCrmTemplate[]>(() =>
-    readSavedTemplates(adminId),
-  );
+  const [saved, setSaved] = useState<CrmSharedTemplate[]>([]);
+  const [revision, setRevision] = useState(0);
   const [name, setName] = useState("");
   const [notice, setNotice] = useState("");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    crmClientRequest<{ templates: CrmSharedTemplate[] }>(client, "templates").then(
+      (data) => {
+        if (alive) setSaved(data.templates);
+      },
+      () => {
+        if (alive) setNotice("Shared templates could not be loaded.");
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [client, revision]);
   const builtIn = CRM_TEMPLATES.filter((item) => item.kind === draft.kind);
   const mine = saved.filter((item) => item.kind === draft.kind);
   const selectedSaved = mine.find((item) => "saved:" + item.id === choice);
@@ -65,44 +81,75 @@ export function CrmTemplatePicker({
     });
     setNotice("");
   };
-  const store = (next: SavedCrmTemplate[], done: string) => {
-    if (!writeSavedTemplates(adminId, next)) {
-      setNotice("Templates could not be saved in this browser.");
-      return;
+  const run = async (
+    action: "template_save" | "template_delete",
+    input: Record<string, unknown>,
+    done: string,
+  ) => {
+    setSaving(true);
+    setNotice("");
+    try {
+      const result = await crmClientRequest<{ id?: string }>(
+        client,
+        action,
+        input,
+      );
+      setNotice(done);
+      setRevision((value) => value + 1);
+      return result;
+    } catch (err) {
+      setNotice(
+        err instanceof Error
+          ? err.message
+          : "CRM unavailable. Please try again.",
+      );
+      return null;
+    } finally {
+      setSaving(false);
     }
-    setSaved(next);
-    setNotice(done);
   };
-  const save = () => {
+  const save = async () => {
     const label = name.trim().slice(0, 60);
     if (!label || !draft.subject.trim() || !draft.message.trim()) return;
-    const existing = saved.find(
-      (item) =>
-        item.kind === draft.kind &&
-        item.name.toLowerCase() === label.toLowerCase(),
+    const existing = mine.find(
+      (item) => item.name.toLowerCase() === label.toLowerCase(),
     );
-    const entry: SavedCrmTemplate = {
-      id: existing?.id || crypto.randomUUID(),
-      name: label,
-      kind: draft.kind,
-      subject: draft.subject.trim(),
-      message: draft.message.trim(),
-    };
-    store(
-      [entry, ...saved.filter((item) => item.id !== entry.id)].slice(0, 30),
+    if (
+      existing &&
+      !window.confirm(tr("Replace the shared template with this name?"))
+    )
+      return;
+    const result = await run(
+      "template_save",
+      {
+        kind: draft.kind,
+        name: label,
+        subject: draft.subject.trim(),
+        message: draft.message.trim(),
+      },
       "Template saved",
     );
-    setChoice("saved:" + entry.id);
-    setName("");
+    if (result?.id) {
+      setChoice("saved:" + result.id);
+      setName("");
+    }
   };
-  const remove = () => {
-    if (!selectedSaved) return;
-    store(
-      saved.filter((item) => item.id !== selectedSaved.id),
-      "Template deleted",
-    );
-    setChoice("");
+  const remove = async () => {
+    if (
+      !selectedSaved ||
+      !window.confirm(tr("Delete this shared template for every admin?"))
+    )
+      return;
+    if (
+      await run(
+        "template_delete",
+        { templateId: selectedSaved.id },
+        "Template deleted",
+      )
+    )
+      setChoice("");
   };
+  const busy = disabled || saving;
   return (
     <div className="crm-template-picker">
       <div className="crm-template-row">
@@ -116,7 +163,7 @@ export function CrmTemplatePicker({
             ...builtIn.map((item) => ({ value: item.id, label: tr(item.name) })),
             ...mine.map((item) => ({
               value: "saved:" + item.id,
-              label: `${tr("My template")}: ${item.name}`,
+              label: `${tr("Shared")}: ${item.name}`,
             })),
           ]}
         />
@@ -146,12 +193,12 @@ export function CrmTemplatePicker({
         >
           {tr("Use template")}
         </button>
-        {selectedSaved && (
+        {selectedSaved && canEdit && (
           <button
             type="button"
             className="crm-icon-button"
-            onClick={remove}
-            disabled={disabled}
+            onClick={() => void remove()}
+            disabled={busy}
             aria-label={tr("Delete template")}
             title={tr("Delete template")}
           >
@@ -159,30 +206,41 @@ export function CrmTemplatePicker({
           </button>
         )}
       </div>
-      <div className="crm-template-row">
-        <input
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          maxLength={60}
-          placeholder={tr("Name this draft to reuse it")}
-          aria-label={tr("Template name")}
-          disabled={disabled}
-        />
-        <button
-          type="button"
-          className="crm-button"
-          onClick={save}
-          disabled={
-            disabled ||
-            !name.trim() ||
-            !draft.subject.trim() ||
-            !draft.message.trim()
-          }
-        >
-          <Save size={16} />
-          {tr("Save as template")}
-        </button>
-      </div>
+      {selectedSaved?.updated_by && (
+        <p className="crm-fine-print">
+          {tr("Last edited by")} {selectedSaved.updated_by}
+        </p>
+      )}
+      {canEdit && (
+        <div className="crm-template-row">
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            maxLength={60}
+            placeholder={tr("Name this draft to share it with all admins")}
+            aria-label={tr("Template name")}
+            disabled={busy}
+          />
+          <button
+            type="button"
+            className="crm-button"
+            onClick={() => void save()}
+            disabled={
+              busy ||
+              !name.trim() ||
+              !draft.subject.trim() ||
+              !draft.message.trim()
+            }
+          >
+            {saving ? (
+              <LoaderCircle size={16} className="crm-spinner" />
+            ) : (
+              <Save size={16} />
+            )}
+            {tr("Save as template")}
+          </button>
+        </div>
+      )}
       {notice && (
         <p className="crm-fine-print" role="status">
           {tr(notice)}
