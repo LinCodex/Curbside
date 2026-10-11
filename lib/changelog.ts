@@ -26,6 +26,10 @@ export const CHANGELOG: ChangelogRelease[] = [
         en: "Optimized summons preview frame with responsive height and fallbacks for mobile browsers.",
         zh: "优化了传票影像预览窗口的响应式高度，并为移动端浏览器提供了直接打开回退支持。",
       },
+      {
+        en: "Official summons image URLs are now automatically generated and repaired for all NYC summons records.",
+        zh: "所有纽约市罚单记录现已支持自动生成与修复官方传票影像链接。",
+      },
     ],
   },
   {

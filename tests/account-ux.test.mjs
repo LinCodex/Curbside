@@ -118,3 +118,14 @@ test("NYC summons images are accepted and upgraded to https for nyc.gov domains"
   assert.equal(safeImage(null), null);
   assert.equal(safeImage(undefined), null);
 });
+
+test("summonsImageUrl encodes summons numbers using NYCServ triple-base64 standard", async () => {
+  const { summonsImageUrl } = await load("lib/domain.ts");
+  const expected = "https://nycserv.nyc.gov/NYCServWeb/ShowImage?searchID=VDFSSk5FMTZTVEJOVkZrMFRVRTlQUT09&locationName=_____________________";
+  assert.equal(summonsImageUrl("9283241680"), expected);
+  assert.equal(summonsImageUrl("4876133268"), "https://nycserv.nyc.gov/NYCServWeb/ShowImage?searchID=VGtSbk0wNXFSWHBOZWtreVQwRTlQUT09&locationName=_____________________");
+  assert.equal(summonsImageUrl(""), null);
+  assert.equal(summonsImageUrl(null), null);
+  assert.equal(summonsImageUrl("abc"), null);
+  assert.equal(summonsImageUrl("123"), null);
+});

@@ -135,6 +135,18 @@ export function applyDeadline(t: Violation) {
     : null;
   return t;
 }
+export function summonsImageUrl(
+  summonsNumber: string | null | undefined,
+): string | null {
+  const clean = String(summonsNumber || "").trim();
+  if (!/^[0-9]{8,12}$/.test(clean)) return null;
+  try {
+    const enc = btoa(btoa(btoa(clean)));
+    return `https://nycserv.nyc.gov/NYCServWeb/ShowImage?searchID=${enc}&locationName=_____________________`;
+  } catch {
+    return null;
+  }
+}
 export function mergeTickets(records: Violation[]) {
   const map = new Map<string, Violation>();
   for (const t of records) {

@@ -94,6 +94,7 @@ import {
   type Violation,
   type SearchResult,
   normalizePlate,
+  summonsImageUrl,
 } from "@/lib/domain";
 const CityMap = lazy(() => import("./city-map"));
 const nav = [
@@ -2760,7 +2761,7 @@ export default function Curbside() {
                 ? selected.image.startsWith("http://")
                   ? selected.image.replace(/^http:\/\//, "https://")
                   : selected.image
-                : null;
+                : summonsImageUrl(selected.id);
               return (
                 <div className="stack">
                 <div className="ticket-detail-title">

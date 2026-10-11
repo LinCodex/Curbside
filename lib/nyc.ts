@@ -10,6 +10,7 @@ import {
   mergeTickets,
   applyDeadline,
   plateKey,
+  summonsImageUrl,
 } from "./domain";
 import { config } from "./runtime";
 import {
@@ -131,7 +132,7 @@ export function normalizeRow(
           ? "No balance reported"
           : "Status not provided")
       : "Unknown",
-    image: safeImage(r.summons_image),
+    image: safeImage(r.summons_image) || summonsImageUrl(r.summons_number),
     vehicle: Object.fromEntries(
       Object.entries({
         make: r.vehicle_make,

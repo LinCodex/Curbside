@@ -1,6 +1,6 @@
-import type { Plate, SearchResult } from "./domain";
+import { summonsImageUrl, type Plate, type SearchResult } from "./domain";
 import { config } from "./runtime";
-import { searchNYC } from "./nyc";
+import { safeImage, searchNYC } from "./nyc";
 
 export async function searchWithSnapshot(
   plate: Plate,
@@ -20,7 +20,12 @@ export async function searchWithSnapshot(
         const { result } = (await response.json()) as {
           result: SearchResult | null;
         };
-        if (result && Array.isArray(result.tickets)) return result;
+        if (result && Array.isArray(result.tickets)) {
+          for (const t of result.tickets) {
+            t.image = safeImage(t.image) || summonsImageUrl(t.id);
+          }
+          return result;
+        }
       }
     } catch {
       /* Source lookup continues if the snapshot service is unavailable. */

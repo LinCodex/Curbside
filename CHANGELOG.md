@@ -7,6 +7,7 @@ Customer-facing notes for this release also appear in Account → What’s new (
 - Mobile summons viewing: added dedicated, touch-friendly "View summons image" actions for mobile devices that open the official summons document directly in the browser's native PDF reader.
 - Quick summons link: added a quick-tap summons image pill directly alongside the summons number in ticket details, allowing instant mobile access without scrolling past the map and money table.
 - Responsive preview & fallback: embedded summons preview iframe now scales responsively on mobile screens (`height: min(48dvh, 320px)`), with an explicit tap-to-open fallback for mobile browsers that do not embed cross-origin PDFs.
+- Summons image derivation & repair: implemented official NYCServ triple-base64 standard encoding for NYC summons numbers, repairing tickets where historical datasets or cached snapshots stored missing/null image URLs.
 
 ### Validation
 

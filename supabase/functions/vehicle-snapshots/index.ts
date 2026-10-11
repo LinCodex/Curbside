@@ -2,9 +2,10 @@ import { createClient } from "@supabase/supabase-js";
 import {
   normalizePlate,
   plateKey,
+  summonsImageUrl,
   type SearchResult,
 } from "../../../lib/domain";
-import { searchNYC } from "../../../lib/nyc";
+import { searchNYC, safeImage } from "../../../lib/nyc";
 import { mergeSnapshot } from "../../../lib/vehicle-snapshots";
 import { dispatchTicketEmails } from "../email-notifications/delivery";
 import type { EmailDeliveryConfig } from "../../../lib/email-notifications";
@@ -124,6 +125,10 @@ Deno.serve(async (request) => {
       const result = data?.payload
         ? {
             ...data.payload,
+            tickets: (data.payload.tickets || []).map((t: any) => ({
+              ...t,
+              image: safeImage(t.image) || summonsImageUrl(t.id),
+            })),
             snapshot: {
               ...data.payload.snapshot,
               retainedRecords: data.payload.snapshot?.retainedRecords || 0,
