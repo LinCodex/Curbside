@@ -1,12 +1,44 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, LoaderCircle } from "lucide-react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { crmRequest } from "@/lib/crm";
 import { readCachedSetting, writeCachedSetting } from "@/lib/settings-cache";
 import { useSupabaseAccount } from "./use-supabase-account";
 import { usePreferences } from "./preferences";
 
 const confirmedChoices = new Map<string, boolean>();
+const pendingLoads = new Map<string, Promise<boolean>>();
+
+// Shared by the sign-in prefetch and the settings panel so both wait on one request.
+export function loadAnnouncementChoice(client: SupabaseClient, owner: string) {
+  const pending = pendingLoads.get(owner);
+  if (pending) return pending;
+  const request = crmRequest<{ enabled: boolean }>(
+    client,
+    "announcement_preferences",
+    { expectedUserId: owner },
+  )
+    .then((result) => {
+      const enabled = result.enabled === true;
+      confirmedChoices.set(owner, enabled);
+      writeCachedSetting("announcements", owner, enabled);
+      return enabled;
+    })
+    .finally(() => pendingLoads.delete(owner));
+  pendingLoads.set(owner, request);
+  return request;
+}
+
+export function AnnouncementPrefetch() {
+  const { client, user } = useSupabaseAccount();
+  const owner = user?.id || "";
+  useEffect(() => {
+    if (client && owner) void loadAnnouncementChoice(client, owner).catch(() => {});
+  }, [client, owner]);
+  return null;
+}
+
 export default function AnnouncementSettings() {
   const { client, user } = useSupabaseAccount();
   const { tr } = usePreferences();
@@ -40,19 +72,15 @@ export default function AnnouncementSettings() {
     if (!client || !owner) return;
     let active = true;
     const requestRevision = ++revision.current;
-    void crmRequest<{ enabled: boolean }>(client, "announcement_preferences", {
-      expectedUserId: owner,
-    })
-      .then((result) => {
+    void loadAnnouncementChoice(client, owner)
+      .then((loaded) => {
         if (
           !active ||
           currentOwner.current !== owner ||
           requestRevision !== revision.current
         )
           return;
-        confirmedChoices.set(owner, result.enabled === true);
-        writeCachedSetting("announcements", owner, result.enabled === true);
-        setChoice({ owner, enabled: result.enabled === true });
+        setChoice({ owner, enabled: loaded });
         setError(false);
       })
       .catch(() => {

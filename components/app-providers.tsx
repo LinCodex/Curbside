@@ -5,6 +5,7 @@ import { NotificationPreferencesProvider } from "./notification-preferences";
 import { CookieConsentProvider } from "./cookie-consent";
 import AccountPresence from "./account-presence";
 import AppUpdater from "./app-updater";
+import { AnnouncementPrefetch } from "./announcement-settings";
 export default function AppProviders({
   children,
 }: {
@@ -17,6 +18,7 @@ export default function AppProviders({
           <CookieConsentProvider>
             {children}
             <AccountPresence />
+            <AnnouncementPrefetch />
             <AppUpdater />
           </CookieConsentProvider>
         </PreferencesProvider>

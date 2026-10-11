@@ -2,6 +2,7 @@
 import { usePreferences, PreferencesMenu } from "./preferences";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -30,6 +31,7 @@ export default function LegalPage({
 }) {
   const activeDoc = docName || docProp;
   const { tr, locale } = usePreferences();
+  const router = useRouter();
   const page = activeDoc ? legalDocuments[activeDoc] : null;
   const sectionTitle = tr;
   const [activeSection, setActiveSection] = useState("section-1");
@@ -76,15 +78,23 @@ export default function LegalPage({
     };
   }, [page]);
 
+  const title = `${locale === "zh" ? "罚单卫士" : "TicketSafe"} | ${
+    page?.title ? tr(page.title) : tr("Legal & Policies")
+  }`;
   useEffect(() => {
-    if (
-      typeof window !== "undefined" &&
-      typeof window.document !== "undefined"
-    ) {
-      const sub = page?.title ? tr(page.title) : tr("Legal & Policies");
-      window.document.title = `${locale === "zh" ? "罚单卫士" : "TicketSafe"} | ${sub}`;
-    }
-  }, [page?.title, tr, locale]);
+    // Route metadata writes the English title after navigation; keep ours.
+    const apply = () => {
+      if (window.document.title !== title) window.document.title = title;
+    };
+    apply();
+    const observer = new MutationObserver(apply);
+    observer.observe(window.document.head, {
+      subtree: true,
+      childList: true,
+      characterData: true,
+    });
+    return () => observer.disconnect();
+  }, [title]);
 
   return (
     <div className="legal-shell">
@@ -160,7 +170,7 @@ export default function LegalPage({
                     label="Choose a policy"
                     value={activeDoc || "overview"}
                     onChange={(key) => {
-                      window.location.assign(
+                      router.push(
                         key === "overview" ? "/legal" : "/legal/" + key,
                       );
                     }}

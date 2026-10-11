@@ -1219,3 +1219,7 @@ h3 {
     scroll-behavior: auto !important;
   }
 }
+
+html[data-locale-pending] body {
+  visibility: hidden;
+}

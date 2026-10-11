@@ -127,6 +127,11 @@ export function PreferencesProvider({
       window.removeEventListener("storage", updateStorage);
     };
   }, []);
+  // The prerendered HTML is English; the head script hides it for Chinese
+  // readers until this first client render, which already shows Chinese.
+  useLayoutEffect(() => {
+    if (loaded) delete document.documentElement.dataset.localePending;
+  }, [loaded]);
   const displayed = preview || preferences;
   const previewPreferences = useCallback(
     (next: ReturnType<typeof readPreferences> | null) => {

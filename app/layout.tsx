@@ -59,7 +59,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var p=JSON.parse(localStorage.getItem("ticketsafe.display.v1")||localStorage.getItem("curbside.preferences.v1")||"{}");var theme=p.theme==="light"||p.theme==="dark"?p.theme:matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme;var color=${JSON.stringify(THEME_COLORS)}[theme];var tint=function(){document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.setAttribute("content",color)})};tint();document.addEventListener("DOMContentLoaded",tint);}catch(e){}})();`,
+            __html: `(function(){try{var p=JSON.parse(localStorage.getItem("ticketsafe.display.v1")||localStorage.getItem("curbside.preferences.v1")||"{}");var theme=p.theme==="light"||p.theme==="dark"?p.theme:matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme;var color=${JSON.stringify(THEME_COLORS)}[theme];var tint=function(){document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.setAttribute("content",color)})};tint();document.addEventListener("DOMContentLoaded",tint);var shown=JSON.parse(localStorage.getItem("ticketsafe.display.v1")||"{}");if(shown.locale==="zh"){var root=document.documentElement;root.lang="zh-Hans";root.dataset.localePending="";setTimeout(function(){delete root.dataset.localePending},1500);}}catch(e){}})();`,
           }}
         />
       </head>
