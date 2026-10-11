@@ -1,24 +1,39 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { usePreferences } from "./preferences";
 
 const TUTORIAL_KEY = "ticketsafe.tutorial.v1.";
+const TUTORIAL_METADATA = "ticketsafe_tutorial_seen";
 
-export function tutorialDone(userId: string) {
+type TutorialUser = { id: string; user_metadata?: Record<string, unknown> };
+
+export function tutorialDone(user: TutorialUser) {
+  if (user.user_metadata?.[TUTORIAL_METADATA]) return true;
   try {
-    return localStorage.getItem(TUTORIAL_KEY + userId) === "done";
+    return localStorage.getItem(TUTORIAL_KEY + user.id) === "done";
   } catch {
     // Without storage the tour would reappear on every visit; skip it instead.
     return true;
   }
 }
-function markTutorialDone(userId: string) {
+
+// The account flag makes the automatic tour show once per account across
+// devices; the local copy covers the moment before Auth confirms the update.
+export function markTutorialDone(
+  client: SupabaseClient | null,
+  user: TutorialUser,
+) {
   try {
-    localStorage.setItem(TUTORIAL_KEY + userId, "done");
+    localStorage.setItem(TUTORIAL_KEY + user.id, "done");
   } catch {
     /* Storage can be unavailable in restricted browser modes. */
   }
+  if (client && !user.user_metadata?.[TUTORIAL_METADATA])
+    void client.auth
+      .updateUser({ data: { [TUTORIAL_METADATA]: true } })
+      .catch(() => {});
 }
 
 type Step = {
@@ -92,13 +107,11 @@ const sameRect = (a: DOMRect | null, b: DOMRect | null) =>
   a.height === b.height;
 
 export default function AppTutorial({
-  userId,
   view,
   onView,
   onSheet,
   onClose,
 }: {
-  userId: string;
   view: string;
   onView: (view: string) => void;
   onSheet: (sheet: string | null) => void;
@@ -118,7 +131,6 @@ export default function AppTutorial({
   });
 
   const finish = (skipped: boolean) => {
-    markTutorialDone(userId);
     if (skipped) latest.current.onView(startView.current);
     onClose();
   };

@@ -72,7 +72,7 @@ import Modal from "./modal";
 import { niceDate } from "@/lib/display-date";
 import AnnouncementSettings from "./announcement-settings";
 import Changelog from "./changelog";
-import AppTutorial, { tutorialDone } from "./app-tutorial";
+import AppTutorial, { markTutorialDone, tutorialDone } from "./app-tutorial";
 import { CURRENT_VERSION } from "@/lib/changelog";
 import {
   clearPendingSave,
@@ -284,6 +284,7 @@ export default function Curbside() {
       !auth.recovering &&
       !onboardingOpen &&
       !tutorialOpen;
+    const signedIn = auth.user;
     let alive = true;
     // Deferred so a Strict Mode remount cannot consume the pending save twice.
     queueMicrotask(() => {
@@ -307,12 +308,28 @@ export default function Curbside() {
       if (pending && !alreadySaved) {
         setResumedSave(pending);
         setSheet("save");
-      } else if (!tutorialDone(account.user.id)) setTutorialOpen(true);
+      } else if (
+        signedIn &&
+        signedIn.id === account.user.id &&
+        !tutorialDone(signedIn)
+      ) {
+        markTutorialDone(auth.client, signedIn);
+        setTutorialOpen(true);
+      }
     });
     return () => {
       alive = false;
     };
-  }, [account, authOpen, auth.recovering, onboardingOpen, sheet, tutorialOpen]);
+  }, [
+    account,
+    authOpen,
+    auth.recovering,
+    auth.user,
+    auth.client,
+    onboardingOpen,
+    sheet,
+    tutorialOpen,
+  ]);
   const pendingSnapshots = !!account?.vehicles?.some(
     (vehicle: any) =>
       !vehicle.snapshot || vehicle.snapshot_status === "checking",
@@ -2336,7 +2353,6 @@ export default function Curbside() {
       </PopupPresence>
       {tutorialOpen && account?.user && (
         <AppTutorial
-          userId={account.user.id}
           view={view}
           onView={tourView}
           onSheet={setSheet}
