@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { privateSpeedEvent } from "../lib/analytics-privacy.ts";
+import { privateSpeedEvent, spaAnalyticsTarget } from "../lib/analytics-privacy.ts";
 
 test("speed metrics redact public URLs and route values", () => {
   assert.deepEqual(
@@ -40,4 +40,20 @@ test("speed metrics exclude accounts, CRM, auth callbacks and privacy signals", 
       ),
       null,
     );
+});
+test("home view changes report a new public page and other routes stay with Next", () => {
+  const search = "https://ticketsafe.example/?view=search&plate=SECRET";
+  const cleanSearch = "https://ticketsafe.example/?view=search";
+  assert.equal(spaAnalyticsTarget(search, null), cleanSearch);
+  assert.equal(spaAnalyticsTarget(search, cleanSearch), null);
+  assert.equal(
+    spaAnalyticsTarget("https://ticketsafe.example/?view=map", cleanSearch),
+    "https://ticketsafe.example/?view=map",
+  );
+  assert.equal(spaAnalyticsTarget("https://ticketsafe.example/?view=garage", null), null);
+  assert.equal(spaAnalyticsTarget("https://ticketsafe.example/", cleanSearch), null);
+  assert.equal(
+    spaAnalyticsTarget("https://ticketsafe.example/legal/privacy", null),
+    null,
+  );
 });

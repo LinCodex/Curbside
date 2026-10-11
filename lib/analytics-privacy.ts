@@ -55,3 +55,19 @@ export function privateSpeedEvent<T extends { url: string; route?: string }>(
   const route = new URL(url).pathname;
   return { ...event, url, route };
 }
+
+// Next.js Analytics sends a pageview when the pathname changes. Home views only
+// rewrite the query string, so those navigations need their own pageview.
+export function spaAnalyticsTarget(
+  raw: string,
+  lastSent: string | null,
+): string | null {
+  try {
+    if (new URL(raw).pathname !== "/") return null;
+  } catch {
+    return null;
+  }
+  const url = publicAnalyticsURL(raw);
+  if (!url || url === lastSent) return null;
+  return url;
+}
