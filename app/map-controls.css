@@ -576,7 +576,34 @@
 }
 .account-changelog-card .account-identity-heading span span {
   color: var(--muted);
+}
+
+/* One type scale across Account cards: titles, row titles, descriptions, body. */
+.app .account-page .account-changelog-card strong {
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.app .account-page .account-tool strong,
+.app .account-page .account-legal-item-text strong,
+.app .account-page .account-source-summary strong {
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+.app .account-page .account-identity-heading span span,
+.app .account-page .account-identity-heading div > span,
+.app .account-page .account-tool small,
+.app .account-page .account-legal-item-text span,
+.app .account-page .account-source-summary span,
+.app .account-page .account-free-note {
   font-size: 12px;
+  line-height: 1.5;
+}
+.app .account-page .form-card > p.small,
+.app .account-page .support-feedback-body > p.small {
+  font-size: 13px;
+  line-height: 1.55;
 }
 .account-changelog-card > svg {
   flex: 0 0 auto;
