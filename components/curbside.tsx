@@ -38,7 +38,7 @@ import {
   UserRound,
   Clock3,
   Bell,
-  Sparkles,
+  ScrollText,
   Compass,
 } from "lucide-react";
 import { CityBackdrop } from "./city-backdrop";
@@ -2130,7 +2130,7 @@ export default function Curbside() {
                 onClick={() => setSheet("changelog")}
               >
                 <span className="account-profile-mark">
-                  <Sparkles size={20} />
+                  <ScrollText size={20} />
                 </span>
                 <span className="account-identity-heading">
                   <span>

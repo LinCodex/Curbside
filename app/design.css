@@ -1919,6 +1919,9 @@ html[data-theme="light"] .account-page .account-legal-item-icon {
   font-size: 9px;
   color: var(--muted);
 }
+.account-tool:has(+ .account-free-note) {
+  border-bottom: 0;
+}
 .dealer-entry .account-tool {
   border-bottom: 0;
   padding-bottom: 10px;
