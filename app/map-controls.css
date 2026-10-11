@@ -756,6 +756,10 @@
   gap: 6px;
   min-height: 40px;
 }
+.tutorial-alert-toggle {
+  justify-self: start;
+  min-height: 40px;
+}
 .tutorial-progress {
   font-size: 12px;
   color: var(--muted);

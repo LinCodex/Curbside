@@ -1,7 +1,7 @@
 // Historical database consent version: never rewrite existing acceptance records.
 export const LEGAL_VERSION = "2026-09-27.1";
 export const PRIVACY_VERSION = "2026-10-03.2";
-export const LEGAL_DISPLAY_REVISION = "2026-10-03.2";
+export const LEGAL_DISPLAY_REVISION = "2026-10-11.1";
 export const OPERATOR = {
   name: "Flushing NY Wireless",
   address: "136-78 Roosevelt Ave, Flushing, NY, United States",
@@ -47,7 +47,7 @@ export const legalDocuments: Record<string, LegalDocument> = {
       {
         title: "4. Saved history and service changes",
         paragraphs: [
-          "If you opt in to email notifications in Account, TicketSafe checks only your saved vehicles and sends a daily email when new tickets are found after a complete baseline check. Balance changes alone do not trigger emails. Messages include saved-vehicle and ticket details, reported balances, available approximate location maps, and links to official NYC payment services. Public records and email delivery can be delayed; alerts are not a guarantee of timely notice or a substitute for checking official deadlines. SMS notifications are unavailable.",
+          "While email notifications are on (new accounts start with them on during the welcome tour; change this in Account), TicketSafe checks only your saved vehicles and sends a daily email when new tickets are found after a complete baseline check. Balance changes alone do not trigger emails. Messages include saved-vehicle and ticket details, reported balances, available approximate location maps, and links to official NYC payment services. Public records and email delivery can be delayed; alerts are not a guarantee of timely notice or a substitute for checking official deadlines. SMS notifications are unavailable.",
           "Saving a car stores its private details and connects it to a shared history of public city records for that plate, registration state and plate type. History refreshes depend on city data and service availability. Failed checks retain the last usable results and show an earlier check time.",
           "We may fix or change the service and will explain material changes when required. Changes requiring your agreement will be presented before applying to you. Earlier acceptance records keep their original dates; updating this page does not record new consent or retroactively replace an earlier agreement.",
         ],
@@ -125,7 +125,7 @@ export const legalDocuments: Record<string, LegalDocument> = {
       {
         title: "Your choices and requests",
         paragraphs: [
-          "New-ticket emails are off until you explicitly enable them. You can turn them off in Account or use an email unsubscribe link. Only saved vehicles are monitored; removing a saved vehicle stops its future ticket alerts.",
+          "New-ticket emails are turned on for new accounts when the welcome tour starts, and the tour lets you turn them off right away. You can also turn them off in Account or use an email unsubscribe link. Only saved vehicles are monitored; removing a saved vehicle stops its future ticket alerts.",
           "TicketSafe product announcements have a separate, optional email subscription that is off by default. Ticket alert consent does not subscribe you to announcements. Change this choice in Account or use an announcement's unsubscribe link. Administrators can send individual service messages about your account; these must not be used to bypass announcement consent.",
           "You can edit or remove saved cars, change display preferences, update your email, recover your password or delete your account through TicketSafe. Contact the operator below to request access, correction, a portable copy, deletion or help with an applicable privacy right. We may verify your authority without requesting unnecessary identification and will respond as required by applicable law.",
           "Applicable privacy rights depend on your location and the laws that apply to this business. We do not discriminate against people for exercising applicable rights. We will explain a denied request and any available review process.",

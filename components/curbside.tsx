@@ -171,7 +171,9 @@ export default function Curbside() {
   }, []);
   const [supportRequest, setSupportRequest] = useState(0);
   const supportOpened = useCallback(() => setSupportRequest(0), []);
-  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [tutorialOpen, setTutorialOpen] = useState<"auto" | "replay" | null>(
+    null,
+  );
   // Rewriting the value mid-composition restarts iOS pinyin input and duplicates it.
   const plateComposing = useRef(false);
   const [resumedSave, setResumedSave] = useState<PendingSave | null>(null);
@@ -316,7 +318,7 @@ export default function Curbside() {
         !tutorialDone(signedIn)
       ) {
         markTutorialDone(auth.client, signedIn);
-        setTutorialOpen(true);
+        setTutorialOpen("auto");
       }
     });
     return () => {
@@ -2137,7 +2139,7 @@ export default function Curbside() {
                   {account && (
                     <button
                       className="account-tool"
-                      onClick={() => setTutorialOpen(true)}
+                      onClick={() => setTutorialOpen("replay")}
                     >
                       <span className="account-tool-icon">
                         <Compass size={19} />
@@ -2376,7 +2378,8 @@ export default function Curbside() {
           view={view}
           onView={tourView}
           onSheet={setSheet}
-          onClose={() => setTutorialOpen(false)}
+          enableAlerts={tutorialOpen === "auto"}
+          onClose={() => setTutorialOpen(null)}
         />
       )}
 

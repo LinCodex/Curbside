@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { usePreferences } from "./preferences";
+import { useNotificationPreferences } from "./notification-preferences";
 
 const TUTORIAL_KEY = "ticketsafe.tutorial.v1.";
 const TUTORIAL_METADATA = "ticketsafe_tutorial_seen";
@@ -42,6 +43,9 @@ type Step = {
   sheet?: string;
   title: string;
   body: string;
+  // Shown on the first, automatic tour, which turns ticket alerts on.
+  enabledTitle?: string;
+  enabledBody?: string;
 };
 const STEPS: Step[] = [
   {
@@ -80,6 +84,8 @@ const STEPS: Step[] = [
     sheet: "notifications",
     title: "Turn on ticket alerts",
     body: "Tick New-ticket emails and we’ll email you when a saved car gets a new ticket. You can change this any time.",
+    enabledTitle: "Ticket alerts are on",
+    enabledBody: "We’ll email you when a saved car gets a new ticket. Don’t want these emails? Turn them off here or in Account any time.",
   },
 ];
 
@@ -110,14 +116,24 @@ export default function AppTutorial({
   view,
   onView,
   onSheet,
+  enableAlerts = false,
   onClose,
 }: {
   view: string;
   onView: (view: string) => void;
   onSheet: (sheet: string | null) => void;
+  enableAlerts?: boolean;
   onClose: () => void;
 }) {
   const { tr } = usePreferences();
+  const alerts = useNotificationPreferences();
+  const saveAlerts = useRef(alerts.save);
+  useLayoutEffect(() => {
+    saveAlerts.current = alerts.save;
+  });
+  useEffect(() => {
+    if (enableAlerts) void saveAlerts.current(true);
+  }, [enableAlerts]);
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const startView = useRef(view);
@@ -283,8 +299,32 @@ export default function AppTutorial({
             <X size={14} aria-hidden="true" />
           </button>
         </div>
-        <h2 id="tutorial-title">{tr(current.title)}</h2>
-        <p id="tutorial-body">{tr(current.body)}</p>
+        <h2 id="tutorial-title">
+          {tr(
+            (enableAlerts && alerts.enabled && current.enabledTitle) ||
+              current.title,
+          )}
+        </h2>
+        <p id="tutorial-body">
+          {tr(
+            (enableAlerts && alerts.enabled && current.enabledBody) ||
+              current.body,
+          )}
+        </p>
+        {enableAlerts && current.enabledBody && (
+          <button
+            type="button"
+            className="button ghost tutorial-alert-toggle"
+            disabled={alerts.saving || alerts.enabled === null}
+            onClick={() => void alerts.save(!alerts.enabled)}
+          >
+            {alerts.saving
+              ? tr("Saving…")
+              : alerts.enabled
+                ? tr("Turn off ticket alerts")
+                : tr("Turn ticket alerts on")}
+          </button>
+        )}
         <div className="tutorial-actions">
           {step > 0 ? (
             <button
