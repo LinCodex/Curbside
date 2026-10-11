@@ -63,14 +63,19 @@ const descriptions: Record<string, string> = {
   "5": "Bus lane camera",
   "71": "Inspection sticker violation",
 };
-const safeImage = (v: any) => {
-  const url = typeof v === "string" ? v : v?.url;
+export const safeImage = (v: any) => {
+  const url = typeof v === "string" ? v : v?.url || v?.href || v?.link;
+  if (!url) return null;
   try {
-    const u = new URL(url);
-    return u.protocol === "https:" &&
+    const u = new URL(String(url).trim());
+    if (
+      (u.protocol === "https:" || u.protocol === "http:") &&
       (u.hostname.endsWith(".nyc.gov") || u.hostname === "nyc.gov")
-      ? u.href
-      : null;
+    ) {
+      u.protocol = "https:";
+      return u.href;
+    }
+    return null;
   } catch {
     return null;
   }

@@ -18,6 +18,10 @@ export const CHANGELOG: ChangelogRelease[] = [
         en: "Ticket details now include a button to show the official summons image when available, or indicate when one is not available.",
         zh: "罚单详情现在包含一个按钮，可在有影像时显示官方罚单影像，并在无影像时提示不可用。",
       },
+      {
+        en: "Official summons image links from NYC Open Data are securely upgraded to HTTPS, fixing records that showed no image.",
+        zh: "来自纽约市公开数据的官方传票影像链接已安全升级为 HTTPS，修复了此前显示无影像的问题。",
+      },
     ],
   },
   {

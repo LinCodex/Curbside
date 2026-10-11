@@ -95,3 +95,15 @@ test("ticket details summons image action is bilingual and indicates availabilit
   assert.match(curbsideSource, /selected\.image/);
   assert.match(curbsideSource, /Summons image: Not available/);
 });
+
+test("NYC summons images are accepted and upgraded to https for nyc.gov domains", async () => {
+  const { safeImage } = await load("lib/nyc.ts");
+  const rawUrl = "http://nycserv.nyc.gov/NYCServWeb/ShowImage?searchID=VDFSSk5FMTZTVEJOVkZrMFRVRTlQUT09&locationName=_____________________";
+  const expected = "https://nycserv.nyc.gov/NYCServWeb/ShowImage?searchID=VDFSSk5FMTZTVEJOVkZrMFRVRTlQUT09&locationName=_____________________";
+  assert.equal(safeImage(rawUrl), expected);
+  assert.equal(safeImage({ url: rawUrl }), expected);
+  assert.equal(safeImage({ href: rawUrl }), expected);
+  assert.equal(safeImage("https://evil.com/fake.pdf"), null);
+  assert.equal(safeImage(null), null);
+  assert.equal(safeImage(undefined), null);
+});

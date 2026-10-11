@@ -4,7 +4,8 @@
 
 Customer-facing notes for this release also appear in Account → What’s new (`lib/changelog.ts`).
 
-- Ticket details: each ticket details sheet now includes an interactive button to view/show the official summons image when one is available (with an inline image preview and link), or displays a disabled notice indicating that the summons image is not available when no image was provided by NYC.
+- Ticket details: each ticket details sheet now includes an interactive button to view/show the official summons image when one is available (with an embedded preview and external link), or displays a disabled notice indicating that the summons image is not available when no image was provided by NYC.
+- NYC Open Data images: official summons URLs served over `http:` by NYC DOF / NYCServ are safely upgraded to `https:`, fixing tickets showing "not available" when images exist.
 
 ### Validation
 

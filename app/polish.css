@@ -1171,6 +1171,16 @@ html[data-theme="light"] .legal-back-button:active {
   border-radius: 8px;
   background: #00000030;
 }
+.ticket-summons-preview .summons-frame {
+  width: 100%;
+  height: 480px;
+  border: 1px solid #ffffff16;
+  border-radius: 8px;
+  background: #ffffff;
+}
+.ticket-summons-preview .button {
+  width: 100%;
+}
 @media (max-width: 800px) {
   html,
   body {

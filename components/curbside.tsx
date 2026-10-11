@@ -2875,58 +2875,60 @@ export default function Curbside() {
                     </div>
                   ))}
                 </div>
-                <div className="ticket-summons-action">
-                  {selected.image ? (
-                    <button
-                      type="button"
-                      className="button"
-                      onClick={() => setShowSummonsImage((v) => !v)}
-                      aria-expanded={showSummonsImage}
-                    >
-                      <FileText size={15} />
-                      {showSummonsImage
-                        ? tr("Hide summons image")
-                        : tr("Show summons image")}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="button"
-                      disabled
-                      aria-disabled="true"
-                      aria-label={tr("Summons image not available")}
-                    >
-                      <FileText size={15} />
-                      {tr("Summons image: Not available")}
-                    </button>
-                  )}
-                  {showSummonsImage && selected.image && (
-                    <div className="ticket-summons-preview">
-                      <img
-                        src={selected.image}
-                        alt={tr("Official summons image")}
-                        loading="lazy"
-                        onError={() => setSummonsImageFailed(true)}
-                      />
-                      {summonsImageFailed && (
-                        <p className="small muted">
-                          {tr(
-                            "Summons image preview unavailable in browser.",
-                          )}
-                        </p>
+                {(() => {
+                  const summonsUrl = selected.image
+                    ? selected.image.startsWith("http://")
+                      ? selected.image.replace(/^http:\/\//, "https://")
+                      : selected.image
+                    : null;
+                  return (
+                    <div className="ticket-summons-action">
+                      {summonsUrl ? (
+                        <button
+                          type="button"
+                          className="button"
+                          onClick={() => setShowSummonsImage((v) => !v)}
+                          aria-expanded={showSummonsImage}
+                        >
+                          <FileText size={15} />
+                          {showSummonsImage
+                            ? tr("Hide summons image")
+                            : tr("Show summons image")}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="button"
+                          disabled
+                          aria-disabled="true"
+                          aria-label={tr("Summons image not available")}
+                        >
+                          <FileText size={15} />
+                          {tr("Summons image: Not available")}
+                        </button>
                       )}
-                      <a
-                        className="text-link"
-                        href={selected.image}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {tr("View official summons image")}
-                        <ArrowUpRight size={14} />
-                      </a>
+                      {showSummonsImage && summonsUrl && (
+                        <div className="ticket-summons-preview">
+                          <iframe
+                            src={summonsUrl}
+                            title={tr("Official summons image")}
+                            className="summons-frame"
+                            loading="lazy"
+                          />
+                          <a
+                            className="button"
+                            href={summonsUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            {tr("View official summons image")}
+                            <ArrowUpRight size={14} />
+                          </a>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  );
+                })()}
                 <a
                   className="primary-action"
                   href="https://www.nyc.gov/main/services/parking-and-camera-tickets"
