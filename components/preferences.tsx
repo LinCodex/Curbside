@@ -81,6 +81,7 @@ export function PreferencesProvider({
   const [deviceDark, setDeviceDark] = useState(true);
   const [languages, setLanguages] = useState<readonly string[]>(["en"]);
   const [loaded, setLoaded] = useState(false);
+  const [lastLocale, setLastLocale] = useState<"en" | "zh" | null>(null);
   const auth = useAccount();
   const profileId = confirmedAccount(auth.user)?.id || null;
   const activeProfile = useRef(profileId);
@@ -108,6 +109,10 @@ export function PreferencesProvider({
     };
     try {
       setPreferences(readPreferences(localStorage.getItem(PREFERENCE_KEY)));
+      const shown = JSON.parse(
+        localStorage.getItem("ticketsafe.display.v1") || "{}",
+      )?.locale;
+      if (shown === "en" || shown === "zh") setLastLocale(shown);
     } catch {}
     updateTheme();
     updateLanguage();
@@ -129,7 +134,14 @@ export function PreferencesProvider({
     [],
   );
   const resolvedTheme = resolveTheme(displayed.theme, deviceDark);
-  const locale = resolveLanguage(displayed.language, languages);
+  const ready =
+    loaded && !auth.loading && resolvedProfile === profileId && !profileLoading;
+  // Until the account's own choice resolves, keep the language the site last
+  // showed so pages that render immediately never flash another language.
+  const locale =
+    ready || !lastLocale
+      ? resolveLanguage(displayed.language, languages)
+      : lastLocale;
   useEffect(() => {
     if (!loaded || auth.loading || resolvedProfile !== profileId) return;
     document.documentElement.dataset.theme = resolvedTheme;

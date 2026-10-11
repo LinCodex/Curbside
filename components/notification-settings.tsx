@@ -26,7 +26,7 @@ export function NotificationSettings({
     >
       <h3>{tr("Ticket notifications")}</h3>
       <p>{tr("New tickets on saved cars, checked daily.")}</p>
-      <label className="notification-checkbox">
+      <label className="notification-checkbox" data-tour="ticket-alerts">
         <input
           ref={checkbox}
           className="notification-checkbox-input"

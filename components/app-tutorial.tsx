@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, Bell, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 import { usePreferences } from "./preferences";
 
 const TUTORIAL_KEY = "ticketsafe.tutorial.v1.";
@@ -21,33 +21,50 @@ function markTutorialDone(userId: string) {
   }
 }
 
-type Step = { target: string; view?: string; title: string; body: string };
+type Step = {
+  target: string;
+  view: string;
+  sheet?: string;
+  title: string;
+  body: string;
+};
 const STEPS: Step[] = [
   {
     target: "nav-garage",
+    view: "garage",
     title: "Your garage",
     body: "Saved cars and their ticket histories live here. Histories refresh every morning from city data.",
   },
   {
     target: "nav-search",
+    view: "search",
     title: "Search any plate",
     body: "Look up NYC parking and camera tickets for any plate, including out-of-state plates. Tap Save vehicle on a result to add it to your garage.",
   },
   {
     target: "nav-map",
+    view: "map",
     title: "See where tickets happened",
     body: "The map shows ticket locations. Choose a ticket to see its address and details.",
   },
   {
     target: "nav-account",
+    view: "account",
     title: "Account and settings",
     body: "Change your email, display settings and language, contact support, and read what’s new.",
   },
   {
     target: "notifications",
     view: "account",
+    title: "Notifications",
+    body: "Your email choices live here, right under Account details.",
+  },
+  {
+    target: "ticket-alerts",
+    view: "account",
+    sheet: "notifications",
     title: "Turn on ticket alerts",
-    body: "Open Notifications, then tick New-ticket emails. We email you when a saved car gets a new ticket.",
+    body: "Tick New-ticket emails and we’ll email you when a saved car gets a new ticket. You can change this any time.",
   },
 ];
 
@@ -56,86 +73,113 @@ function visibleTarget(name: string) {
     `[data-tour="${name}"]`,
   )) {
     const rect = element.getBoundingClientRect();
-    const style = getComputedStyle(element);
     if (
       rect.width > 0 &&
       rect.height > 0 &&
-      style.visibility !== "hidden" &&
-      !element.closest("[inert]")
+      getComputedStyle(element).visibility !== "hidden"
     )
       return element;
   }
   return null;
 }
 
+const sameRect = (a: DOMRect | null, b: DOMRect | null) =>
+  !!a &&
+  !!b &&
+  a.top === b.top &&
+  a.left === b.left &&
+  a.width === b.width &&
+  a.height === b.height;
+
 export default function AppTutorial({
   userId,
   view,
   onView,
+  onSheet,
   onClose,
-  onOpenNotifications,
 }: {
   userId: string;
   view: string;
   onView: (view: string) => void;
+  onSheet: (sheet: string | null) => void;
   onClose: () => void;
-  onOpenNotifications: () => void;
 }) {
   const { tr } = usePreferences();
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
   const startView = useRef(view);
+  const root = useRef<HTMLDivElement>(null);
   const card = useRef<HTMLDivElement>(null);
   const current = STEPS[step];
   const last = step === STEPS.length - 1;
+  const latest = useRef({ onView, onSheet });
+  useLayoutEffect(() => {
+    latest.current = { onView, onSheet };
+  });
 
-  const finish = (returnToStart: boolean) => {
+  const finish = (skipped: boolean) => {
     markTutorialDone(userId);
-    if (returnToStart && startView.current !== view) onView(startView.current);
+    if (skipped) latest.current.onView(startView.current);
     onClose();
   };
 
+  // Each step shows its real screen: the view, a visible dock, and any sheet.
   useEffect(() => {
-    if (current.view && current.view !== view) onView(current.view);
-  }, [current.view, view, onView]);
+    latest.current.onView(current.view);
+    latest.current.onSheet(current.sheet ?? null);
+  }, [current.view, current.sheet]);
+
+  // The page stays still while the tour points at things.
+  useEffect(() => {
+    const html = document.documentElement;
+    const previous = html.style.overflow;
+    html.style.overflow = "hidden";
+    const overlay = root.current;
+    const stop = (event: Event) => event.preventDefault();
+    overlay?.addEventListener("wheel", stop, { passive: false });
+    overlay?.addEventListener("touchmove", stop, { passive: false });
+    return () => {
+      html.style.overflow = previous;
+      overlay?.removeEventListener("wheel", stop);
+      overlay?.removeEventListener("touchmove", stop);
+    };
+  }, []);
 
   useLayoutEffect(() => {
     let frame = 0;
-    let scrolled = false;
+    let revealed = false;
     const measure = () => {
       const element = visibleTarget(current.target);
-      if (element && !scrolled) {
-        scrolled = true;
+      if (element && !revealed) {
+        revealed = true;
         const box = element.getBoundingClientRect();
         if (box.top < 72 || box.bottom > window.innerHeight - 96)
-          element.scrollIntoView({ block: "center" });
+          element.scrollIntoView({ block: "center", behavior: "instant" });
       }
       const next = element?.getBoundingClientRect() ?? null;
-      setRect((previous) =>
-        previous &&
-        next &&
-        previous.top === next.top &&
-        previous.left === next.left &&
-        previous.width === next.width &&
-        previous.height === next.height
-          ? previous
-          : next,
-      );
+      setRect((previous) => (sameRect(previous, next) ? previous : next));
       frame = requestAnimationFrame(measure);
     };
     measure();
     return () => cancelAnimationFrame(frame);
-  }, [current.target, view]);
+  }, [current.target]);
 
   useEffect(() => {
-    card.current?.querySelector<HTMLElement>(".tutorial-primary")?.focus();
+    const focus = () =>
+      card.current?.querySelector<HTMLElement>(".tutorial-primary")?.focus();
+    focus();
+    // A sheet opened by this step takes focus as it mounts; take it back.
+    const timer = setTimeout(focus, 320);
+    return () => clearTimeout(timer);
   }, [step]);
 
   useEffect(() => {
     const key = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
+        event.stopImmediatePropagation();
         finish(true);
+        return;
       }
       if (event.key !== "Tab" || !card.current) return;
       const controls = [
@@ -144,19 +188,20 @@ export default function AppTutorial({
       if (!controls.length) return;
       const first = controls[0];
       const end = controls[controls.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
+      event.stopImmediatePropagation();
+      if (!card.current.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         end.focus();
       } else if (!event.shiftKey && document.activeElement === end) {
         event.preventDefault();
         first.focus();
-      } else if (!card.current.contains(document.activeElement)) {
-        event.preventDefault();
-        first.focus();
       }
     };
-    document.addEventListener("keydown", key);
-    return () => document.removeEventListener("keydown", key);
+    document.addEventListener("keydown", key, true);
+    return () => document.removeEventListener("keydown", key, true);
   });
 
   const pad = 6;
@@ -167,7 +212,7 @@ export default function AppTutorial({
     height: rect.height + pad * 2,
   };
   const cardWidth = Math.min(340, window.innerWidth - 32);
-  const below = !rect || rect.bottom + 220 < window.innerHeight;
+  const below = !rect || rect.bottom + 230 < window.innerHeight;
   const cardStyle = rect
     ? {
         width: cardWidth,
@@ -189,12 +234,22 @@ export default function AppTutorial({
       };
 
   return (
-    <div className="app-tutorial" data-spotlight={highlight ? "true" : "false"}>
+    <div
+      ref={root}
+      className="app-tutorial"
+      data-spotlight={highlight ? "true" : "false"}
+    >
       <div className="tutorial-blocker" aria-hidden="true" />
       {highlight && (
-        <div className="tutorial-highlight" style={highlight} aria-hidden="true" />
+        <div
+          key={step}
+          className="tutorial-highlight"
+          style={highlight}
+          aria-hidden="true"
+        />
       )}
       <div
+        key={`card-${step}`}
         ref={card}
         className="tutorial-card"
         style={cardStyle}
@@ -232,26 +287,14 @@ export default function AppTutorial({
             <span />
           )}
           {last ? (
-            <span className="tutorial-final">
-              <button
-                type="button"
-                className="button ghost"
-                onClick={() => finish(false)}
-              >
-                {tr("Done")}
-              </button>
-              <button
-                type="button"
-                className="button primary tutorial-primary"
-                onClick={() => {
-                  finish(false);
-                  onOpenNotifications();
-                }}
-              >
-                <Bell size={15} aria-hidden="true" />
-                {tr("Open notifications")}
-              </button>
-            </span>
+            <button
+              type="button"
+              className="button primary tutorial-primary"
+              onClick={() => finish(false)}
+            >
+              {tr("Done")}
+              <Check size={15} aria-hidden="true" />
+            </button>
           ) : (
             <button
               type="button"

@@ -643,6 +643,13 @@ html[data-theme="light"] .ticket:hover {
 .vehicle-identity > .garage-check-action {
   margin-block: 16px;
 }
+.garage-check-action {
+  justify-content: center;
+  text-align: center;
+}
+.garage-check-action > svg:last-child {
+  margin-left: 0;
+}
 .vehicle-identity > .activity-dock {
   background: var(--panel);
 }

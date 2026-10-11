@@ -1278,5 +1278,7 @@
   "Account and settings": "账户与设置",
   "Change your email, display settings and language, contact support, and read what’s new.": "更改邮箱、显示设置和语言，联系支持，并查看更新内容。",
   "Turn on ticket alerts": "开启罚单提醒",
-  "Open Notifications, then tick New-ticket emails. We email you when a saved car gets a new ticket.": "打开“通知”，然后勾选“新罚单邮件提醒”。已保存的车辆出现新罚单时，我们会发邮件通知您。"
+  "Open Notifications, then tick New-ticket emails. We email you when a saved car gets a new ticket.": "打开“通知”，然后勾选“新罚单邮件提醒”。已保存的车辆出现新罚单时，我们会发邮件通知您。",
+  "Your email choices live here, right under Account details.": "您的邮件通知选项都在这里，就在“账户详情”下方。",
+  "Tick New-ticket emails and we’ll email you when a saved car gets a new ticket. You can change this any time.": "勾选“新罚单邮件提醒”，已保存的车辆出现新罚单时，我们会发邮件通知您。您可以随时更改。"
 }

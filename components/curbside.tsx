@@ -472,7 +472,7 @@ export default function Curbside() {
       }
     };
     const onScroll = (event: Event) => {
-      if (sheet || authOpen) return;
+      if (sheet || authOpen || tutorialOpen) return;
       const element = event.target instanceof HTMLElement ? event.target : null;
       if (element && !element.closest(".main-view")) return;
       source = element;
@@ -486,7 +486,7 @@ export default function Curbside() {
       cancelAnimationFrame(frame);
       document.removeEventListener("scroll", onScroll, true);
     };
-  }, [view, sheet, authOpen]);
+  }, [view, sheet, authOpen, tutorialOpen]);
   useEffect(() => {
     // View changes should never inherit a scrolled-down position from Search.
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -1059,6 +1059,11 @@ export default function Curbside() {
     setSheet(null);
     setDockHidden(false);
   };
+  const tourView = (v: string) => {
+    setView(v);
+    setError("");
+    setDockHidden(false);
+  };
   const garagePending =
     auth.loading || (!!auth.user && (accountLoading || !account));
   if (
@@ -1446,12 +1451,14 @@ export default function Curbside() {
                       }).catch(() => {})
                     }
                   >
-                    <Search size={17} />
-                    {tr(
-                      activeVehicle.snapshot
-                        ? "View full history"
-                        : "Check this vehicle",
-                    )}
+                    <span>
+                      {tr(
+                        activeVehicle.snapshot
+                          ? "View full history"
+                          : "Check this vehicle",
+                      )}
+                    </span>
+                    <Search size={17} aria-hidden="true" />
                   </button>
                 )}
                 {detailMode === "geek" && (
@@ -2333,9 +2340,9 @@ export default function Curbside() {
         <AppTutorial
           userId={account.user.id}
           view={view}
-          onView={go}
+          onView={tourView}
+          onSheet={setSheet}
           onClose={() => setTutorialOpen(false)}
-          onOpenNotifications={() => setSheet("notifications")}
         />
       )}
 
