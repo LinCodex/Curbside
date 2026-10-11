@@ -320,6 +320,11 @@ export default function AuthPanel({
               : "Confirm your email, then sign in.",
           )}
         </p>
+        {!existing && !verified && (
+          <p className={styles.explanation}>
+            {tr("Can’t find it? Check your spam or junk folder.")}
+          </p>
+        )}
         {error && (
           <p className="notice error" role="alert">
             {error}

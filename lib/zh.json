@@ -915,6 +915,7 @@
   "Email preferences could not be loaded or saved. Please try again.": "无法加载或保存邮件偏好，请重试。",
   "This email is already registered. Sign in or reset your password.": "此邮箱已注册，请登录或重置密码。",
   "Confirm your email, then sign in.": "验证邮箱后即可登录。",
+  "Can’t find it? Check your spam or junk folder.": "没有收到？请检查垃圾邮件文件夹。",
   "Choose Apply to save your changes.": "点击“应用”保存更改。",
   "Balances, status, dates, and locations.": "金额、状态、日期和地点。",
   "All available city records and source details.": "完整市政府记录及数据来源。",
