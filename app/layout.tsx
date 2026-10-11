@@ -10,6 +10,7 @@ import "./privacy-controls.css";
 import AppProviders from "@/components/app-providers";
 import PrivateAnalytics from "@/components/private-analytics";
 import "mapbox-gl/dist/mapbox-gl.css";
+import { THEME_COLORS } from "@/lib/theme-color";
 
 export const metadata: Metadata = {
   title: {
@@ -40,7 +41,12 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#050607",
+  // Safari tints its top bar and the area around the notch and home bar with
+  // these; they match --bg so the page reads edge to edge in both themes.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: THEME_COLORS.light },
+    { media: "(prefers-color-scheme: dark)", color: THEME_COLORS.dark },
+  ],
 };
 
 export default function RootLayout({
@@ -53,7 +59,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var p=JSON.parse(localStorage.getItem("ticketsafe.display.v1")||localStorage.getItem("curbside.preferences.v1")||"{}");var theme=p.theme==="light"||p.theme==="dark"?p.theme:matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme;}catch(e){}})();`,
+            __html: `(function(){try{var p=JSON.parse(localStorage.getItem("ticketsafe.display.v1")||localStorage.getItem("curbside.preferences.v1")||"{}");var theme=p.theme==="light"||p.theme==="dark"?p.theme:matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";document.documentElement.dataset.theme=theme;document.documentElement.style.colorScheme=theme;var color=${JSON.stringify(THEME_COLORS)}[theme];var tint=function(){document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){m.setAttribute("content",color)})};tint();document.addEventListener("DOMContentLoaded",tint);}catch(e){}})();`,
           }}
         />
       </head>

@@ -22,6 +22,7 @@ import dictionary from "@/lib/zh.json";
 import { useAccount } from "./account-provider";
 import { confirmedAccount } from "@/lib/browser-account";
 import { saveAccountPreferences } from "@/lib/account-preferences";
+import { applyThemeColor } from "@/lib/theme-color";
 import {
   PREFERENCE_KEY,
   preferenceKey,
@@ -153,12 +154,7 @@ export function PreferencesProvider({
         JSON.stringify({ theme: resolvedTheme, locale }),
       );
     } catch {}
-    document
-      .querySelector('meta[name="theme-color"]')
-      ?.setAttribute(
-        "content",
-        resolvedTheme === "dark" ? "#050607" : "#f3f5f7",
-      );
+    applyThemeColor(resolvedTheme);
   }, [resolvedTheme, locale, loaded, auth.loading, resolvedProfile, profileId]);
   useEffect(() => {
     let alive = true;
