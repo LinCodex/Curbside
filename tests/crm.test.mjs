@@ -111,6 +111,12 @@ insert into auth.sessions(id,user_id) values('${session}','${master}'),('${sessi
       "utf8",
     ),
   );
+  await db.exec(
+    fs.readFileSync(
+      "supabase/migrations/20261013172117_crm_customer_session_permissions.sql",
+      "utf8",
+    ),
+  );
   return db;
 }
 async function rpc(db, action, input = {}, actor = master, sid = session) {
@@ -170,6 +176,62 @@ test("CRM access is bound to live sessions and immutable verified master; roles 
     await db.close();
   }
 });
+test("master can open and manage customer profiles without direct access to auth sessions", async () => {
+  const db = await database();
+  try {
+    await db.query(
+      "insert into auth.sessions(id,user_id,not_after) values($1,$2,now()-interval '1 minute')",
+      [crypto.randomUUID(), customer],
+    );
+    await db.exec("set role service_role");
+    await assert.rejects(
+      db.query("select * from auth.sessions"),
+      /permission denied/,
+    );
+    const listed = await rpc(db, "users", { search: "customer@" });
+    assert.equal(listed.users[0].id, customer);
+    const detail = await rpc(db, "user", { userId: customer });
+    assert.equal(detail.user.email, "customer@example.invalid");
+    assert.equal(Number(detail.activity.activeSessions), 1);
+    await rpc(db, "notes_save", {
+      userId: customer,
+      notes: "Support follow-up",
+      tags: ["review"],
+    });
+    const saved = await rpc(db, "user", { userId: customer });
+    assert.equal(saved.notes, "Support follow-up");
+    assert.deepEqual(saved.tags, ["review"]);
+    await assert.rejects(
+      rpc(db, "user", { userId: master }, customer, session2),
+      /Administrator access/,
+    );
+    await assert.rejects(
+      rpc(db, "user", { userId: customer }, master, session2),
+      /session has ended/,
+    );
+    await assert.rejects(
+      db.query("select ticketsafe_private.customer_profile_request($1,$2,$3)", [
+        customer, session2, { userId: master },
+      ]),
+      /Administrator access/,
+    );
+    await db.exec("reset role");
+    for (const role of ["anon", "authenticated"]) {
+      await db.exec(`set role ${role}`);
+      await assert.rejects(rpc(db, "user", { userId: customer }), /permission denied/);
+      await assert.rejects(
+        db.query("select ticketsafe_private.customer_profile_request($1,$2,$3)", [
+          master, session, { userId: customer },
+        ]),
+        /permission denied/,
+      );
+      await db.exec("reset role");
+    }
+  } finally {
+    await db.close();
+  }
+});
+
 test("CRM presence is bounded and announcement consent is independent of ticket alerts", async () => {
   const db = await database();
   try {
