@@ -2418,7 +2418,7 @@ html[data-theme="light"] .crm-login-error {
   border-radius: 2px 2px 0 0;
   background: var(--accent-fill);
 }
-.crm-activity-bars span.empty {
+.crm-activity-bars span.crm-activity-bar-empty {
   background: var(--line);
 }
 .crm-activity-note {

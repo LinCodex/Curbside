@@ -434,7 +434,7 @@ export function CrmActivityBars({
           key={d.day}
           title={`${label(d.day)}: ${count(d.views, locale)} ${tr("views")}`}
           style={{ height: `${Math.max(d.views ? 8 : 2, (d.views / max) * 100)}%` }}
-          className={d.views ? "" : "empty"}
+          className={d.views ? "" : "crm-activity-bar-empty"}
         />
       ))}
     </div>
